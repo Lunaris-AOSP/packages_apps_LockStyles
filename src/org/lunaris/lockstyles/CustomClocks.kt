@@ -286,7 +286,7 @@ object CustomClocks {
         override fun onCreateView(parent: View?, name: String, context: Context,
                 attrs: AttributeSet): View? {
             if (!name.contains('.') || name.startsWith("android.")) return null
-            if (loader != null && name.startsWith("$SYSTEMUI.clocks.")) {
+            if (loader != null && name.startsWith("$SYSTEMUI.")) {
                 try {
                     return loader.loadClass(name).asSubclass(View::class.java)
                         .getConstructor(Context::class.java, AttributeSet::class.java)
@@ -341,15 +341,23 @@ object CustomClocks {
             view.paint.shader = shader
         }
         if (view.javaClass.name == "$SYSTEMUI.clocks.HyperClockView") {
+            // Keep rendering even if a newer SystemUI changes one of the optional preview hooks.
+            // The clock itself is still useful without gradient/blur customisation.
             val cls = view.javaClass
-            cls.getMethod("refreshTime").invoke(view)
-            cls.getMethod("setDigitColor", Int::class.javaPrimitiveType)
-                .invoke(view, if (shader != null) Color.WHITE else color)
-            cls.getMethod("setColonFollowsDigits", Boolean::class.javaPrimitiveType)
-                .invoke(view, shader != null || color != Color.WHITE)
-            cls.getMethod("setGradientShader", Shader::class.java).invoke(view, shader)
-            cls.getMethod("setBlurEnabled", Boolean::class.javaPrimitiveType)
-                .invoke(view, tuning?.hyperBlur == true && shader == null)
+            runCatching { cls.getMethod("refreshTime").invoke(view) }
+            runCatching {
+                cls.getMethod("setDigitColor", Int::class.javaPrimitiveType)
+                    .invoke(view, if (shader != null) Color.WHITE else color)
+            }
+            runCatching {
+                cls.getMethod("setColonFollowsDigits", Boolean::class.javaPrimitiveType)
+                    .invoke(view, shader != null || color != Color.WHITE)
+            }
+            runCatching { cls.getMethod("setGradientShader", Shader::class.java).invoke(view, shader) }
+            runCatching {
+                cls.getMethod("setBlurEnabled", Boolean::class.javaPrimitiveType)
+                    .invoke(view, tuning?.hyperBlur == true && shader == null)
+            }
         }
         if (view is ViewGroup) {
             for (i in 0 until view.childCount) {
