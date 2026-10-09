@@ -78,13 +78,20 @@ class LockScreenGalleryActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         val store = GalleryStore.get(this)
         val startInGallery = intent.getBooleanExtra(EXTRA_GALLERY, false)
+        val startInClock = intent.action == ACTION_LOCK_SCREEN_CLOCK
         lifecycleScope.launch(Dispatchers.IO) { adoptCurrentWallpaper(store) }
         setContent {
             // Over wallpapers, so always the dark side of the expressive theme.
             LockStylesTheme(dark = true) {
                 var screen by remember {
+                    val current = store.lockScreens.firstOrNull { it.id == store.currentId }
                     mutableStateOf<Screen>(
-                        if (startInGallery) Screen.Gallery else Screen.Switcher(zoomIn = true))
+                        when {
+                            startInClock && current != null ->
+                                Screen.Customise(current, isNew = false, openClock = true)
+                            startInGallery -> Screen.Gallery
+                            else -> Screen.Switcher(zoomIn = true)
+                        })
                 }
                 var version by remember { mutableStateOf(0) }
                 val scope = rememberCoroutineScope()
@@ -358,6 +365,8 @@ class LockScreenGalleryActivity : ComponentActivity() {
     companion object {
         const val EXTRA_GALLERY = "gallery"
         private const val ACTION_LOCK_SCREENS = "com.android.wallpaper.action.LOCK_SCREENS"
+        private const val ACTION_LOCK_SCREEN_CLOCK =
+            "org.lunaris.lockstyles.action.LOCK_SCREEN_CLOCK"
         private const val MAX_SHUFFLE = 30
         private const val FEATURED = 6
     }
