@@ -83,6 +83,7 @@
     <string name="gallery_home_pair">Pair</string>
     <string name="gallery_home_blur">Blur</string>
     <string name="gallery_home_gradient">Gradient</string>
+    <string name="gallery_home_skip">Skip</string>
     <string name="gallery_effects_wallpaper">Lock screen photo effects</string>
     <string name="gallery_effect">Unlock effect</string>
     <string name="gallery_effect_none">None</string>

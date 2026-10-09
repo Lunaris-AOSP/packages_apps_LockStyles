@@ -218,7 +218,11 @@ fun CustomiseScreen(
         }
     }
     if (askHome) {
-        HomeDialog(wallpaper, onDismiss = { askHome = false }) { home ->
+        HomeDialog(wallpaper, onDismiss = { askHome = false }, onSkip = {
+            askHome = false
+            onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning),
+                home = HomeStyle.KEEP), tuning)
+        }) { home ->
             askHome = false
             onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning),
                 home = home), tuning)
@@ -815,6 +819,7 @@ private fun ShortcutsSheet(shortcuts: Shortcuts) {
 private fun HomeDialog(
     wallpaper: GalleryWallpaper,
     onDismiss: () -> Unit,
+    onSkip: () -> Unit,
     onPick: (HomeStyle) -> Unit,
 ) {
     val context = LocalContext.current
@@ -836,7 +841,8 @@ private fun HomeDialog(
                 fontSize = 14.sp, textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HomeStyle.entries.forEach { style ->
+                listOf(HomeStyle.PAIR, HomeStyle.BLUR, HomeStyle.COLOUR, HomeStyle.GRADIENT)
+                    .forEach { style ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.width(62.dp).clickable { onPick(style) }) {
                         val shape = RoundedCornerShape(12.dp)
@@ -867,6 +873,9 @@ private fun HomeDialog(
                 }
             }
             Spacer(Modifier.height(8.dp))
+            TextButton(onClick = onSkip) {
+                Text(stringResource(R.string.gallery_home_skip))
+            }
         }
     }
 }

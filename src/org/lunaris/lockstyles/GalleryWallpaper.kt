@@ -95,7 +95,7 @@ data class GalleryWallpaper(
 }
 
 /** How the home screen relates to the lock screen, like iOS's wallpaper pairs. */
-enum class HomeStyle { PAIR, BLUR, COLOUR, GRADIENT }
+enum class HomeStyle { PAIR, BLUR, COLOUR, GRADIENT, KEEP }
 
 /** A saved lock screen: its wallpaper, the home screen that goes with it and its clock. */
 data class LockScreen(
