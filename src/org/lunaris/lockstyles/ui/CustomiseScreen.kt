@@ -93,7 +93,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
-import org.lunaris.lockstyles.GalleryEffect
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWallpaper.Kind
@@ -128,7 +127,9 @@ fun CustomiseScreen(
     onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
 ) {
     val context = LocalContext.current
-    var wallpaper by remember { mutableStateOf(initial.wallpaper) }
+    // Unlock effects are no longer configurable. Clear the legacy value when an
+    // existing lock screen is opened so it cannot be carried forward on save.
+    var wallpaper by remember { mutableStateOf(initial.wallpaper.copy(effect = 0)) }
     var clock by remember { mutableStateOf(initial.clock) }
     var tuning by remember { mutableStateOf(initial.clock.tuning ?: CustomClocks.Tuning.load(context)) }
     var sheet by remember { mutableStateOf<String?>(null) }
@@ -143,11 +144,6 @@ fun CustomiseScreen(
 
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
-        val effect = GalleryEffect.of(wallpaper.effect)
-        val photo = wallpaper.photos.firstOrNull()
-        if (wallpaper.kind == Kind.PHOTO && effect != GalleryEffect.NONE && photo != null) {
-            EffectPreview(photo, effect, Modifier.fillMaxSize())
-        }
         val onLight = rememberTopLight(wallpaper)
         if (clock.face > 0) {
             CustomClockLayer(clock, tuning = tuning)
@@ -186,11 +182,7 @@ fun CustomiseScreen(
             Spacer(Modifier.weight(1f))
             Pill(stringResource(if (isNew) R.string.gallery_add else R.string.gallery_done),
                 primary = true) {
-                // An effect plays from the lock screen into the home screen, so it's a pair.
-                if (wallpaper.effect != 0) {
-                    onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning),
-                        home = HomeStyle.PAIR), tuning)
-                } else askHome = true
+                askHome = true
             }
         }
 
@@ -336,12 +328,6 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
                         }
                         ThumbSwitch(wallpaper.depth) { onChange(wallpaper.copy(depth = it)) }
                     }
-                }
-                Text(stringResource(R.string.gallery_effect), color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 16.sp, fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 20.dp))
-                Chips(GalleryEffect.entries.map { stringResource(it.label) }, wallpaper.effect) {
-                    onChange(wallpaper.copy(effect = it))
                 }
             }
             Kind.SHUFFLE -> Chips(listOf(stringResource(R.string.gallery_shuffle_tap),
