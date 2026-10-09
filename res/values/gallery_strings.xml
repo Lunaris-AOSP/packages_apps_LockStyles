@@ -44,6 +44,7 @@
     <string name="gallery_clock_opacity">Opacity</string>
     <string name="gallery_clock_margin_top">Top margin</string>
     <string name="gallery_clock_margin_start">Side margin</string>
+    <string name="gallery_clock_reset">Reset</string>
     <string name="gallery_clock_album_art">Colour from album art</string>
     <string name="gallery_clock_aod_animation">Animate on always-on display</string>
     <string name="gallery_clock_wobble">Wobble while charging</string>

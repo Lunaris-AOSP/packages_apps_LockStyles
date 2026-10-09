@@ -621,11 +621,11 @@ private fun ClockSheet(
                     onTuning(tuning.copy(gradientEnd = it ?: tuning.gradientEnd))
                 }
                 TuningSlider(stringResource(R.string.gallery_clock_gradient_position),
-                    tuning.gradientAnchorY, 0..100, "%") {
+                    tuning.gradientAnchorY, 0..100, "%", CustomClocks.Tuning().gradientAnchorY) {
                     onTuning(tuning.copy(gradientAnchorY = it))
                 }
                 TuningSlider(stringResource(R.string.gallery_clock_gradient_spread),
-                    tuning.gradientRadius, 25..200, "%") {
+                    tuning.gradientRadius, 25..200, "%", CustomClocks.Tuning().gradientRadius) {
                     onTuning(tuning.copy(gradientRadius = it))
                 }
             }
@@ -634,23 +634,26 @@ private fun ClockSheet(
             Text(stringResource(R.string.gallery_clock_adjust), color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 20.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp))
-            TuningSlider(stringResource(R.string.gallery_clock_size), tuning.scale, 50..150, "%") {
+            TuningSlider(stringResource(R.string.gallery_clock_size), tuning.scale, 50..150, "%",
+                CustomClocks.Tuning().scale) {
                 onTuning(tuning.copy(scale = it))
             }
             TuningSlider(stringResource(R.string.gallery_clock_opacity), tuning.opacity, 10..100,
-                "%") { onTuning(tuning.copy(opacity = it)) }
+                "%", CustomClocks.Tuning().opacity) { onTuning(tuning.copy(opacity = it)) }
             TuningSlider(stringResource(R.string.gallery_clock_margin_top), tuning.marginTop,
-                0..200, " dp") { onTuning(tuning.copy(marginTop = it)) }
+                0..200, " dp", CustomClocks.Tuning().marginTop) { onTuning(tuning.copy(marginTop = it)) }
             if (CustomClocks.supportsHorizontalMargin(clock.face)) {
                 TuningSlider(stringResource(R.string.gallery_clock_margin_start), tuning.marginStart,
-                    -200..200, " dp") { onTuning(tuning.copy(marginStart = it)) }
+                    -200..200, " dp", CustomClocks.Tuning().marginStart) {
+                    onTuning(tuning.copy(marginStart = it))
+                }
             }
             TuningSlider(stringResource(R.string.custom_clock_rotation_title), tuning.rotation,
-                -180..180, "°") { onTuning(tuning.copy(rotation = it)) }
+                -180..180, "°", CustomClocks.Tuning().rotation) { onTuning(tuning.copy(rotation = it)) }
             TuningSlider(stringResource(R.string.clock_tilt_x_title), tuning.tiltX,
-                -75..75, "°") { onTuning(tuning.copy(tiltX = it)) }
+                -75..75, "°", CustomClocks.Tuning().tiltX) { onTuning(tuning.copy(tiltX = it)) }
             TuningSlider(stringResource(R.string.clock_tilt_y_title), tuning.tiltY,
-                -75..75, "°") { onTuning(tuning.copy(tiltY = it)) }
+                -75..75, "°", CustomClocks.Tuning().tiltY) { onTuning(tuning.copy(tiltY = it)) }
             if (CustomClocks.supportsHyperBlur(clock.face) && !tuning.gradient) {
                 TuningSwitch(stringResource(R.string.lock_screen_custom_clock_hyper_blur_title),
                     tuning.hyperBlur) { onTuning(tuning.copy(hyperBlur = it)) }
@@ -740,12 +743,16 @@ private fun TuningSlider(
     value: Int,
     range: IntRange,
     unit: String,
+    defaultValue: Int,
     onChange: (Int) -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, modifier = Modifier.weight(1f))
             Text("$value$unit", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            TextButton(enabled = value != defaultValue, onClick = { onChange(defaultValue) }) {
+                Text(stringResource(R.string.gallery_clock_reset))
+            }
         }
         Slider(
             value = value.coerceIn(range).toFloat(),
