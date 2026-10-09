@@ -3,7 +3,6 @@ package org.lunaris.lockstyles.ui
 import android.Manifest
 import android.app.WallpaperManager
 import android.content.ContentUris
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -44,7 +43,6 @@ import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.Shortcuts
 import org.lunaris.lockstyles.StockClock
-import org.lunaris.lockstyles.settings.ui.LockSettingsActivity
 import org.lunaris.lockstyles.settings.ui.LockStylesTheme
 import java.io.File
 import java.io.FileOutputStream
@@ -64,7 +62,11 @@ class LockScreenGalleryActivity : ComponentActivity() {
         /** [zoomIn]: arrive as a full lock screen shrinking into its card. */
         data class Switcher(val zoomIn: Boolean) : Screen
         data object Gallery : Screen
-        data class Customise(val lockScreen: LockScreen, val isNew: Boolean) : Screen
+        data class Customise(
+            val lockScreen: LockScreen,
+            val isNew: Boolean,
+            val openClock: Boolean = false,
+        ) : Screen
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -169,9 +171,8 @@ class LockScreenGalleryActivity : ComponentActivity() {
                                 store.delete(it.id)
                                 version++
                             },
-                            onSettings = {
-                                startActivity(Intent(this@LockScreenGalleryActivity,
-                                    LockSettingsActivity::class.java))
+                            onClock = { lockScreen ->
+                                screen = Screen.Customise(lockScreen, isNew = false, openClock = true)
                             },
                         )
                         Screen.Gallery -> GalleryScreen(
@@ -213,6 +214,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                         is Screen.Customise -> CustomiseScreen(
                             initial = current.lockScreen,
                             isNew = current.isNew,
+                            openClock = current.openClock,
                             shortcuts = shortcuts,
                             onCancel = {
                                 screen = if (current.isNew) Screen.Gallery

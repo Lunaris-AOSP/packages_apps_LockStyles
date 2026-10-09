@@ -122,6 +122,7 @@ private val ACCENT: Color
 fun CustomiseScreen(
     initial: LockScreen,
     isNew: Boolean,
+    openClock: Boolean = false,
     shortcuts: Shortcuts,
     onCancel: () -> Unit,
     onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
@@ -132,7 +133,7 @@ fun CustomiseScreen(
     var wallpaper by remember { mutableStateOf(initial.wallpaper.copy(effect = 0)) }
     var clock by remember { mutableStateOf(initial.clock) }
     var tuning by remember { mutableStateOf(initial.clock.tuning ?: CustomClocks.Tuning.load(context)) }
-    var sheet by remember { mutableStateOf<String?>(null) }
+    var sheet by remember { mutableStateOf<String?>(if (openClock) "clock" else null) }
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
     LaunchedEffect(Unit) {
