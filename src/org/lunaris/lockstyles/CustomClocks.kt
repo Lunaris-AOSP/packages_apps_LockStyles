@@ -1,10 +1,11 @@
 package org.lunaris.lockstyles
 
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.LinearGradient
+import android.graphics.Shader
 import android.provider.Settings
 import android.util.AttributeSet
 import android.util.Log
@@ -15,16 +16,16 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextClock
 import android.widget.TextView
+import org.json.JSONObject
 
 /**
- * The custom lock screen clock styles behind Settings' "Custom clock style". Settings owns the
- * list; SystemUI owns the layouts that are actually shown, so previews are drawn from those,
+ * The custom lock screen clock styles from Singularity. SystemUI owns the layouts that are
+ * actually shown, so previews are drawn from those,
  * placed, sized and coloured the way SystemUI's ClockStyle does it.
  */
 object CustomClocks {
 
     private const val TAG = "CustomClocks"
-    private const val SETTINGS = "com.android.settings"
     private const val SYSTEMUI = "com.android.systemui"
     private const val KEY_STYLE = "lock_screen_custom_clock_style"
     private const val KEY_COLOR_MODE = "lock_screen_custom_clock_color_mode"
@@ -37,6 +38,10 @@ object CustomClocks {
     private const val OVERLAY_HIDE_CLOCK = "com.android.systemui.clocks.hideclock"
     private const val OVERLAY_HIDE_SMARTSPACE = "com.android.systemui.hide.smartspace"
     private const val KEY_MARGIN_START = "lock_screen_custom_clock_margin_start"
+    private const val KEY_ROTATION = "lock_screen_custom_clock_rotation"
+    private const val KEY_TILT_X = "lock_screen_custom_clock_tilt_x"
+    private const val KEY_TILT_Y = "lock_screen_custom_clock_tilt_y"
+    private const val KEY_HYPER_BLUR = "lock_screen_custom_clock_hyper_blur"
     private const val KEY_GRADIENT = "lock_screen_custom_clock_gradient_enabled"
     private const val KEY_GRADIENT_START = "lock_screen_custom_clock_gradient_color_start"
     private const val KEY_GRADIENT_END = "lock_screen_custom_clock_gradient_color_end"
@@ -48,10 +53,10 @@ object CustomClocks {
     private const val KEY_WEATHER = "custom_clock_weather"
     private const val COLOR_MODE_ACCENT = "accent"
     private const val PREVIEW_SHADOW = 0x59000000
-    private const val CLOCK_UTILS = "org.lunaris.settings.fragments.lockscreen.ClockUtils"
 
     /** Styles whose colours SystemUI never changes. */
-    private val NO_COLOR = setOf(1, 2, 25, 26, 45)
+    private val NO_COLOR = setOf(1, 2, 25, 26)
+    private val NO_HORIZONTAL_MARGIN = setOf(45, 73, 74)
 
     private class Catalogue(
         val names: List<String>,
@@ -70,6 +75,10 @@ object CustomClocks {
         val opacity: Int = 100,
         val marginTop: Int = 15,
         val marginStart: Int = 0,
+        val rotation: Int = 0,
+        val tiltX: Int = 0,
+        val tiltY: Int = 0,
+        val hyperBlur: Boolean = false,
         val accent: Boolean = false,
         val gradient: Boolean = false,
         val gradientStart: Int = 0xFF00E5FF.toInt(),
@@ -93,6 +102,10 @@ object CustomClocks {
                     opacity = int(KEY_OPACITY, d.opacity),
                     marginTop = int(KEY_MARGIN_TOP, d.marginTop),
                     marginStart = int(KEY_MARGIN_START, d.marginStart),
+                    rotation = int(KEY_ROTATION, d.rotation).coerceIn(-180, 180),
+                    tiltX = int(KEY_TILT_X, d.tiltX).coerceIn(-75, 75),
+                    tiltY = int(KEY_TILT_Y, d.tiltY).coerceIn(-75, 75),
+                    hyperBlur = int(KEY_HYPER_BLUR, 0) != 0,
                     accent = runCatching { Settings.Secure.getString(cr, KEY_COLOR_MODE) }
                         .getOrNull() == COLOR_MODE_ACCENT,
                     gradient = int(KEY_GRADIENT, 0) != 0,
@@ -106,7 +119,51 @@ object CustomClocks {
                     weather = int(KEY_WEATHER, 1) != 0,
                 )
             }
+
+            fun fromJson(json: JSONObject): Tuning {
+                val d = Tuning()
+                return Tuning(
+                    scale = json.optInt("scale", d.scale),
+                    opacity = json.optInt("opacity", d.opacity),
+                    marginTop = json.optInt("marginTop", d.marginTop),
+                    marginStart = json.optInt("marginStart", d.marginStart),
+                    rotation = json.optInt("rotation", d.rotation),
+                    tiltX = json.optInt("tiltX", d.tiltX),
+                    tiltY = json.optInt("tiltY", d.tiltY),
+                    hyperBlur = json.optBoolean("hyperBlur", d.hyperBlur),
+                    accent = json.optBoolean("accent", d.accent),
+                    gradient = json.optBoolean("gradient", d.gradient),
+                    gradientStart = json.optInt("gradientStart", d.gradientStart),
+                    gradientEnd = json.optInt("gradientEnd", d.gradientEnd),
+                    gradientAnchorY = json.optInt("gradientAnchorY", d.gradientAnchorY),
+                    gradientRadius = json.optInt("gradientRadius", d.gradientRadius),
+                    albumArtColour = json.optBoolean("albumArtColour", d.albumArtColour),
+                    aodAnimation = json.optBoolean("aodAnimation", d.aodAnimation),
+                    wobbleOnCharge = json.optBoolean("wobbleOnCharge", d.wobbleOnCharge),
+                    weather = json.optBoolean("weather", d.weather),
+                )
+            }
         }
+
+        fun toJson(): JSONObject = JSONObject()
+            .put("scale", scale)
+            .put("opacity", opacity)
+            .put("marginTop", marginTop)
+            .put("marginStart", marginStart)
+            .put("rotation", rotation)
+            .put("tiltX", tiltX)
+            .put("tiltY", tiltY)
+            .put("hyperBlur", hyperBlur)
+            .put("accent", accent)
+            .put("gradient", gradient)
+            .put("gradientStart", gradientStart)
+            .put("gradientEnd", gradientEnd)
+            .put("gradientAnchorY", gradientAnchorY)
+            .put("gradientRadius", gradientRadius)
+            .put("albumArtColour", albumArtColour)
+            .put("aodAnimation", aodAnimation)
+            .put("wobbleOnCharge", wobbleOnCharge)
+            .put("weather", weather)
 
         fun save(context: Context) {
             val cr = context.contentResolver
@@ -116,6 +173,10 @@ object CustomClocks {
             put(KEY_OPACITY, opacity)
             put(KEY_MARGIN_TOP, marginTop)
             put(KEY_MARGIN_START, marginStart)
+            put(KEY_ROTATION, rotation)
+            put(KEY_TILT_X, tiltX)
+            put(KEY_TILT_Y, tiltY)
+            put(KEY_HYPER_BLUR, hyperBlur)
             put(KEY_GRADIENT, gradient)
             put(KEY_GRADIENT_START, gradientStart)
             put(KEY_GRADIENT_END, gradientEnd)
@@ -136,44 +197,31 @@ object CustomClocks {
     private fun load(context: Context): Catalogue? {
         catalogue?.let { return it }
         return try {
-            val settings = context.createPackageContext(SETTINGS,
+            val systemUi = context.createPackageContext(SYSTEMUI,
                 Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY)
-            val utils =
-                settings.classLoader.loadClass(CLOCK_UTILS)
-            val instance = utils.getField("INSTANCE").get(null)
-            val settingsLayouts = utils.getMethod("getCLOCK_LAYOUTS").invoke(instance) as IntArray
-            @Suppress("UNCHECKED_CAST")
-            val names =
-                (utils.getMethod("getClockNames").invoke(instance) as Array<String>).toList()
-            val systemUi = runCatching {
-                context.createPackageContext(SYSTEMUI,
-                    Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY)
-            }.getOrNull()
-            // SystemUI's copy of each layout, by name, is what the lock screen really shows.
-            val layouts = settingsLayouts.map { id ->
-                val name = settings.resources.getResourceEntryName(id)
-                systemUi?.resources?.getIdentifier(name, "layout", SYSTEMUI) ?: 0
-            }
-            val useSystemUi = systemUi != null && layouts.drop(1).all { it != 0 }
             Catalogue(
-                names,
-                if (useSystemUi) layouts.toIntArray() else settingsLayouts,
-                ContextThemeWrapper(if (useSystemUi) systemUi else settings,
+                ClockCatalogue.entries.map { it.second },
+                ClockCatalogue.entries.map { (layout, _) ->
+                    systemUi.resources.getIdentifier(layout, "layout", SYSTEMUI)
+                }.toIntArray(),
+                ContextThemeWrapper(systemUi,
                     android.R.style.Theme_DeviceDefault_NoActionBar),
                 systemUi,
             ).also { catalogue = it }
         } catch (e: Exception) {
-            Log.w(TAG, "Settings has no custom clock styles", e)
+            Log.w(TAG, "SystemUI has no custom clock styles", e)
             null
         }
     }
 
-    /** Style names, the first being the default clock. Empty when Settings lacks them. */
+    /** Names in SystemUI's style-ID order, including the default clock at zero. */
     fun names(context: Context): List<String> = load(context)?.names ?: emptyList()
 
     fun isColourable(style: Int) = style !in NO_COLOR
+    fun supportsHorizontalMargin(style: Int) = style !in NO_HORIZONTAL_MARGIN
+    fun supportsHyperBlur(style: Int) = style in 93..102
 
-    fun frame(context: Context, tuning: Tuning = Tuning.load(context)): Frame {
+    fun frame(context: Context, tuning: Tuning = Tuning.load(context), style: Int = 0): Frame {
         val density = context.resources.displayMetrics.density
         val screen = context.resources.displayMetrics.widthPixels
         val res = load(context)?.systemUi?.resources
@@ -185,7 +233,9 @@ object CustomClocks {
         val side = dimen("below_clock_padding_start", 32f)
         return Frame(
             top = (statusBar * 1.25f + tuning.marginTop * density).toInt(),
-            side = side + (tuning.marginStart * density).toInt(),
+            side = side + if (supportsHorizontalMargin(style)) {
+                (tuning.marginStart * density).toInt()
+            } else 0,
             width = screen - side * 2,
             scale = tuning.scale.coerceIn(50, 150) / 100f,
             alpha = tuning.opacity.coerceIn(0, 100) / 100f,
@@ -197,10 +247,10 @@ object CustomClocks {
      * [trim] crops the empty space around it, for small tiles.
      */
     fun preview(context: Context, style: Int, width: Int, color: Int?,
-            trim: Boolean = false): Bitmap? {
+            trim: Boolean = false, tuning: Tuning? = null): Bitmap? {
         if (style <= 0) return null
         val minute = System.currentTimeMillis() / 60_000
-        val key = "$style/$width/$color/$minute/$trim"
+        val key = "$style/$width/$color/$minute/$trim/$tuning"
         previews.get(key)?.let { return it }
         val cat = load(context) ?: return null
         if (style >= cat.layouts.size) return null
@@ -213,6 +263,9 @@ object CustomClocks {
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
             view.layout(0, 0, view.measuredWidth, view.measuredHeight)
             if (view.measuredHeight <= 0) return null
+            if (isColourable(style)) {
+                prepareColours(view, view, color ?: Color.WHITE, tuning)
+            }
             Bitmap.createBitmap(view.measuredWidth, view.measuredHeight, Bitmap.Config.ARGB_8888)
                 .let {
                     view.draw(Canvas(it))
@@ -271,6 +324,38 @@ object CustomClocks {
         if (view is ViewGroup) {
             view.clipChildren = false
             for (i in 0 until view.childCount) prepare(view.getChildAt(i), color)
+        }
+    }
+
+    /** Match ClockStyle's vertical gradient and HyperClockView colour API after measuring. */
+    private fun prepareColours(view: View, root: View, color: Int, tuning: Tuning?,
+            x: Float = 0f, y: Float = 0f) {
+        val shader = if (tuning?.gradient == true) {
+            val center = root.height * tuning.gradientAnchorY / 100f
+            val radius = root.height * tuning.gradientRadius / 200f
+            LinearGradient(root.width / 2f - x, center - radius - y,
+                root.width / 2f - x, center + radius - y,
+                tuning.gradientStart, tuning.gradientEnd, Shader.TileMode.CLAMP)
+        } else null
+        if (view is TextView && view.currentTextColor == color) {
+            view.paint.shader = shader
+        }
+        if (view.javaClass.name == "$SYSTEMUI.clocks.HyperClockView") {
+            val cls = view.javaClass
+            cls.getMethod("refreshTime").invoke(view)
+            cls.getMethod("setDigitColor", Int::class.javaPrimitiveType)
+                .invoke(view, if (shader != null) Color.WHITE else color)
+            cls.getMethod("setColonFollowsDigits", Boolean::class.javaPrimitiveType)
+                .invoke(view, shader != null || color != Color.WHITE)
+            cls.getMethod("setGradientShader", Shader::class.java).invoke(view, shader)
+            cls.getMethod("setBlurEnabled", Boolean::class.javaPrimitiveType)
+                .invoke(view, tuning?.hyperBlur == true && shader == null)
+        }
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                val child = view.getChildAt(i)
+                prepareColours(child, root, color, tuning, x + child.left, y + child.top)
+            }
         }
     }
 

@@ -56,6 +56,9 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
 import org.lunaris.lockstyles.settings.ui.components.squishable
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Check
@@ -127,7 +130,7 @@ fun CustomiseScreen(
     val context = LocalContext.current
     var wallpaper by remember { mutableStateOf(initial.wallpaper) }
     var clock by remember { mutableStateOf(initial.clock) }
-    var tuning by remember { mutableStateOf(CustomClocks.Tuning.load(context)) }
+    var tuning by remember { mutableStateOf(initial.clock.tuning ?: CustomClocks.Tuning.load(context)) }
     var sheet by remember { mutableStateOf<String?>(null) }
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
@@ -185,7 +188,7 @@ fun CustomiseScreen(
                 primary = true) {
                 // An effect plays from the lock screen into the home screen, so it's a pair.
                 if (wallpaper.effect != 0) {
-                    onDone(initial.copy(wallpaper = wallpaper, clock = clock,
+                    onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning),
                         home = HomeStyle.PAIR), tuning)
                 } else askHome = true
             }
@@ -225,7 +228,8 @@ fun CustomiseScreen(
     if (askHome) {
         HomeDialog(wallpaper, onDismiss = { askHome = false }) { home ->
             askHome = false
-            onDone(initial.copy(wallpaper = wallpaper, clock = clock, home = home), tuning)
+            onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning),
+                home = home), tuning)
         }
     }
 }
@@ -558,7 +562,7 @@ private fun ClockSheet(
                                 .padding(6.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            LockClock(clock.copy(face = face, small = face == 0),
+                            LockClock(clock.copy(face = face, small = face == 0, tuning = tuning),
                                 if (face == 0) 30.dp else 84.dp, 92.dp, fixedTime = face == 0)
                         }
                         Text(name, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, maxLines = 1,
@@ -619,15 +623,15 @@ private fun ClockSheet(
                 }
             }
             if (clock.face == 0 || (!tuning.accent && !tuning.gradient)) {
-                Swatches(CLOCK_COLOURS, clock.color) { onChange(clock.copy(color = it)) }
+                ClockColourPicker(CLOCK_COLOURS, clock.color) { onChange(clock.copy(color = it)) }
             }
             if (clock.face > 0 && tuning.gradient) {
                 SheetLabel(stringResource(R.string.gallery_clock_gradient_start))
-                Swatches(GRADIENT_COLOURS, tuning.gradientStart) {
+                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientStart) {
                     onTuning(tuning.copy(gradientStart = it ?: tuning.gradientStart))
                 }
                 SheetLabel(stringResource(R.string.gallery_clock_gradient_end))
-                Swatches(GRADIENT_COLOURS, tuning.gradientEnd) {
+                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientEnd) {
                     onTuning(tuning.copy(gradientEnd = it ?: tuning.gradientEnd))
                 }
                 TuningSlider(stringResource(R.string.gallery_clock_gradient_position),
@@ -647,12 +651,24 @@ private fun ClockSheet(
             TuningSlider(stringResource(R.string.gallery_clock_size), tuning.scale, 50..150, "%") {
                 onTuning(tuning.copy(scale = it))
             }
-            TuningSlider(stringResource(R.string.gallery_clock_opacity), tuning.opacity, 0..100,
+            TuningSlider(stringResource(R.string.gallery_clock_opacity), tuning.opacity, 10..100,
                 "%") { onTuning(tuning.copy(opacity = it)) }
             TuningSlider(stringResource(R.string.gallery_clock_margin_top), tuning.marginTop,
-                0..100, " dp") { onTuning(tuning.copy(marginTop = it)) }
-            TuningSlider(stringResource(R.string.gallery_clock_margin_start), tuning.marginStart,
-                -100..100, " dp") { onTuning(tuning.copy(marginStart = it)) }
+                0..200, " dp") { onTuning(tuning.copy(marginTop = it)) }
+            if (CustomClocks.supportsHorizontalMargin(clock.face)) {
+                TuningSlider(stringResource(R.string.gallery_clock_margin_start), tuning.marginStart,
+                    -200..200, " dp") { onTuning(tuning.copy(marginStart = it)) }
+            }
+            TuningSlider(stringResource(R.string.custom_clock_rotation_title), tuning.rotation,
+                -180..180, "°") { onTuning(tuning.copy(rotation = it)) }
+            TuningSlider(stringResource(R.string.clock_tilt_x_title), tuning.tiltX,
+                -75..75, "°") { onTuning(tuning.copy(tiltX = it)) }
+            TuningSlider(stringResource(R.string.clock_tilt_y_title), tuning.tiltY,
+                -75..75, "°") { onTuning(tuning.copy(tiltY = it)) }
+            if (CustomClocks.supportsHyperBlur(clock.face) && !tuning.gradient) {
+                TuningSwitch(stringResource(R.string.lock_screen_custom_clock_hyper_blur_title),
+                    tuning.hyperBlur) { onTuning(tuning.copy(hyperBlur = it)) }
+            }
             TuningSwitch(stringResource(R.string.gallery_clock_album_art),
                 tuning.albumArtColour) { onTuning(tuning.copy(albumArtColour = it)) }
             TuningSwitch(stringResource(R.string.gallery_clock_aod_animation),
@@ -676,6 +692,43 @@ private fun ClockSheet(
 private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
     0xFFFFD60A.toInt(), 0xFFFF9F0A.toInt(), 0xFF30D158.toInt(), 0xFFBF5AF2.toInt(),
     0xFF0A84FF.toInt(), 0xFFFFFFFF.toInt())
+
+@Composable
+private fun ClockColourPicker(colors: List<Int?>, value: Int?, onChange: (Int?) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    Swatches(colors, value, onChange)
+    TextButton(onClick = { open = true }, modifier = Modifier.padding(horizontal = 12.dp)) {
+        Text(stringResource(R.string.custom_color))
+    }
+    if (open) {
+        var hex by remember { mutableStateOf("%08X".format(value ?: 0xFFFFFFFF.toInt())) }
+        val parsed = hex.takeIf { it.length == 6 || it.length == 8 }
+            ?.toLongOrNull(16)?.let { if (hex.length == 6) it.toInt() or 0xFF000000.toInt()
+                else it.toInt() }
+        AlertDialog(
+            onDismissRequest = { open = false },
+            title = { Text(stringResource(R.string.custom_color)) },
+            text = {
+                OutlinedTextField(value = hex,
+                    onValueChange = { text ->
+                        hex = text.removePrefix("#").uppercase()
+                            .filter { it in "0123456789ABCDEF" }.take(8)
+                    },
+                    label = { Text(stringResource(R.string.gallery_clock_colour_hex)) },
+                    singleLine = true, isError = parsed == null)
+            },
+            confirmButton = {
+                TextButton(enabled = parsed != null, onClick = {
+                    parsed?.let(onChange)
+                    open = false
+                }) { Text(stringResource(R.string.apply_change)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { open = false }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
+    }
+}
 
 @Composable
 private fun switchColors() = SwitchDefaults.colors()
@@ -709,7 +762,7 @@ private fun TuningSlider(
             Text("$value$unit", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
         }
         Slider(
-            value = value.toFloat(),
+            value = value.coerceIn(range).toFloat(),
             onValueChange = { onChange(it.roundToInt()) },
             valueRange = range.first.toFloat()..range.last.toFloat(),
             colors = SliderDefaults.colors(

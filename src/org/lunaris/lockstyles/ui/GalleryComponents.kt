@@ -200,11 +200,14 @@ fun LockClock(
         return
     }
     val context = LocalContext.current
-    val preview by produceState<Bitmap?>(null, style.face, style.color) {
-        value = withContext(Dispatchers.Default) {
-            CustomClocks.preview(context, style.face, CustomClocks.frame(context).width,
-                style.color, trim = true)
-        }
+    val color = when {
+        style.tuning?.gradient == true -> style.tuning.gradientStart
+        style.tuning?.accent == true -> context.getColor(android.R.color.system_accent1_100)
+        else -> style.color
+    }
+    val preview by produceState<Bitmap?>(null, style.face, color, style.tuning) {
+        value = CustomClocks.preview(context, style.face, CustomClocks.frame(context).width,
+            color, trim = true, tuning = style.tuning)
     }
     preview?.let {
         Image(it.asImageBitmap(), null, modifier.width(widthDp).height(heightDp),
@@ -223,19 +226,18 @@ fun CustomClockLayer(
     tuning: CustomClocks.Tuning? = null,
 ) {
     val context = LocalContext.current
-    val frame = remember(tuning) {
-        if (tuning != null) CustomClocks.frame(context, tuning) else CustomClocks.frame(context)
+    val fallbackTuning = remember { CustomClocks.Tuning.load(context) }
+    val currentTuning = tuning ?: style.tuning ?: fallbackTuning
+    val frame = remember(currentTuning, style.face) {
+        CustomClocks.frame(context, currentTuning, style.face)
     }
-    // Accent and gradient clocks are previewed in their accent and first gradient colour.
     val color = when {
-        tuning?.gradient == true -> tuning.gradientStart
-        tuning?.accent == true -> context.getColor(android.R.color.system_accent1_100)
+        currentTuning.gradient -> currentTuning.gradientStart
+        currentTuning.accent -> context.getColor(android.R.color.system_accent1_100)
         else -> style.color
     }
-    val preview by produceState<Bitmap?>(null, style.face, color, frame.width) {
-        value = withContext(Dispatchers.Default) {
-            CustomClocks.preview(context, style.face, frame.width, color)
-        }
+    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning) {
+        value = CustomClocks.preview(context, style.face, frame.width, color, tuning = currentTuning)
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val bitmap = preview ?: return@BoxWithConstraints
@@ -248,10 +250,15 @@ fun CustomClockLayer(
                 .size(with(density) { (frame.width * k).toDp() },
                     with(density) { (bitmap.height * k).toDp() })
                 .graphicsLayer {
-                    transformOrigin = TransformOrigin(0.5f, 0f)
+                    transformOrigin = TransformOrigin.Center
                     scaleX = frame.scale
                     scaleY = frame.scale
                     alpha = frame.alpha
+                    rotationX = currentTuning.tiltX.toFloat()
+                    rotationY = currentTuning.tiltY.toFloat()
+                    rotationZ = currentTuning.rotation.toFloat()
+                    cameraDistance = maxOf(maxOf(frame.width, bitmap.height) * 4f,
+                        1280f * context.resources.displayMetrics.density) * k
                 },
             contentScale = ContentScale.FillBounds,
         )

@@ -60,6 +60,11 @@ import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.Keys
+import org.lunaris.lockstyles.settings.DepthWallpaper
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.lunaris.lockstyles.settings.Lunaris
 import org.lunaris.lockstyles.settings.LunarisImages
 import org.lunaris.lockstyles.settings.state
@@ -321,27 +326,44 @@ private fun DepthPage(back: () -> Unit) {
     val s = strings()
     val context = LocalContext.current
     val depth by Keys.DEPTH.state()
+    val autoSubject by Keys.DEPTH_AUTO_SUBJECT.state()
     var subject by Keys.DEPTH_SUBJECT.state()
+    val scope = rememberCoroutineScope()
+    fun extract() {
+        val started = DepthWallpaper.extractNow(context)
+        Toast.makeText(context, if (started) R.string.depthwall_extracting_toast
+            else R.string.depthwall_extract_unavailable, Toast.LENGTH_LONG).show()
+    }
     val pickSubject = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()) { uri ->
         uri ?: return@rememberLauncherForActivityResult
-        LunarisImages.save(context, uri, "depthwallpaper", "DEPTH_WALLPAPER_SUBJECT")
-            ?.let { subject = it }
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) {
+                LunarisImages.save(context, uri, "depthwallpaper", "DEPTH_WALLPAPER_SUBJECT")
+            }
+            if (saved != null) {
+                Keys.DEPTH_AUTO_SUBJECT.write(context, false)
+                subject = saved
+            } else {
+                Toast.makeText(context, R.string.depthwall_subject_save_failed,
+                    Toast.LENGTH_LONG).show()
+            }
+        }
     }
     var confirmClear by remember { mutableStateOf(false) }
     SettingsPage(s(R.string.depthwall_wallpaper_enabled_title), back) {
+        mainSwitch(s(R.string.depthwall_wallpaper_enabled_title), Keys.DEPTH) { enabled ->
+            if (enabled && autoSubject) extract()
+        }
         group(null, listOf(
             footer(s(R.string.depth_in_gallery)),
             actionRow(s(R.string.depthwall_extract_now_title),
                 s(R.string.depthwall_extract_now_summary), enabled = depth) {
-                if (!DepthExtractor.extractNow(context)) {
-                    Toast.makeText(context, R.string.depthwall_extract_unavailable,
-                        Toast.LENGTH_LONG).show()
-                }
+                extract()
             },
             switchRow(s(R.string.depthwall_auto_subject_title),
                 s(R.string.depthwall_auto_subject_summary), Keys.DEPTH_AUTO_SUBJECT,
-                enabled = depth),
+                enabled = depth) { enabled -> if (enabled) extract() },
             actionRow(s(R.string.depthwall_file_header_select_title),
                 subject ?: s(R.string.depthwall_file_header_select_summary), enabled = depth) {
                 pickSubject.launch(PickVisualMediaRequest(
@@ -349,19 +371,24 @@ private fun DepthPage(back: () -> Unit) {
             },
             actionRow(s(R.string.depthwall_clear_subject_title),
                 s(R.string.depthwall_clear_subject_summary),
-                enabled = depth && subject != null) { confirmClear = true },
+                enabled = depth && !subject.isNullOrEmpty()) { confirmClear = true },
         ))
         group(null, listOf(
             sliderRow(s(R.string.depthwall_wallpaper_opacity_title), null, Keys.DEPTH_OPACITY,
-                1..100, unit = "%"),
+                1..100, unit = "%", enabled = depth),
+            sliderRow(s(R.string.depth_wallpaper_offset_x_title), null, Keys.DEPTH_OFFSET_X,
+                -200..200, unit = " dp", enabled = depth),
+            sliderRow(s(R.string.depth_wallpaper_offset_y_title), null, Keys.DEPTH_OFFSET_Y,
+                -200..200, unit = " dp", enabled = depth),
             sliderRow(s(R.string.depth_wallpaper_bottom_fade_title),
-                s(R.string.depth_wallpaper_bottom_fade_summary), Keys.DEPTH_BOTTOM_FADE, 0..600),
+                s(R.string.depth_wallpaper_bottom_fade_summary), Keys.DEPTH_BOTTOM_FADE, 0..600,
+                unit = " dp", enabled = depth),
             sliderRow(s(R.string.depth_wallpaper_fade_curve_title),
                 s(R.string.depth_wallpaper_fade_curve_summary), Keys.DEPTH_FADE_CURVE, 0..100,
-                unit = "%"),
+                unit = "%", enabled = depth),
             sliderRow(s(R.string.depth_wallpaper_bottom_inset_title),
                 s(R.string.depth_wallpaper_bottom_inset_summary), Keys.DEPTH_BOTTOM_INSET,
-                0..400, unit = " dp"),
+                0..400, unit = " dp", enabled = depth),
             footer(s(R.string.depthwall_footer_text)),
         ))
     }
@@ -370,7 +397,7 @@ private fun DepthPage(back: () -> Unit) {
             title = s(R.string.depthwall_clear_subject_title),
             message = s(R.string.depthwall_clear_subject_confirm_message),
             icon = Icons.Rounded.Delete,
-            onConfirm = { confirmClear = false; subject = null },
+            onConfirm = { confirmClear = false; DepthWallpaper.clearSubject(context) },
             onDismiss = { confirmClear = false },
         )
     }

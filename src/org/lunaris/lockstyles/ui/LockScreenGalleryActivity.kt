@@ -268,19 +268,42 @@ class LockScreenGalleryActivity : ComponentActivity() {
      * Opened from the lock screen, applying goes back to it, as on iOS. Opened from the
      * launcher, closing would look like a crash, so the switcher stays and says so instead.
      */
+    private var applying = false
+
     private fun apply(lockScreen: LockScreen, tuning: CustomClocks.Tuning? = null,
             onApplied: () -> Unit = {}) {
+        if (applying) return
+        applying = true
         lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                GalleryApplier.apply(this@LockScreenGalleryActivity, lockScreen)
-            }
-            applyClock(lockScreen.clock, tuning)
-            if (fromLockScreen) {
-                finish()
-            } else {
-                Toast.makeText(this@LockScreenGalleryActivity, R.string.gallery_applied,
-                    Toast.LENGTH_SHORT).show()
-                onApplied()
+            try {
+                if (lockScreen.wallpaper.depth) {
+                    Toast.makeText(this@LockScreenGalleryActivity,
+                        R.string.depthwall_extracting_toast, Toast.LENGTH_LONG).show()
+                }
+                val result = withContext(Dispatchers.IO) {
+                    GalleryApplier.apply(this@LockScreenGalleryActivity, lockScreen)
+                }
+                if (result == GalleryApplier.Result.FAILED) {
+                    Toast.makeText(this@LockScreenGalleryActivity, R.string.gallery_apply_failed,
+                        Toast.LENGTH_LONG).show()
+                    return@launch
+                }
+                applyClock(lockScreen.clock, tuning ?: lockScreen.clock.tuning)
+                if (result == GalleryApplier.Result.DEPTH_FAILED) {
+                    Toast.makeText(this@LockScreenGalleryActivity, R.string.depthwall_apply_failed,
+                        Toast.LENGTH_LONG).show()
+                }
+                if (fromLockScreen) {
+                    finish()
+                } else {
+                    if (result == GalleryApplier.Result.APPLIED) {
+                        Toast.makeText(this@LockScreenGalleryActivity, R.string.gallery_applied,
+                            Toast.LENGTH_SHORT).show()
+                    }
+                    onApplied()
+                }
+            } finally {
+                applying = false
             }
         }
     }

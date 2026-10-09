@@ -3,7 +3,6 @@ package org.lunaris.lockstyles
 import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -21,6 +20,8 @@ import android.os.SystemClock
 import android.provider.Settings
 import android.util.Log
 import android.view.WindowManager
+import java.io.File
+import org.lunaris.lockstyles.settings.DepthWallpaper
 import kotlin.math.max
 import kotlin.math.min
 
@@ -30,9 +31,6 @@ object GalleryApplier {
     private const val TAG = "GalleryApplier"
     private const val DEPTH_ENABLED = "depth_wallpaper_enabled"
     private const val DEPTH_AUTO_SUBJECT = "depth_wallpaper_auto_subject"
-    private const val ACTION_EXTRACT_DEPTH = "org.lunaris.intent.action.EXTRACT_DEPTH_SUBJECT_NOW"
-    private val DEPTH_EXTRACTOR = ComponentName("com.android.settings",
-        "org.lunaris.settings.utils.WallpaperSubjectExtractorService")
     const val DEPTH_SUBJECT = "depth_wallpaper_subject_image_uri"
     private const val SUBJECT_TIMEOUT_MS = 15_000L
 
@@ -42,20 +40,37 @@ object GalleryApplier {
         return min(bounds.width(), bounds.height()) to max(bounds.width(), bounds.height())
     }
 
+    enum class Result { APPLIED, DEPTH_FAILED, FAILED }
+
     /** Blocking; call off the main thread. */
-    fun apply(context: Context, lockScreen: LockScreen) {
+    fun apply(context: Context, lockScreen: LockScreen): Result {
         val wm = WallpaperManager.getInstance(context)
         val store = GalleryStore.get(context)
         val (w, h) = screenSize(context)
         val wallpaper = lockScreen.wallpaper
         val live = ComponentName(context, GalleryWallpaperService::class.java)
+        val wantsDepth = wallpaper.kind == GalleryWallpaper.Kind.PHOTO && wallpaper.depth
+        var depthReady = false
         try {
+            // Stop the previous subject appearing over a different wallpaper while extracting.
+            Settings.System.putInt(context.contentResolver, DEPTH_ENABLED, 0)
+            Settings.System.putInt(context.contentResolver, DEPTH_AUTO_SUBJECT, 0)
+            Settings.System.putString(context.contentResolver, DEPTH_SUBJECT, null)
             if (wallpaper.effect != 0) {
                 // An effect runs from the lock screen into the home screen, so it covers both.
                 store.setLiveWallpaper(lock = false, wallpaper = null)
                 store.setLiveWallpaper(lock = true, wallpaper = wallpaper)
-                if (wallpaper.depth) {
-                    extractSubject(context, GalleryRenderer.toBitmap(context, wallpaper, w, h))
+                if (wantsDepth) {
+                    val photo = GalleryRenderer.toBitmap(context, wallpaper, w, h)
+                    try {
+                        // The extractor checks the home wallpaper's live/static state too.
+                        // Effects replace both screens, so stage this photo on both of them.
+                        wm.setBitmap(photo, null, true,
+                            WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
+                        depthReady = extractSubject(context)
+                    } finally {
+                        photo.recycle()
+                    }
                 }
                 wm.setWallpaperComponentWithFlags(
                     ComponentName(context, GalleryEffectService::class.java),
@@ -87,67 +102,31 @@ object GalleryApplier {
             }
         } catch (e: Exception) {
             Log.e(TAG, "Could not set the wallpaper", e)
-            return
+            return Result.FAILED
         }
-        applyDepth(context, wallpaper.kind == GalleryWallpaper.Kind.PHOTO && wallpaper.depth,
-            extract = wallpaper.effect == 0)
+        if (wantsDepth && wallpaper.effect == 0) depthReady = extractSubject(context)
+        Settings.System.putInt(context.contentResolver, DEPTH_ENABLED, if (depthReady) 1 else 0)
+        // Effects are live wallpapers: auto-extraction could replace their still-photo mask.
+        Settings.System.putInt(context.contentResolver, DEPTH_AUTO_SUBJECT,
+            if (depthReady && wallpaper.effect == 0) 1 else 0)
         store.setCurrent(lockScreen.id)
         store.pruneImportedPhotos()
+        return if (wantsDepth && !depthReady) Result.DEPTH_FAILED else Result.APPLIED
     }
 
-    /** SystemUI's depth wallpaper lifts the photo's subject over the clock, like iOS's 3D. */
-    private fun applyDepth(context: Context, depth: Boolean, extract: Boolean = true) {
+    /** Wait for the service to publish a new, readable subject, not just accept the intent. */
+    private fun extractSubject(context: Context): Boolean {
         val resolver = context.contentResolver
-        val enabled = Settings.System.getInt(resolver, DEPTH_ENABLED, 0) != 0
-        if (!depth && !enabled) return
-        try {
-            // Without a fresh subject, SystemUI would lift the last wallpaper's subject over this
-            // one, so depth only goes on once the extractor has taken the request.
-            val on = depth && (!extract || requestSubject(context))
-            Settings.System.putInt(resolver, DEPTH_ENABLED, if (on) 1 else 0)
-        } catch (e: RuntimeException) {
-            Log.w(TAG, "Could not change the depth effect", e)
-        }
-    }
-
-    /**
-     * Singularity's extractor cuts the subject out of the lock screen wallpaper; with the auto
-     * subject on, it also follows later wallpaper changes, such as Photo Shuffle's. False when
-     * the extractor can't be reached.
-     */
-    private fun requestSubject(context: Context): Boolean {
-        try {
-            context.startService(Intent(ACTION_EXTRACT_DEPTH).setComponent(DEPTH_EXTRACTOR))
-                ?: return false
-        } catch (e: SecurityException) {
-            Log.w(TAG, "Singularity's depth subject extractor is not available", e)
-            return false
-        }
-        Settings.System.putInt(context.contentResolver, DEPTH_AUTO_SUBJECT, 1)
-        return true
-    }
-
-    /**
-     * The depth wallpaper only cuts subjects out of a still lock screen, so the photo stands in
-     * there until its subject is ready for the effect's mask.
-     */
-    private fun extractSubject(context: Context, photo: Bitmap) {
-        val resolver = context.contentResolver
-        val before = Settings.System.getString(resolver, DEPTH_SUBJECT)
-        try {
-            WallpaperManager.getInstance(context).setBitmap(photo, null, true,
-                WallpaperManager.FLAG_LOCK)
-            if (!requestSubject(context)) return
-            Settings.System.putInt(resolver, DEPTH_ENABLED, 1)
-        } catch (e: Exception) {
-            Log.w(TAG, "Could not extract the depth subject", e)
-            return
-        }
+        Settings.System.putString(resolver, DEPTH_SUBJECT, null)
+        if (!DepthWallpaper.extractNow(context)) return false
         val deadline = SystemClock.uptimeMillis() + SUBJECT_TIMEOUT_MS
-        while (SystemClock.uptimeMillis() < deadline &&
-                Settings.System.getString(resolver, DEPTH_SUBJECT) == before) {
+        while (SystemClock.uptimeMillis() < deadline) {
+            val path = Settings.System.getString(resolver, DEPTH_SUBJECT)
+            if (!path.isNullOrEmpty() && File(path).isFile && File(path).length() > 0) return true
             SystemClock.sleep(200)
         }
+        Log.w(TAG, "Timed out waiting for a depth subject")
+        return false
     }
 
     fun homeBitmap(context: Context, lockScreen: LockScreen, w: Int, h: Int): Bitmap =

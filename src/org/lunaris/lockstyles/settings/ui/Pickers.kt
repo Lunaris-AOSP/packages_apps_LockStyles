@@ -8,9 +8,7 @@
 
 package org.lunaris.lockstyles.settings.ui
 
-import android.content.ComponentName
 import android.content.Context
-import android.content.Intent
 import android.content.res.Resources
 import android.graphics.Bitmap
 import android.graphics.Typeface
@@ -200,17 +198,6 @@ fun WidgetSlots(enabled: Boolean) {
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
             .height(52.dp),
     ) { Text(stringResource(R.string.apply_change), fontSize = 16.sp) }
-}
-
-/** Singularity's subject extractor lives on in Settings; ask it to cut the subject now. */
-object DepthExtractor {
-    private val SERVICE = ComponentName("com.android.settings",
-        "org.lunaris.settings.utils.WallpaperSubjectExtractorService")
-    private const val ACTION = "org.lunaris.intent.action.EXTRACT_DEPTH_SUBJECT_NOW"
-
-    fun extractNow(context: Context): Boolean = runCatching {
-        context.startService(Intent(ACTION).setComponent(SERVICE)) != null
-    }.getOrDefault(false)
 }
 
 /** The drawables Lunaris ships for the under-display fingerprint sensor. */

@@ -10,7 +10,7 @@
     <string name="gallery_applied">Lock screen applied</string>
     <string name="clock_style_in_gallery">Clock style</string>
     <string name="clock_style_in_gallery_summary">Style, colour and size, set for each lock screen in Customise</string>
-    <string name="depth_in_gallery">The depth effect is turned on for each photo lock screen in Customise. These tune how it looks.</string>
+    <string name="depth_in_gallery">Enable depth for the current wallpaper here, or for a saved photo lock screen in Customise. Position and fade adjustments apply to all depth wallpapers.</string>
     <string name="credits_title">Credits</string>
     <string name="credits_wallwidgy">Wallpapers, from WallWidgy</string>
     <string name="credits_gallery">The iOS style lock screen gallery, from PenguinOS</string>
@@ -18,4 +18,15 @@
     <string name="credits_ax_blur">The glass blur material, from AxionOS\' ax_blur</string>
     <string name="clock_font_default">Default</string>
     <string name="depthwall_extract_unavailable">Settings\' subject extractor isn\'t available</string>
+    <string name="depthwall_subject_save_failed">Could not save the subject image. Your previous image is unchanged.</string>
+    <string name="depthwall_apply_failed">Wallpaper applied, but depth extraction did not finish. Retry from Depth wallpaper settings.</string>
+    <string name="gallery_apply_failed">Could not apply the wallpaper. Please try again.</string>
+    <string name="depth_wallpaper_offset_x_title">Subject horizontal position</string>
+    <string name="depth_wallpaper_offset_y_title">Subject vertical position</string>
+    <string name="custom_clock_rotation_title">Clock rotation</string>
+    <string name="clock_tilt_x_title">Tilt around the horizontal axis</string>
+    <string name="clock_tilt_y_title">Tilt around the vertical axis</string>
+    <string name="lock_screen_custom_clock_hyper_blur_title">Blur colour blend</string>
+    <string name="gallery_clock_colour_hex">Hex colour (RRGGBB or AARRGGBB)</string>
+    <string name="depthwall_extracting_toast">Extracting subject from wallpaper…</string>
 </resources>

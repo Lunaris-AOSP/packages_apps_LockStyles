@@ -80,6 +80,8 @@ class GalleryEffectService : WallpaperService() {
             store.addListener(onStoreChanged)
             contentResolver.registerContentObserver(
                 Settings.System.getUriFor(GalleryApplier.DEPTH_SUBJECT), false, subjectObserver)
+            contentResolver.registerContentObserver(
+                Settings.System.getUriFor("depth_wallpaper_enabled"), false, subjectObserver)
             registerReceiver(screenReceiver, IntentFilter().apply {
                 addAction(Intent.ACTION_SCREEN_OFF)
                 addAction(Intent.ACTION_USER_PRESENT)
@@ -134,7 +136,8 @@ class GalleryEffectService : WallpaperService() {
         private fun loadScene() {
             val wallpaper = store.liveWallpaper(true) ?: return
             effect = GalleryEffect.of(wallpaper.effect)
-            val subject = if (wallpaper.depth) {
+            val subject = if (wallpaper.depth &&
+                    Settings.System.getInt(contentResolver, "depth_wallpaper_enabled", 0) != 0) {
                 Settings.System.getString(contentResolver, GalleryApplier.DEPTH_SUBJECT)
             } else null
             wallpaper.photos.firstOrNull()?.let { renderer.load(it, effect, subject) }

@@ -66,6 +66,8 @@ object Keys {
     val DEPTH_AUTO_SUBJECT = Bool(SYSTEM, "depth_wallpaper_auto_subject", false)
     val DEPTH_SUBJECT = Text(SYSTEM, "depth_wallpaper_subject_image_uri", null)
     val DEPTH_OPACITY = Num(SYSTEM, "depth_wallpaper_opacity", 100)
+    val DEPTH_OFFSET_X = Num(SYSTEM, "depth_wallpaper_offset_x", 0)
+    val DEPTH_OFFSET_Y = Num(SYSTEM, "depth_wallpaper_offset_y", 0)
     val DEPTH_BOTTOM_FADE = Num(SYSTEM, "depth_wallpaper_bottom_fade", 100)
     val DEPTH_FADE_CURVE = Num(SYSTEM, "depth_wallpaper_fade_curve", 50)
     val DEPTH_BOTTOM_INSET = Num(SYSTEM, "depth_wallpaper_bottom_inset", 180)

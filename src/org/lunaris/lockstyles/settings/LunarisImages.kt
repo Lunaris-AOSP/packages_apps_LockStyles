@@ -9,12 +9,11 @@ import android.content.Context
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Environment
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.util.UUID
 
 /**
  * Singularity's ImageUtils.saveImageToInternalStorage: picked images go to
@@ -33,20 +32,31 @@ object LunarisImages {
                 type == "image/webp" -> ".webp"
                 else -> ".png"
             }
-            val dir = File("/sdcard/Lunaris-OS/$feature").apply { mkdirs() }
-            dir.listFiles { _, name -> name.startsWith(prefix) }?.forEach { it.delete() }
-            val stamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-            val file = File(dir, "${prefix}_$stamp$extension")
-            context.contentResolver.openInputStream(uri)!!.use { input ->
-                FileOutputStream(file).use { out ->
-                    if (keepBytes) {
-                        input.copyTo(out)
-                    } else {
-                        BitmapFactory.decodeStream(input)!!
-                            .compress(Bitmap.CompressFormat.PNG, 90, out)
+            val dir = File(Environment.getExternalStorageDirectory(), "Lunaris-OS/$feature")
+            check(dir.isDirectory || dir.mkdirs())
+            val file = File(dir, "${prefix}_${UUID.randomUUID()}$extension")
+            try {
+                requireNotNull(context.contentResolver.openInputStream(uri)).use { input ->
+                    FileOutputStream(file).use { out ->
+                        if (keepBytes) {
+                            check(input.copyTo(out) > 0)
+                        } else {
+                            val bitmap = requireNotNull(BitmapFactory.decodeStream(input))
+                            try {
+                                check(bitmap.compress(Bitmap.CompressFormat.PNG, 100, out))
+                            } finally {
+                                bitmap.recycle()
+                            }
+                        }
                     }
                 }
+            } catch (e: Exception) {
+                file.delete()
+                throw e
             }
+            // Preserve the old subject if reading or writing the replacement fails.
+            dir.listFiles { _, name -> name.startsWith("${prefix}_") }
+                ?.filter { it != file }?.forEach { it.delete() }
             file.absolutePath
         }.onFailure { Log.e(TAG, "Could not save $uri for $feature", it) }.getOrNull()
 }

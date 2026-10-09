@@ -136,6 +136,8 @@ data class ClockStyle(
     val rounded: Boolean = false,
     val color: Int? = null,
     val small: Boolean = false,
+    /** Null preserves the current tuning for lock screens saved by older versions. */
+    val tuning: CustomClocks.Tuning? = null,
 ) {
     fun toJson(): JSONObject =
         JSONObject()
@@ -144,6 +146,7 @@ data class ClockStyle(
             .put("rounded", rounded)
             .put("color", color ?: JSONObject.NULL)
             .put("small", small)
+            .put("tuning", tuning?.toJson() ?: JSONObject.NULL)
 
     companion object {
         fun fromJson(json: JSONObject) =
@@ -153,6 +156,7 @@ data class ClockStyle(
                 rounded = json.optBoolean("rounded"),
                 color = if (json.isNull("color")) null else json.optInt("color"),
                 small = json.optBoolean("small"),
+                tuning = json.optJSONObject("tuning")?.let(CustomClocks.Tuning::fromJson),
             )
     }
 }
