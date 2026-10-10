@@ -221,6 +221,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                         is Screen.Customise -> CustomiseScreen(
                             initial = current.lockScreen,
                             isNew = current.isNew,
+                            isCurrent = !current.isNew && current.lockScreen.id == store.currentId,
                             openClock = current.openClock,
                             shortcuts = shortcuts,
                             onCancel = {
@@ -228,9 +229,13 @@ class LockScreenGalleryActivity : ComponentActivity() {
                                 else Screen.Switcher(zoomIn = true)
                             },
                             onDone = { lockScreen, tuning ->
+                                val updateWallpaper = current.isNew ||
+                                    lockScreen.id != store.currentId ||
+                                    lockScreen.wallpaper != current.lockScreen.wallpaper ||
+                                    lockScreen.home != current.lockScreen.home
                                 store.save(lockScreen)
                                 version++
-                                apply(lockScreen, tuning) {
+                                apply(lockScreen, tuning, updateWallpaper) {
                                     screen = Screen.Switcher(zoomIn = true)
                                 }
                             },
@@ -280,18 +285,21 @@ class LockScreenGalleryActivity : ComponentActivity() {
     private var applying = false
 
     private fun apply(lockScreen: LockScreen, tuning: CustomClocks.Tuning? = null,
+            updateWallpaper: Boolean = true,
             onApplied: () -> Unit = {}) {
         if (applying) return
         applying = true
         lifecycleScope.launch {
             try {
-                if (lockScreen.wallpaper.depth) {
+                if (updateWallpaper && lockScreen.wallpaper.depth) {
                     Toast.makeText(this@LockScreenGalleryActivity,
                         R.string.depthwall_extracting_toast, Toast.LENGTH_LONG).show()
                 }
-                val result = withContext(Dispatchers.IO) {
-                    GalleryApplier.apply(this@LockScreenGalleryActivity, lockScreen)
-                }
+                val result = if (updateWallpaper) {
+                    withContext(Dispatchers.IO) {
+                        GalleryApplier.apply(this@LockScreenGalleryActivity, lockScreen)
+                    }
+                } else GalleryApplier.Result.APPLIED
                 if (result == GalleryApplier.Result.FAILED) {
                     Toast.makeText(this@LockScreenGalleryActivity, R.string.gallery_apply_failed,
                         Toast.LENGTH_LONG).show()

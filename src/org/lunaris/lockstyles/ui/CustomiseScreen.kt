@@ -128,6 +128,7 @@ private val ACCENT: Color
 fun CustomiseScreen(
     initial: LockScreen,
     isNew: Boolean,
+    isCurrent: Boolean = false,
     openClock: Boolean = false,
     shortcuts: Shortcuts,
     onCancel: () -> Unit,
@@ -189,7 +190,12 @@ fun CustomiseScreen(
             Spacer(Modifier.weight(1f))
             Pill(stringResource(if (isNew) R.string.gallery_add else R.string.gallery_done),
                 primary = true) {
-                askHome = true
+                if (isCurrent && wallpaper == initial.wallpaper) {
+                    // Editing only the active clock does not change either wallpaper.
+                    onDone(initial.copy(clock = clock.copy(tuning = tuning)), tuning)
+                } else {
+                    askHome = true
+                }
             }
         }
 
@@ -889,6 +895,7 @@ private fun HomeDialog(
                                             0xFFFFFFFF.toInt(), 0.3f)),
                                         Color(GalleryRenderer.blend(base.toArgb(),
                                             0xFF000000.toInt(), 0.45f))))))
+                                HomeStyle.KEEP -> Unit
                             }
                         }
                         Text(stringResource(when (style) {
@@ -896,6 +903,7 @@ private fun HomeDialog(
                             HomeStyle.BLUR -> R.string.gallery_home_blur
                             HomeStyle.COLOUR -> R.string.gallery_colour
                             HomeStyle.GRADIENT -> R.string.gallery_home_gradient
+                            HomeStyle.KEEP -> R.string.gallery_home_skip
                         }), color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp,
                             modifier = Modifier.padding(top = 6.dp))
                     }

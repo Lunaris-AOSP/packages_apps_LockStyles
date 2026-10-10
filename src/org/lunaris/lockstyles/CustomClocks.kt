@@ -396,7 +396,8 @@ object CustomClocks {
         val resolver = context.contentResolver
         val before = runCatching { Settings.Secure.getInt(resolver, KEY_STYLE, 0) }.getOrDefault(0)
         Settings.Secure.putInt(resolver, KEY_STYLE, style)
-        setAospClockHidden(context, style != 0)
+        val stockClockVisibilityChanged = (before == 0) != (style == 0)
+        if (stockClockVisibilityChanged) setAospClockHidden(context, style != 0)
         if (style != 0) {
             // Without new tuning, e.g. from the switcher, the current accent or gradient stays.
             val current = tuning ?: Tuning.load(context)
@@ -411,7 +412,7 @@ object CustomClocks {
             if (color != null) Settings.Secure.putInt(resolver, KEY_CUSTOM_COLOR, color)
             tuning?.save(context)
         }
-        if ((before == 0) != (style == 0)) {
+        if (stockClockVisibilityChanged) {
             // Lunaris applies the stock clock's hideclock overlays through ThemeOverlayController;
             // the rest of the keyguard only reads the style at startup.
             org.lunaris.lockstyles.settings.Lunaris.restartSystemUI(context)
