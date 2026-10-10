@@ -322,7 +322,7 @@ private fun WidgetsPage(back: () -> Unit) {
 }
 
 @Composable
-private fun DepthPage(back: () -> Unit) {
+fun DepthPage(back: () -> Unit, inSheet: Boolean = false) {
     val s = strings()
     val context = LocalContext.current
     val depth by Keys.DEPTH.state()
@@ -351,7 +351,7 @@ private fun DepthPage(back: () -> Unit) {
         }
     }
     var confirmClear by remember { mutableStateOf(false) }
-    SettingsPage(s(R.string.depthwall_wallpaper_enabled_title), back) {
+    SettingsPage(s(R.string.depthwall_wallpaper_enabled_title), back, inSheet) {
         mainSwitch(s(R.string.depthwall_wallpaper_enabled_title), Keys.DEPTH) { enabled ->
             if (enabled && autoSubject) extract()
         }

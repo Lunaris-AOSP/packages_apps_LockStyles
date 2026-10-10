@@ -71,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.lunaris.lockstyles.settings.LockSetting
@@ -113,7 +114,21 @@ fun Modifier.pickTile(on: Boolean): Modifier {
 /** A settings page: a large title that folds into the bar as it scrolls, then the cards. */
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun SettingsPage(title: String, onBack: () -> Unit, content: LazyListScope.() -> Unit) {
+fun SettingsPage(title: String, onBack: () -> Unit, inSheet: Boolean = false,
+        content: LazyListScope.() -> Unit) {
+    if (inSheet) {
+        LazyColumn(
+            Modifier.fillMaxWidth().heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.75f).dp),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            item { Text(title, style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) }
+            content()
+            item { Spacer(Modifier.navigationBarsPadding()) }
+        }
+        return
+    }
     val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),

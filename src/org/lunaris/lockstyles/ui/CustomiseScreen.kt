@@ -48,9 +48,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Layers
+import org.lunaris.lockstyles.settings.ui.DepthPage
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
@@ -202,6 +205,9 @@ fun CustomiseScreen(
                 RoundAction(Icons.Rounded.Bolt, stringResource(R.string.gallery_shortcuts)) {
                     sheet = "shortcuts"
                 }
+                RoundAction(Icons.Rounded.Layers, stringResource(R.string.gallery_depth)) {
+                    sheet = "depth"
+                }
             }
         }
     }
@@ -214,6 +220,13 @@ fun CustomiseScreen(
     if (sheet == "shortcuts") {
         ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             ShortcutsSheet(shortcuts)
+        }
+    }
+    if (sheet == "depth") {
+        ModalBottomSheet(onDismissRequest = { sheet = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+            DepthPage(back = { sheet = null }, inSheet = true)
         }
     }
     if (askHome) {
