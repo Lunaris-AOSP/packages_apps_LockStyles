@@ -208,7 +208,7 @@ fun CustomiseScreen(
 
     if (sheet == "clock") {
         ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            ClockSheet(clock, tuning, { clock = it }, { tuning = it })
+            ClockSheet(clock, tuning, wallpaper, { clock = it }, { tuning = it })
         }
     }
     if (sheet == "shortcuts") {
@@ -516,6 +516,7 @@ private val VARIANT_WIDTH = 52.dp
 private fun ClockSheet(
     clock: ClockStyle,
     tuning: CustomClocks.Tuning,
+    wallpaper: GalleryWallpaper,
     onChange: (ClockStyle) -> Unit,
     onTuning: (CustomClocks.Tuning) -> Unit,
 ) {
@@ -612,15 +613,15 @@ private fun ClockSheet(
                 }
             }
             if (clock.face == 0 || (!tuning.accent && !tuning.gradient)) {
-                ClockColourPicker(CLOCK_COLOURS, clock.color) { onChange(clock.copy(color = it)) }
+                ClockColourPicker(CLOCK_COLOURS, clock.color, wallpaper) { onChange(clock.copy(color = it)) }
             }
             if (clock.face > 0 && tuning.gradient) {
                 SheetLabel(stringResource(R.string.gallery_clock_gradient_start))
-                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientStart) {
+                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientStart, wallpaper) {
                     onTuning(tuning.copy(gradientStart = it ?: tuning.gradientStart))
                 }
                 SheetLabel(stringResource(R.string.gallery_clock_gradient_end))
-                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientEnd) {
+                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientEnd, wallpaper) {
                     onTuning(tuning.copy(gradientEnd = it ?: tuning.gradientEnd))
                 }
                 TuningSlider(stringResource(R.string.gallery_clock_gradient_position),
@@ -686,11 +687,24 @@ private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
     0xFF0A84FF.toInt(), 0xFFFFFFFF.toInt())
 
 @Composable
-private fun ClockColourPicker(colors: List<Int?>, value: Int?, onChange: (Int?) -> Unit) {
+private fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: GalleryWallpaper,
+        onChange: (Int?) -> Unit) {
     var showPicker by remember { mutableStateOf(false) }
+    var showWallpaper by remember { mutableStateOf(false) }
     Swatches(colors, value, onChange)
-    TextButton(onClick = { showPicker = true }, modifier = Modifier.padding(horizontal = 12.dp)) {
-        Text(stringResource(R.string.custom_color))
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp)) {
+        TextButton(onClick = { showPicker = true }) {
+            Text(stringResource(R.string.custom_color))
+        }
+        TextButton(onClick = { showWallpaper = true }) {
+            Text(stringResource(R.string.color_picker_wallpaper))
+        }
+    }
+    if (showWallpaper) {
+        WallpaperColorPickerDialog(wallpaper, onDismiss = { showWallpaper = false }) {
+            onChange(it)
+            showWallpaper = false
+        }
     }
     if (showPicker) {
         ColorPickerDialog(value ?: 0xFFFFFFFF.toInt(), onDismiss = { showPicker = false }) {

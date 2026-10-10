@@ -103,4 +103,9 @@
     <string name="color_picker_hue">Hue</string>
     <string name="color_picker_saturation">Saturation</string>
     <string name="color_picker_brightness">Brightness</string>
+    <string name="color_picker_wallpaper">Pick from wallpaper</string>
+    <string name="color_picker_import">Import image</string>
+    <string name="color_picker_use_wallpaper">Use this lock screen wallpaper</string>
+    <string name="color_picker_tap_image">Tap or drag on the image to pick a color</string>
+    <string name="color_picker_load_failed">Could not load the image. Try importing another image.</string>
 </resources>
