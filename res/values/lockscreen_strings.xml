@@ -252,7 +252,7 @@
     <string name="lockscreen_custom_clock_style_info">Custom clock style replaces AOSP clock styles with custom clocks. Smartspace will be disabled. You can enable and use custom weather instead.</string>
     <string name="lockscreen_custom_clock_style_summary">Configure lock screen clock styles</string>
     <string name="lockscreen_custom_clock_style_title">Custom clock style</string>
-    <string name="lockscreen_custom_image_enabled_title">AOD avater image</string>
+    <string name="lockscreen_custom_image_enabled_title">AOD avatar image</string>
     <string name="lockscreen_custom_image_pick_summary">Select AOD image from gallery</string>
     <string name="lockscreen_custom_image_summary">Set custom AOD image</string>
     <string name="lockscreen_custom_image_title">Select AOD image</string>

@@ -108,4 +108,11 @@
     <string name="color_picker_use_wallpaper">Use this lock screen wallpaper</string>
     <string name="color_picker_tap_image">Tap or drag on the image to pick a color</string>
     <string name="color_picker_load_failed">Could not load the image. Try importing another image.</string>
+    <string name="gallery_widgets">Widgets</string>
+    <string name="aod_avatar_title">AOD avatar</string>
+    <string name="aod_avatar_selected">Avatar selected. Tap to replace it.</string>
+    <string name="aod_avatar_remove">Remove avatar</string>
+    <string name="aod_avatar_preview">AOD avatar preview</string>
+    <string name="aod_avatar_summary">Your avatar appears while Always-On Display is active. These settings apply to all lock screen styles.</string>
+    <string name="aod_avatar_save_failed">Could not save the avatar. Try another image.</string>
 </resources>

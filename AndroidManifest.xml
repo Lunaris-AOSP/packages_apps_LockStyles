@@ -31,6 +31,13 @@
         android:usesNonSdkApi="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
+        <provider
+            android:name=".settings.AodAvatarProvider"
+            android:authorities="org.lunaris.lockstyles.aod"
+            android:exported="true"
+            android:readPermission="android.permission.STATUS_BAR_SERVICE"
+            android:writePermission="android.permission.STATUS_BAR_SERVICE" />
+
         <activity
             android:name=".ui.LockScreenGalleryActivity"
             android:label="@string/gallery_title"

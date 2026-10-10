@@ -49,7 +49,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.AccountCircle
 import org.lunaris.lockstyles.settings.ui.DepthPage
+import org.lunaris.lockstyles.settings.ui.WidgetsPage
+import org.lunaris.lockstyles.settings.ui.SettingsPage
+import org.lunaris.lockstyles.settings.ui.AodAvatarSettings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -196,8 +201,9 @@ fun CustomiseScreen(
         ) {
             KindControls(wallpaper) { wallpaper = it }
             Row(
-                Modifier.fillMaxWidth().padding(top = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+                    .padding(top = 16.dp, start = 20.dp, end = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 RoundAction(Icons.Rounded.Schedule, stringResource(R.string.gallery_clock)) {
                     sheet = "clock"
@@ -207,6 +213,12 @@ fun CustomiseScreen(
                 }
                 RoundAction(Icons.Rounded.Layers, stringResource(R.string.gallery_depth)) {
                     sheet = "depth"
+                }
+                RoundAction(Icons.Rounded.Widgets, stringResource(R.string.gallery_widgets)) {
+                    sheet = "widgets"
+                }
+                RoundAction(Icons.Rounded.AccountCircle, stringResource(R.string.aod_avatar_title)) {
+                    sheet = "avatar"
                 }
             }
         }
@@ -227,6 +239,19 @@ fun CustomiseScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             DepthPage(back = { sheet = null }, inSheet = true)
+        }
+    }
+    if (sheet == "widgets" || sheet == "avatar") {
+        ModalBottomSheet(onDismissRequest = { sheet = null },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+            containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+            if (sheet == "widgets") {
+                WidgetsPage(back = { sheet = null }, inSheet = true)
+            } else {
+                SettingsPage(stringResource(R.string.aod_avatar_title), { sheet = null }, inSheet = true) {
+                    item { AodAvatarSettings() }
+                }
+            }
         }
     }
     if (askHome) {

@@ -75,6 +75,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.lunaris.lockstyles.settings.LockSetting
+import org.lunaris.lockstyles.ui.ColorPickerDialog
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.HapticFeedbackHelper.HapticIntensity
 import org.lunaris.lockstyles.settings.ui.components.ModernSettingSlider
@@ -436,6 +437,7 @@ fun colorRow(
     title: String,
     setting: LockSetting<Int>,
     enabled: Boolean = true,
+    usePicker: Boolean = false,
 ): @Composable (RowShape) -> Unit = {
     var value by setting.state()
     var open by remember { mutableStateOf(false) }
@@ -446,7 +448,12 @@ fun colorRow(
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape))
         }
     }
-    if (open) {
+    if (open && usePicker) {
+        ColorPickerDialog(value, onDismiss = { open = false }) {
+            value = it
+            open = false
+        }
+    } else if (open) {
         ModalBottomSheet(onDismissRequest = { open = false },
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             var hex by remember { mutableStateOf("%08X".format(value)) }

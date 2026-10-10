@@ -259,14 +259,6 @@ private val CREDITS = listOf(
 private fun ClockPage(open: (Page) -> Unit, back: () -> Unit) {
     val s = strings()
     val context = LocalContext.current
-    val aodImage by Keys.AOD_IMAGE.state()
-    var aodImageUri by Keys.AOD_IMAGE_URI.state()
-    val pickAodImage = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
-        LunarisImages.save(context, uri, "lockscreen_aod_image", "LOCKSCREEN_CUSTOM_AOD_IMAGE")
-            ?.let { aodImageUri = it }
-    }
 
     // The clock's style, colours, size and animations belong to each lock screen, so they're
     // set in its Customise screen; this page keeps what's the same for all of them.
@@ -287,24 +279,17 @@ private fun ClockPage(open: (Page) -> Unit, back: () -> Unit) {
                 s(R.string.depthwall_wallpaper_enabled_summary), Icons.Rounded.Layers) {
                 open(Page.DEPTH)
             },
-            switchRow(s(R.string.lockscreen_custom_image_enabled_title),
-                s(R.string.lockscreen_custom_image_summary), Keys.AOD_IMAGE),
-            actionRow(s(R.string.lockscreen_custom_image_title),
-                aodImageUri ?: s(R.string.lockscreen_custom_image_pick_summary),
-                enabled = aodImage) {
-                pickAodImage.launch(PickVisualMediaRequest(
-                    ActivityResultContracts.PickVisualMedia.ImageOnly))
-            },
         ))
+        item { AodAvatarSettings() }
     }
 }
 
 @Composable
-private fun WidgetsPage(back: () -> Unit) {
+fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false) {
     val s = strings()
     val info by Keys.INFO_WIDGETS.state()
     val widgets by Keys.WIDGETS.state()
-    SettingsPage(s(R.string.lockscreen_widgets_title), back) {
+    SettingsPage(s(R.string.lockscreen_widgets_title), back, inSheet) {
         group(null, listOf(
             switchRow(s(R.string.lockscreen_display_widgets_title),
                 s(R.string.lockscreen_display_widgets_summary), Keys.INFO_WIDGETS),

@@ -39,7 +39,7 @@ import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.Icons
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -137,11 +137,12 @@ private fun labelOf(context: Context, pkg: String): String = runCatching {
 /** The info widgets' colours, from rising_settings_lockscreen_widgets. */
 @Composable
 fun WidgetColorGroup(modes: List<Pair<String?, String>>, enabled: Boolean) {
+    val mode by Keys.WIDGETS_COLOR_MODE.state()
     Group(null, listOf(
         choiceRow(stringResource(R.string.lockscreen_widgets_color_mode_title),
             Keys.WIDGETS_COLOR_MODE, modes, enabled = enabled),
         colorRow(stringResource(R.string.custom_color), Keys.WIDGETS_CUSTOM_COLOR,
-            enabled = enabled),
+            enabled = enabled && mode == "custom", usePicker = true),
     ))
 }
 
@@ -164,14 +165,11 @@ fun WidgetSlots(enabled: Boolean) {
         (value?.split(",")?.map { it.trim() } ?: emptyList()).let { list ->
             List(count) { list.getOrNull(it)?.takeIf { v -> v.isNotEmpty() } ?: "none" }
         }
-    val saved = remember {
-        mutableStateListOf<String>().apply {
-            addAll(split(Keys.WIDGETS_MAIN.read(context), 2) +
-                split(Keys.WIDGETS_EXTRAS.read(context), 4))
-        }
-    }
-    val slots = remember { mutableStateListOf<String>().apply { addAll(saved) } }
-    val changed = slots.toList() != saved.toList()
+    val main by Keys.WIDGETS_MAIN.state()
+    val extras by Keys.WIDGETS_EXTRAS.state()
+    val saved = remember(main, extras) { split(main, 2) + split(extras, 4) }
+    var slots by rememberSaveable(main, extras) { mutableStateOf(ArrayList(saved)) }
+    val changed = slots != saved
 
     Group(null, buildList {
         add(choiceRow(stringResource(R.string.lockscreen_widgets_style_title),
@@ -182,19 +180,19 @@ fun WidgetSlots(enabled: Boolean) {
         slotTitles.forEachIndexed { i, title ->
             add(localChoiceRow(title, slots[i], values.zip(labels),
                 // The first main widget works without the rest, as in Singularity.
-                enabled = enabled || i == 0) { slots[i] = it })
+                enabled = enabled || i == 0) { value ->
+                slots = ArrayList(slots).apply { set(i, value) }
+            })
         }
     })
     Button(
         onClick = {
             Keys.WIDGETS_MAIN.write(context, slots.subList(0, 2).joinToString(","))
             Keys.WIDGETS_EXTRAS.write(context, slots.subList(2, 6).joinToString(","))
-            saved.clear()
-            saved.addAll(slots)
         },
         enabled = changed,
         colors = ButtonDefaults.buttonColors(containerColor = Accent,
-            contentColor = Color(0xFF1B1340)),
+            contentColor = MaterialTheme.colorScheme.onPrimary),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
             .height(52.dp),
     ) { Text(stringResource(R.string.apply_change), fontSize = 16.sp) }
