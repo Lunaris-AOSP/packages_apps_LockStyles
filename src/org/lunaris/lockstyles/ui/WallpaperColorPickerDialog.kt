@@ -61,7 +61,7 @@ import kotlin.math.roundToInt
 
 @Composable
 fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Unit,
-        onColorSelected: (Int) -> Unit) {
+        onColorSelected: (Int) -> Unit, allowPhotoPicking: Boolean = true) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val ratio = configuration.screenWidthDp.toFloat() / configuration.screenHeightDp.coerceAtLeast(1)
@@ -70,7 +70,7 @@ fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Uni
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var loading by remember { mutableStateOf(true) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) {
-        if (it != null) source = it
+        if (allowPhotoPicking && it != null) source = it
     }
     LaunchedEffect(wallpaper, source, ratio) {
         loading = true
@@ -101,7 +101,7 @@ fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Uni
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = {
+                OutlinedButton(enabled = allowPhotoPicking, onClick = {
                     picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.color_picker_import))

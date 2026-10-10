@@ -38,7 +38,7 @@ import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
 
 @Composable
-fun AodAvatarSettings() {
+fun AodAvatarSettings(allowPhotoPicking: Boolean = true) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val path by Keys.AOD_IMAGE_URI.state()
@@ -50,7 +50,7 @@ fun AodAvatarSettings() {
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
+        if (allowPhotoPicking && uri != null) {
             saving = true
             scope.launch {
                 try {
@@ -70,7 +70,7 @@ fun AodAvatarSettings() {
                 enabled = !saving),
             actionRow(stringResource(R.string.lockscreen_custom_image_title),
                 stringResource(if (path.isNullOrEmpty()) R.string.lockscreen_custom_image_pick_summary
-                    else R.string.aod_avatar_selected), enabled = !saving) {
+                    else R.string.aod_avatar_selected), enabled = !saving && allowPhotoPicking) {
                 picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
             actionRow(stringResource(R.string.aod_avatar_remove), null,

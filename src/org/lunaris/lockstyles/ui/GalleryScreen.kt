@@ -72,6 +72,7 @@ private data class Tile(val wallpaper: GalleryWallpaper?, val label: String? = n
 fun GalleryScreen(
     featured: List<Pair<String, Long>>,
     hasPhotoAccess: Boolean,
+    allowPhotoPicking: Boolean,
     onRequestPhotoAccess: () -> Unit,
     onCancel: () -> Unit,
     onPick: (GalleryWallpaper) -> Unit,
@@ -99,16 +100,18 @@ fun GalleryScreen(
         ) {
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 14.dp)) {
-                    item {
-                        SourceButton(stringResource(R.string.gallery_photos),
-                            featuredPhotos.firstOrNull(),
-                            if (featured.isEmpty()) Icons.Rounded.PhotoLibrary else null,
-                            onPickPhoto)
-                    }
-                    item {
-                        SourceButton(stringResource(R.string.gallery_photo_shuffle), null,
-                            Icons.Rounded.Shuffle,
-                            onPickShuffle)
+                    if (allowPhotoPicking) {
+                        item {
+                            SourceButton(stringResource(R.string.gallery_photos),
+                                featuredPhotos.firstOrNull(),
+                                if (featured.isEmpty()) Icons.Rounded.PhotoLibrary else null,
+                                onPickPhoto)
+                        }
+                        item {
+                            SourceButton(stringResource(R.string.gallery_photo_shuffle), null,
+                                Icons.Rounded.Shuffle,
+                                onPickShuffle)
+                        }
                     }
                     item {
                         SourceButton(stringResource(R.string.gallery_emoji),
@@ -125,9 +128,11 @@ fun GalleryScreen(
                                 listOf(GalleryRenderer.COLOURS[1])))
                         }
                     }
-                    item {
-                        SourceButton(stringResource(R.string.gallery_kaleidoscope), null,
-                            Icons.Rounded.FilterVintage, onPickKaleidoscope)
+                    if (allowPhotoPicking) {
+                        item {
+                            SourceButton(stringResource(R.string.gallery_kaleidoscope), null,
+                                Icons.Rounded.FilterVintage, onPickKaleidoscope)
+                        }
                     }
                     item {
                         SourceButton(stringResource(R.string.gallery_live), null, Icons.Rounded.AutoAwesome) {
@@ -150,7 +155,7 @@ fun GalleryScreen(
                     tiles.add(1, Tile(it, stringResource(R.string.gallery_featured),
                         icon = Icons.Rounded.Shuffle))
                 }
-                if (!hasPhotoAccess) {
+                if (allowPhotoPicking && !hasPhotoAccess) {
                     tiles += Tile(null, stringResource(R.string.gallery_allow_photos),
                         onRequestPhotoAccess, Icons.Rounded.Lock)
                 }
@@ -158,7 +163,7 @@ fun GalleryScreen(
                     weather, onPick)
             }
 
-            item {
+            if (allowPhotoPicking) item {
                 val tiles = mutableListOf(Tile(null, stringResource(R.string.gallery_choose_photos),
                     onPickShuffle, Icons.Rounded.Add))
                 featuredShuffle?.let { tiles += Tile(it, stringResource(R.string.gallery_featured)) }
@@ -215,16 +220,20 @@ fun GalleryScreen(
                     EMOJI_PRESETS.map { Tile(it) }, weather, onPick)
             }
             item {
-                val tiles = mutableListOf(Tile(null,
-                    stringResource(R.string.gallery_choose_photo), onPickKaleidoscope,
-                    Icons.Rounded.Add))
-                featured.take(4).forEachIndexed { i, (uri, _) ->
-                    tiles += Tile(GalleryWallpaper(Kind.KALEIDOSCOPE, i % 3,
-                        photos = listOf(uri)))
+                val tiles = mutableListOf<Tile>()
+                if (allowPhotoPicking) {
+                    tiles += Tile(null, stringResource(R.string.gallery_choose_photo),
+                        onPickKaleidoscope, Icons.Rounded.Add)
+                    featured.take(4).forEachIndexed { i, (uri, _) ->
+                        tiles += Tile(GalleryWallpaper(Kind.KALEIDOSCOPE, i % 3,
+                            photos = listOf(uri)))
+                    }
                 }
-                Section(stringResource(R.string.gallery_kaleidoscope),
-                    stringResource(R.string.gallery_kaleidoscope_summary), true, tiles,
-                    weather, onPick)
+                if (tiles.isNotEmpty()) {
+                    Section(stringResource(R.string.gallery_kaleidoscope),
+                        stringResource(R.string.gallery_kaleidoscope_summary), true, tiles,
+                        weather, onPick)
+                }
             }
         }
 

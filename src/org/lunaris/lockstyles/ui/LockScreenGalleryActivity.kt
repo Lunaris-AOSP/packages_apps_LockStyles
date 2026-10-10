@@ -1,8 +1,10 @@
 package org.lunaris.lockstyles.ui
 
 import android.Manifest
+import android.app.KeyguardManager
 import android.app.WallpaperManager
 import android.content.ContentUris
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -28,6 +30,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,6 +60,19 @@ import kotlinx.coroutines.withContext
 class LockScreenGalleryActivity : ComponentActivity() {
 
     private val shortcuts by lazy { Shortcuts(this) }
+    private val keyguardManager by lazy {
+        checkNotNull(getSystemService(KeyguardManager::class.java))
+    }
+    private var launchGeneration = 0
+    private var launchRequest by mutableStateOf(LaunchRequest(false, false, false, 0))
+    private var deviceLocked by mutableStateOf(false)
+
+    private data class LaunchRequest(
+        val fromLockScreen: Boolean,
+        val startInGallery: Boolean,
+        val startInClock: Boolean,
+        val generation: Int,
+    )
 
     private sealed interface Screen {
         /** [zoomIn]: arrive as a full lock screen shrinking into its card. */
@@ -76,29 +92,36 @@ class LockScreenGalleryActivity : ComponentActivity() {
             android.R.anim.fade_out)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        launchRequest = requestFor(intent, 0)
+        updateWindowForEntry()
         val store = GalleryStore.get(this)
-        val startInGallery = intent.getBooleanExtra(EXTRA_GALLERY, false)
-        val startInClock = intent.action == ACTION_LOCK_SCREEN_CLOCK
         lifecycleScope.launch(Dispatchers.IO) { adoptCurrentWallpaper(store) }
         setContent {
-            // Over wallpapers, so always the dark side of the expressive theme.
-            LockStylesTheme(dark = true) {
-                var screen by remember {
-                    val current = store.lockScreens.firstOrNull { it.id == store.currentId }
-                    mutableStateOf<Screen>(
-                        when {
-                            startInClock && current != null ->
-                                Screen.Customise(current, isNew = false, openClock = true)
-                            startInGallery -> Screen.Gallery
-                            else -> Screen.Switcher(zoomIn = true)
-                        })
-                }
+            val request = launchRequest
+            // A new singleTask intent must discard the previous editor immediately. In
+            // particular, do not animate an old photo-backed editor into a locked entry.
+            key(request.generation) {
+                // Over wallpapers, so always the dark side of the expressive theme.
+                LockStylesTheme(dark = true) {
+                    var screen by remember {
+                        val current = store.lockScreens.firstOrNull { it.id == store.currentId }
+                        mutableStateOf<Screen>(
+                            when {
+                                request.startInClock && current != null ->
+                                    Screen.Customise(current, isNew = false, openClock = true)
+                                request.startInGallery -> Screen.Gallery
+                                else -> Screen.Switcher(zoomIn = true)
+                            })
+                    }
                 var version by remember { mutableStateOf(0) }
                 val scope = rememberCoroutineScope()
+                val allowPhotoPicking = !deviceLocked
 
                 val pickPhoto = rememberLauncherForActivityResult(
                     ActivityResultContracts.PickVisualMedia()) { uri ->
-                    uri ?: return@rememberLauncherForActivityResult
+                    if (!allowPhotoPicking || !canUsePrivatePhotos() || uri == null) {
+                        return@rememberLauncherForActivityResult
+                    }
                     scope.launch {
                         val path = withContext(Dispatchers.IO) { store.importPhoto(uri) }
                             ?: return@launch
@@ -108,7 +131,9 @@ class LockScreenGalleryActivity : ComponentActivity() {
                 }
                 val pickKaleidoscope = rememberLauncherForActivityResult(
                     ActivityResultContracts.PickVisualMedia()) { uri ->
-                    uri ?: return@rememberLauncherForActivityResult
+                    if (!allowPhotoPicking || !canUsePrivatePhotos() || uri == null) {
+                        return@rememberLauncherForActivityResult
+                    }
                     scope.launch {
                         val path = withContext(Dispatchers.IO) { store.importPhoto(uri) }
                             ?: return@launch
@@ -118,7 +143,8 @@ class LockScreenGalleryActivity : ComponentActivity() {
                 }
                 val pickShuffle = rememberLauncherForActivityResult(
                     ActivityResultContracts.PickMultipleVisualMedia(MAX_SHUFFLE)) { uris ->
-                    if (uris.isEmpty()) return@rememberLauncherForActivityResult
+                    if (!allowPhotoPicking || !canUsePrivatePhotos() || uris.isEmpty())
+                        return@rememberLauncherForActivityResult
                     scope.launch {
                         val paths = withContext(Dispatchers.IO) {
                             uris.mapNotNull { store.importPhoto(it) }
@@ -136,7 +162,8 @@ class LockScreenGalleryActivity : ComponentActivity() {
                     when (screen) {
                         is Screen.Switcher -> finish()
                         Screen.Gallery ->
-                            if (startInGallery) finish() else screen = Screen.Switcher(false)
+                            if (request.startInGallery || request.fromLockScreen) finish()
+                            else screen = Screen.Switcher(false)
                         is Screen.Customise -> screen = Screen.Switcher(zoomIn = true)
                     }
                 }
@@ -170,7 +197,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                             version = version,
                             zoomIn = current.zoomIn,
                             onApply = { lockScreen ->
-                                apply(lockScreen)
+                                apply(lockScreen, closeWhenApplied = request.fromLockScreen)
                             },
                             onCustomise = { screen = Screen.Customise(it, isNew = false) },
                             onAdd = { screen = Screen.Gallery },
@@ -183,39 +210,57 @@ class LockScreenGalleryActivity : ComponentActivity() {
                             },
                         )
                         Screen.Gallery -> GalleryScreen(
-                            featured = remember(version) { featuredPhotos() },
-                            hasPhotoAccess = hasPhotoAccess(),
+                            featured = remember(version, allowPhotoPicking) {
+                                featuredPhotos(allowPhotoPicking)
+                            },
+                            hasPhotoAccess = allowPhotoPicking && hasPhotoAccess(),
+                            allowPhotoPicking = allowPhotoPicking,
                             onRequestPhotoAccess = {
-                                requestPhotos.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                                if (allowPhotoPicking && canUsePrivatePhotos()) {
+                                    requestPhotos.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                                }
                             },
                             onCancel = {
-                                if (startInGallery) finish() else screen = Screen.Switcher(false)
+                                if (request.startInGallery || request.fromLockScreen) finish()
+                                else screen = Screen.Switcher(false)
                             },
                             onPick = { wallpaper ->
-                                scope.launch {
-                                    // Featured photos come from MediaStore; keep our own copy.
-                                    val imported = withContext(Dispatchers.IO) {
-                                        wallpaper.copy(photos = wallpaper.photos.map {
-                                            if (it.startsWith("content:"))
-                                                store.importPhoto(android.net.Uri.parse(it)) ?: it
-                                            else it
-                                        })
+                                val hasExternalPhoto = wallpaper.photos.any {
+                                    it.startsWith("content:")
+                                }
+                                if (!hasExternalPhoto ||
+                                    (allowPhotoPicking && canUsePrivatePhotos())) {
+                                    scope.launch {
+                                        // Featured photos come from MediaStore; keep our own copy.
+                                        val imported = withContext(Dispatchers.IO) {
+                                            wallpaper.copy(photos = wallpaper.photos.map {
+                                                if (it.startsWith("content:"))
+                                                    store.importPhoto(android.net.Uri.parse(it)) ?: it
+                                                else it
+                                            })
+                                        }
+                                        screen = Screen.Customise(newLockScreen(store, imported),
+                                            isNew = true)
                                     }
-                                    screen = Screen.Customise(newLockScreen(store, imported),
-                                        isNew = true)
                                 }
                             },
                             onPickPhoto = {
-                                pickPhoto.launch(PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                if (allowPhotoPicking && canUsePrivatePhotos()) {
+                                    pickPhoto.launch(PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                }
                             },
                             onPickShuffle = {
-                                pickShuffle.launch(PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                if (allowPhotoPicking && canUsePrivatePhotos()) {
+                                    pickShuffle.launch(PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                }
                             },
                             onPickKaleidoscope = {
-                                pickKaleidoscope.launch(PickVisualMediaRequest(
-                                    ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                if (allowPhotoPicking && canUsePrivatePhotos()) {
+                                    pickKaleidoscope.launch(PickVisualMediaRequest(
+                                        ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                }
                             },
                         )
                         is Screen.Customise -> CustomiseScreen(
@@ -223,6 +268,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                             isNew = current.isNew,
                             isCurrent = !current.isNew && current.lockScreen.id == store.currentId,
                             openClock = current.openClock,
+                            allowPhotoPicking = allowPhotoPicking,
                             shortcuts = shortcuts,
                             onCancel = {
                                 screen = if (current.isNew) Screen.Gallery
@@ -235,7 +281,8 @@ class LockScreenGalleryActivity : ComponentActivity() {
                                     lockScreen.home != current.lockScreen.home
                                 store.save(lockScreen)
                                 version++
-                                apply(lockScreen, tuning, updateWallpaper) {
+                                apply(lockScreen, tuning, updateWallpaper,
+                                    closeWhenApplied = request.fromLockScreen) {
                                     screen = Screen.Switcher(zoomIn = true)
                                 }
                             },
@@ -245,6 +292,50 @@ class LockScreenGalleryActivity : ComponentActivity() {
             }
         }
     }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Lifecycle/focus updates are sufficient here and avoid requiring the privileged
+        // SUBSCRIBE_TO_KEYGUARD_LOCKED_STATE permission.
+        refreshDeviceLocked()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshDeviceLocked()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        refreshDeviceLocked()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        launchRequest = requestFor(intent, ++launchGeneration)
+        updateWindowForEntry()
+    }
+
+    private fun requestFor(intent: Intent, generation: Int) = LaunchRequest(
+        fromLockScreen = intent.action == ACTION_LOCK_SCREENS,
+        startInGallery = intent.getBooleanExtra(EXTRA_GALLERY, false),
+        startInClock = intent.action == ACTION_LOCK_SCREEN_CLOCK,
+        generation = generation,
+    )
+
+    private fun updateWindowForEntry() {
+        // Do not set this in the manifest: launcher/settings entries must remain behind keyguard.
+        setShowWhenLocked(launchRequest.fromLockScreen)
+        refreshDeviceLocked()
+    }
+
+    private fun refreshDeviceLocked() {
+        deviceLocked = keyguardManager.isDeviceLocked
+    }
+
+    private fun canUsePrivatePhotos() = !keyguardManager.isDeviceLocked
 
     private fun newLockScreen(store: GalleryStore, wallpaper: GalleryWallpaper) =
         LockScreen(store.newId(), wallpaper, clock = ClockStyle(preset = 5))
@@ -254,8 +345,10 @@ class LockScreenGalleryActivity : ComponentActivity() {
             PackageManager.PERMISSION_GRANTED
 
     /** Recent portrait camera photos, as content URIs, newest first. */
-    private fun featuredPhotos(): List<Pair<String, Long>> {
-        if (!hasPhotoAccess()) return emptyList()
+    private fun featuredPhotos(allowPhotoPicking: Boolean): List<Pair<String, Long>> {
+        // READ_MEDIA_IMAGES may be pre-granted to this privileged app; that is not enough to
+        // make a locked-screen query safe. Never touch MediaStore until after authentication.
+        if (!allowPhotoPicking || !canUsePrivatePhotos() || !hasPhotoAccess()) return emptyList()
         val photos = mutableListOf<Pair<String, Long>>()
         runCatching {
             contentResolver.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
@@ -275,7 +368,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                 }
             }
         }
-        return photos
+        return if (canUsePrivatePhotos()) photos else emptyList()
     }
 
     /**
@@ -285,7 +378,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
     private var applying = false
 
     private fun apply(lockScreen: LockScreen, tuning: CustomClocks.Tuning? = null,
-            updateWallpaper: Boolean = true,
+            updateWallpaper: Boolean = true, closeWhenApplied: Boolean = launchRequest.fromLockScreen,
             onApplied: () -> Unit = {}) {
         if (applying) return
         applying = true
@@ -310,7 +403,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                     Toast.makeText(this@LockScreenGalleryActivity, R.string.depthwall_apply_failed,
                         Toast.LENGTH_LONG).show()
                 }
-                if (fromLockScreen) {
+                if (closeWhenApplied) {
                     finish()
                 } else {
                     if (result == GalleryApplier.Result.APPLIED) {
@@ -324,9 +417,6 @@ class LockScreenGalleryActivity : ComponentActivity() {
             }
         }
     }
-
-    private val fromLockScreen: Boolean
-        get() = intent.action == ACTION_LOCK_SCREENS
 
     private suspend fun applyClock(style: ClockStyle, tuning: CustomClocks.Tuning?) {
         if (style.face == 0) applyStockClock(style)

@@ -130,6 +130,7 @@ fun CustomiseScreen(
     isNew: Boolean,
     isCurrent: Boolean = false,
     openClock: Boolean = false,
+    allowPhotoPicking: Boolean = true,
     shortcuts: Shortcuts,
     onCancel: () -> Unit,
     onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
@@ -232,7 +233,7 @@ fun CustomiseScreen(
 
     if (sheet == "clock") {
         ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            ClockSheet(clock, tuning, wallpaper, { clock = it }, { tuning = it })
+            ClockSheet(clock, tuning, wallpaper, allowPhotoPicking, { clock = it }, { tuning = it })
         }
     }
     if (sheet == "shortcuts") {
@@ -244,7 +245,8 @@ fun CustomiseScreen(
         ModalBottomSheet(onDismissRequest = { sheet = null },
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            DepthPage(back = { sheet = null }, inSheet = true)
+            DepthPage(back = { sheet = null }, inSheet = true,
+                allowPhotoPicking = allowPhotoPicking)
         }
     }
     if (sheet == "widgets" || sheet == "avatar") {
@@ -255,7 +257,7 @@ fun CustomiseScreen(
                 WidgetsPage(back = { sheet = null }, inSheet = true)
             } else {
                 SettingsPage(stringResource(R.string.aod_avatar_title), { sheet = null }, inSheet = true) {
-                    item { AodAvatarSettings() }
+                    item { AodAvatarSettings(allowPhotoPicking = allowPhotoPicking) }
                 }
             }
         }
@@ -561,6 +563,7 @@ private fun ClockSheet(
     clock: ClockStyle,
     tuning: CustomClocks.Tuning,
     wallpaper: GalleryWallpaper,
+    allowPhotoPicking: Boolean,
     onChange: (ClockStyle) -> Unit,
     onTuning: (CustomClocks.Tuning) -> Unit,
 ) {
@@ -657,15 +660,17 @@ private fun ClockSheet(
                 }
             }
             if (clock.face == 0 || (!tuning.accent && !tuning.gradient)) {
-                ClockColourPicker(CLOCK_COLOURS, clock.color, wallpaper) { onChange(clock.copy(color = it)) }
-            }
+               ClockColourPicker(CLOCK_COLOURS, clock.color, wallpaper, allowPhotoPicking) {
+		    onChange(clock.copy(color = it))
+                }
+	    }
             if (clock.face > 0 && tuning.gradient) {
                 SheetLabel(stringResource(R.string.gallery_clock_gradient_start))
-                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientStart, wallpaper) {
+                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientStart, wallpaper, allowPhotoPicking) {
                     onTuning(tuning.copy(gradientStart = it ?: tuning.gradientStart))
                 }
                 SheetLabel(stringResource(R.string.gallery_clock_gradient_end))
-                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientEnd, wallpaper) {
+                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientEnd, wallpaper, allowPhotoPicking) {
                     onTuning(tuning.copy(gradientEnd = it ?: tuning.gradientEnd))
                 }
                 TuningSlider(stringResource(R.string.gallery_clock_gradient_position),
@@ -732,7 +737,7 @@ private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
 
 @Composable
 private fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: GalleryWallpaper,
-        onChange: (Int?) -> Unit) {
+        allowPhotoPicking: Boolean, onChange: (Int?) -> Unit) {
     var showPicker by remember { mutableStateOf(false) }
     var showWallpaper by remember { mutableStateOf(false) }
     Swatches(colors, value, onChange)
@@ -745,10 +750,15 @@ private fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: Galler
         }
     }
     if (showWallpaper) {
-        WallpaperColorPickerDialog(wallpaper, onDismiss = { showWallpaper = false }) {
-            onChange(it)
-            showWallpaper = false
-        }
+        WallpaperColorPickerDialog(
+            wallpaper = wallpaper,
+            allowPhotoPicking = allowPhotoPicking,
+            onDismiss = { showWallpaper = false },
+            onColorSelected = {
+                onChange(it)
+                showWallpaper = false
+            },
+        )
     }
     if (showPicker) {
         ColorPickerDialog(value ?: 0xFFFFFFFF.toInt(), onDismiss = { showPicker = false }) {

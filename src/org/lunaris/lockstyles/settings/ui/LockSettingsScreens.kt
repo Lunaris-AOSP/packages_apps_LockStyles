@@ -307,7 +307,8 @@ fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false) {
 }
 
 @Composable
-fun DepthPage(back: () -> Unit, inSheet: Boolean = false) {
+fun DepthPage(back: () -> Unit, inSheet: Boolean = false,
+        allowPhotoPicking: Boolean = true) {
     val s = strings()
     val context = LocalContext.current
     val depth by Keys.DEPTH.state()
@@ -315,13 +316,14 @@ fun DepthPage(back: () -> Unit, inSheet: Boolean = false) {
     var subject by Keys.DEPTH_SUBJECT.state()
     val scope = rememberCoroutineScope()
     fun extract() {
+        if (!allowPhotoPicking) return
         val started = DepthWallpaper.extractNow(context)
         Toast.makeText(context, if (started) R.string.depthwall_extracting_toast
             else R.string.depthwall_extract_unavailable, Toast.LENGTH_LONG).show()
     }
     val pickSubject = rememberLauncherForActivityResult(
         ActivityResultContracts.PickVisualMedia()) { uri ->
-        uri ?: return@rememberLauncherForActivityResult
+        if (!allowPhotoPicking || uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             val saved = withContext(Dispatchers.IO) {
                 LunarisImages.save(context, uri, "depthwallpaper", "DEPTH_WALLPAPER_SUBJECT")
@@ -350,7 +352,8 @@ fun DepthPage(back: () -> Unit, inSheet: Boolean = false) {
                 s(R.string.depthwall_auto_subject_summary), Keys.DEPTH_AUTO_SUBJECT,
                 enabled = depth) { enabled -> if (enabled) extract() },
             actionRow(s(R.string.depthwall_file_header_select_title),
-                subject ?: s(R.string.depthwall_file_header_select_summary), enabled = depth) {
+                subject ?: s(R.string.depthwall_file_header_select_summary),
+                enabled = depth && allowPhotoPicking) {
                 pickSubject.launch(PickVisualMediaRequest(
                     ActivityResultContracts.PickVisualMedia.ImageOnly))
             },
