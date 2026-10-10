@@ -56,8 +56,6 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import org.lunaris.lockstyles.settings.ui.components.squishable
 import androidx.compose.material.icons.rounded.Close
@@ -689,38 +687,16 @@ private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
 
 @Composable
 private fun ClockColourPicker(colors: List<Int?>, value: Int?, onChange: (Int?) -> Unit) {
-    var open by remember { mutableStateOf(false) }
+    var showPicker by remember { mutableStateOf(false) }
     Swatches(colors, value, onChange)
-    TextButton(onClick = { open = true }, modifier = Modifier.padding(horizontal = 12.dp)) {
+    TextButton(onClick = { showPicker = true }, modifier = Modifier.padding(horizontal = 12.dp)) {
         Text(stringResource(R.string.custom_color))
     }
-    if (open) {
-        var hex by remember { mutableStateOf("%08X".format(value ?: 0xFFFFFFFF.toInt())) }
-        val parsed = hex.takeIf { it.length == 6 || it.length == 8 }
-            ?.toLongOrNull(16)?.let { if (hex.length == 6) it.toInt() or 0xFF000000.toInt()
-                else it.toInt() }
-        AlertDialog(
-            onDismissRequest = { open = false },
-            title = { Text(stringResource(R.string.custom_color)) },
-            text = {
-                OutlinedTextField(value = hex,
-                    onValueChange = { text ->
-                        hex = text.removePrefix("#").uppercase()
-                            .filter { it in "0123456789ABCDEF" }.take(8)
-                    },
-                    label = { Text(stringResource(R.string.gallery_clock_colour_hex)) },
-                    singleLine = true, isError = parsed == null)
-            },
-            confirmButton = {
-                TextButton(enabled = parsed != null, onClick = {
-                    parsed?.let(onChange)
-                    open = false
-                }) { Text(stringResource(R.string.apply_change)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { open = false }) { Text(stringResource(android.R.string.cancel)) }
-            },
-        )
+    if (showPicker) {
+        ColorPickerDialog(value ?: 0xFFFFFFFF.toInt(), onDismiss = { showPicker = false }) {
+            onChange(it)
+            showPicker = false
+        }
     }
 }
 

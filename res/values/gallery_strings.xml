@@ -99,4 +99,8 @@
     <string name="gallery_effect_halftone_reverse">Halftone reverse</string>
     <string name="gallery_live_wallpaper">Lock screen gallery</string>
     <string name="gallery_live_wallpaper_description">Live wallpapers from the lock screen gallery</string>
+    <string name="color_picker_wheel">Color wheel</string>
+    <string name="color_picker_hue">Hue</string>
+    <string name="color_picker_saturation">Saturation</string>
+    <string name="color_picker_brightness">Brightness</string>
 </resources>
