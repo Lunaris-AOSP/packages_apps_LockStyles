@@ -339,9 +339,12 @@ fun DepthPage(back: () -> Unit, inSheet: Boolean = false,
     }
     var confirmClear by remember { mutableStateOf(false) }
     SettingsPage(s(R.string.depthwall_wallpaper_enabled_title), back, inSheet) {
-        mainSwitch(s(R.string.depthwall_wallpaper_enabled_title), Keys.DEPTH) { enabled ->
-            if (enabled && autoSubject) extract()
-        }
+        group(null, listOf(
+            switchRow(s(R.string.depthwall_wallpaper_enabled_title),
+                s(R.string.depthwall_wallpaper_enabled_summary), Keys.DEPTH) { enabled ->
+                if (enabled && autoSubject) extract()
+            },
+        ))
         group(null, listOf(
             footer(s(R.string.depth_in_gallery)),
             actionRow(s(R.string.depthwall_extract_now_title),
