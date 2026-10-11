@@ -1,6 +1,8 @@
 package org.lunaris.lockstyles.ui
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -56,6 +58,7 @@ import org.lunaris.lockstyles.settings.ui.WidgetsPage
 import org.lunaris.lockstyles.settings.ui.SettingsPage
 import org.lunaris.lockstyles.settings.ui.AodAvatarSettings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -592,8 +595,11 @@ internal fun ClockSheet(
         .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (onMaker != null) {
-            TextButton(onClick = onMaker, modifier = Modifier.padding(horizontal = 12.dp)) {
-                Text(stringResource(R.string.clock_maker_title), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            FilledTonalButton(
+                onClick = onMaker,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+            ) {
+                Text(stringResource(R.string.clock_maker_title), fontWeight = FontWeight.SemiBold)
             }
         }
         if (showStyles && styles.size > 1) {
@@ -814,8 +820,10 @@ private fun switchColors() = SwitchDefaults.colors()
 @Composable
 private fun ThumbSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
     Switch(checked, onChange, thumbContent = {
-        Icon(if (checked) Icons.Rounded.Check else Icons.Rounded.Close, null,
-            modifier = Modifier.size(16.dp))
+        Crossfade(checked, animationSpec = tween(160), label = "tuning_switch_icon") { isChecked ->
+            Icon(if (isChecked) Icons.Rounded.Check else Icons.Rounded.Close, null,
+                modifier = Modifier.size(16.dp))
+        }
     })
 }
 
@@ -836,8 +844,27 @@ internal fun TuningSlider(
 ) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, modifier = Modifier.weight(1f))
-            Text("$value$unit", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+            Text(
+                label,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f),
+            )
+            Surface(
+                shape = MaterialTheme.shapes.small,
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Crossfade("$value$unit", animationSpec = tween(120), label = "tuning_value") { text ->
+                    Text(
+                        text,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                }
+            }
             TextButton(enabled = value != defaultValue, onClick = { onChange(defaultValue) }) {
                 Text(stringResource(R.string.gallery_clock_reset))
             }
@@ -846,6 +873,7 @@ internal fun TuningSlider(
             value = value.coerceIn(range).toFloat(),
             onValueChange = { onChange(it.roundToInt()) },
             valueRange = range.first.toFloat()..range.last.toFloat(),
+            modifier = Modifier.padding(horizontal = 4.dp),
             colors = SliderDefaults.colors(
                 inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest),
         )
@@ -854,10 +882,31 @@ internal fun TuningSlider(
 
 @Composable
 internal fun TuningSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, modifier = Modifier.weight(1f))
-        ThumbSwitch(checked, onChange)
+    val containerColor by animateColorAsState(
+        if (checked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
+        else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f),
+        animationSpec = tween(180),
+        label = "tuning_switch_surface",
+    )
+    Surface(
+        onClick = { onChange(!checked) },
+        shape = MaterialTheme.shapes.large,
+        color = containerColor,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).squishable(),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                label,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.weight(1f).padding(start = 8.dp),
+            )
+            ThumbSwitch(checked, onChange)
+        }
     }
 }
 

@@ -20,7 +20,20 @@ import android.graphics.Typeface
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -38,16 +51,28 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Redo
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -150,32 +175,65 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
         .statusBarsPadding().navigationBarsPadding()) {
-        Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-            verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = { cancel() }) { Text(stringResource(android.R.string.cancel)) }
-            TextButton(enabled = undo.isNotEmpty(), onClick = {
-                redo = redo + design
-                design = undo.last()
-                undo = undo.dropLast(1)
-            }) { Text(stringResource(R.string.clock_maker_undo)) }
-            TextButton(enabled = redo.isNotEmpty(), onClick = {
-                undo = undo + design
-                design = redo.last()
-                redo = redo.dropLast(1)
-            }) { Text(stringResource(R.string.clock_maker_redo)) }
-            Spacer(Modifier.weight(1f))
-            TextButton(enabled = design.elements.isNotEmpty() && !importing, onClick = {
-                val saved = design.copy(name = design.name.trim().ifEmpty { "Custom clock" })
-                store.save(clock.copy(design = saved))
-                finished = true
-                store.clearDraft(draftKey)
-                onSave(clock.copy(design = saved))
-            }) { Text(stringResource(R.string.clock_maker_save)) }
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLow,
+            tonalElevation = 1.dp,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconButton(onClick = { cancel() }) {
+                    Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
+                }
+                Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
+                    Text(
+                        stringResource(R.string.clock_maker_title),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        design.name.trim().ifEmpty { stringResource(R.string.clock_maker_new) },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+                IconButton(enabled = undo.isNotEmpty(), onClick = {
+                    redo = redo + design
+                    design = undo.last()
+                    undo = undo.dropLast(1)
+                }) {
+                    Icon(Icons.Rounded.Undo, stringResource(R.string.clock_maker_undo))
+                }
+                IconButton(enabled = redo.isNotEmpty(), onClick = {
+                    undo = undo + design
+                    design = redo.last()
+                    redo = redo.dropLast(1)
+                }) {
+                    Icon(Icons.Rounded.Redo, stringResource(R.string.clock_maker_redo))
+                }
+                FilledTonalButton(enabled = design.elements.isNotEmpty() && !importing, onClick = {
+                    val saved = design.copy(name = design.name.trim().ifEmpty { "Custom clock" })
+                    store.save(clock.copy(design = saved))
+                    finished = true
+                    store.clearDraft(draftKey)
+                    onSave(clock.copy(design = saved))
+                }) {
+                    Icon(Icons.Rounded.Save, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.clock_maker_save))
+                }
+            }
         }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
             val aspect = context.resources.displayMetrics.widthPixels.toFloat() / context.resources.displayMetrics.heightPixels
             val previewWidth = minOf(maxWidth, maxHeight * aspect)
-            Box(Modifier.size(previewWidth, previewWidth / aspect).clip(RoundedCornerShape(18.dp))) {
+            val previewShape = MaterialTheme.shapes.extraLarge
+            Box(Modifier.size(previewWidth, previewWidth / aspect)
+                .clip(previewShape)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f), previewShape)
+                .background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
                 LiveWallpaper(wallpaper, Modifier.fillMaxSize())
                 MakerClockLayer(clock, tuning, selectedId = selectedId, onSelect = { selectedId = it },
                     onMove = { id, x, y ->
@@ -187,26 +245,61 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
             }
         }
         Column(Modifier.weight(1f).fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)) {
+            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .animateContentSize(animationSpec = spring())) {
+            Box(Modifier.padding(top = 10.dp).size(width = 32.dp, height = 4.dp)
+                .clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f))
+                .align(Alignment.CenterHorizontally))
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    stringResource(R.string.clock_maker_elements),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                FilledTonalButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS,
+                    onClick = { dialog = "add" }) {
+                    Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(stringResource(R.string.clock_maker_add))
+                }
+            }
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 design.elements.forEach { element ->
                     FilterChip(selected = selectedId == element.id, onClick = { selectedId = element.id },
                         label = { Text(elementLabel(element.kind)) })
                 }
-                TextButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS, onClick = { dialog = "add" }) {
-                    Text(stringResource(R.string.clock_maker_add))
-                }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp)) {
-                TextButton(onClick = { dialog = "library" }) { Text(stringResource(R.string.clock_maker_designs)) }
-                TextButton(onClick = { dialog = "global" }) { Text(stringResource(R.string.clock_maker_global)) }
-                TextButton(onClick = { dialog = "name" }) { Text(design.name) }
+            Row(
+                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                AssistChip(onClick = { dialog = "library" },
+                    label = { Text(stringResource(R.string.clock_maker_designs)) })
+                AssistChip(onClick = { dialog = "global" },
+                    label = { Text(stringResource(R.string.clock_maker_global)) })
+                AssistChip(onClick = { dialog = "name" },
+                    label = { Text(design.name.trim().ifEmpty { stringResource(R.string.clock_maker_name) }) })
             }
             val selected = design.elements.firstOrNull { it.id == selectedId }
             if (selected == null) {
-                Text(stringResource(R.string.clock_maker_select), Modifier.padding(20.dp))
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.clock_maker_select),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp),
+                    )
+                }
             } else {
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -215,59 +308,76 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         FilterChip(tab == index, { tab = index }, label = { Text(stringResource(label)) })
                     }
                 }
-                Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 20.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    when (tab) {
-                        0 -> {
-                            ElementContent(selected) { edit(it) }
-                            TuningSwitch(stringResource(R.string.clock_maker_visible), selected.visible) { edit(selected.copy(visible = it)) }
-                            Row(Modifier.padding(horizontal = 12.dp)) {
-                                TextButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS, onClick = {
-                                    val duplicate = selected.copy(id = java.util.UUID.randomUUID().toString(), y = (selected.y + 0.1f).coerceAtMost(maxY))
-                                    change(design.copy(elements = design.elements + duplicate))
-                                    selectedId = duplicate.id
-                                }) { Text(stringResource(R.string.clock_maker_duplicate)) }
-                                TextButton(onClick = {
-                                    change(design.copy(elements = design.elements.filter { it.id != selected.id }))
-                                    selectedId = design.elements.firstOrNull()?.id
-                                }) { Text(stringResource(R.string.clock_maker_remove)) }
+                Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 20.dp)
+                    .animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AnimatedContent(
+                        targetState = tab to selected.id,
+                        transitionSpec = {
+                            (fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f)) togetherWith
+                                (fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.98f))
+                        },
+                        label = "clock_maker_controls",
+                    ) { (selectedTab, _) ->
+                        when (selectedTab) {
+                            0 -> {
+                                ElementContent(selected) { edit(it) }
+                                TuningSwitch(stringResource(R.string.clock_maker_visible), selected.visible) { edit(selected.copy(visible = it)) }
+                                Row(Modifier.padding(horizontal = 12.dp)) {
+                                    TextButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS, onClick = {
+                                        val duplicate = selected.copy(id = java.util.UUID.randomUUID().toString(), y = (selected.y + 0.1f).coerceAtMost(maxY))
+                                        change(design.copy(elements = design.elements + duplicate))
+                                        selectedId = duplicate.id
+                                    }) { Text(stringResource(R.string.clock_maker_duplicate)) }
+                                    TextButton(onClick = {
+                                        change(design.copy(elements = design.elements.filter { it.id != selected.id }))
+                                        selectedId = design.elements.firstOrNull()?.id
+                                    }) { Text(stringResource(R.string.clock_maker_remove)) }
+                                }
                             }
-                        }
-                        1 -> {
-                            TextButton(onClick = { dialog = "fonts" }, modifier = Modifier.padding(horizontal = 12.dp)) {
-                                Text(stringResource(R.string.clock_maker_font) + ": " +
-                                    (fonts.firstOrNull { it.family == selected.font }?.name ?:
-                                        bundledFonts.firstOrNull { it.first == selected.font }?.second ?:
-                                        if (selected.font.startsWith("import:")) stringResource(R.string.clock_maker_missing_font) else selected.font))
+                            1 -> {
+                                TextButton(onClick = { dialog = "fonts" }, modifier = Modifier.padding(horizontal = 12.dp)) {
+                                    Text(stringResource(R.string.clock_maker_font) + ": " +
+                                        (fonts.firstOrNull { it.family == selected.font }?.name ?:
+                                            bundledFonts.firstOrNull { it.first == selected.font }?.second ?:
+                                            if (selected.font.startsWith("import:")) stringResource(R.string.clock_maker_missing_font) else selected.font))
+                                }
+                                TuningSlider(stringResource(R.string.gallery_clock_size), selected.size, 8..200, "", ClockElement.create(selected.kind).size) { edit(selected.copy(size = it)) }
+                                TuningSlider(stringResource(R.string.clock_maker_weight), selected.weight, 100..900, "", 400) { edit(selected.copy(weight = it)) }
+                                TuningSwitch(stringResource(R.string.clock_maker_italic), selected.italic) { edit(selected.copy(italic = it)) }
+                                TuningSlider(stringResource(R.string.clock_maker_spacing), selected.letterSpacing, -10..50, "%", 0) { edit(selected.copy(letterSpacing = it)) }
+                                TuningSlider(stringResource(R.string.clock_maker_horizontal), (selected.x * 100).roundToInt(), 0..100, "%", 50) { edit(selected.copy(x = it / 100f)) }
+                                TuningSlider(stringResource(R.string.clock_maker_vertical), (selected.y / maxY * 100).roundToInt().coerceIn(0, 100), 0..100, "%", 10) { edit(selected.copy(y = it / 100f * maxY)) }
+                                TuningSlider(stringResource(R.string.custom_clock_rotation_title), selected.rotation, -180..180, "°", 0) { edit(selected.copy(rotation = it)) }
                             }
-                            TuningSlider(stringResource(R.string.gallery_clock_size), selected.size, 8..200, "", ClockElement.create(selected.kind).size) { edit(selected.copy(size = it)) }
-                            TuningSlider(stringResource(R.string.clock_maker_weight), selected.weight, 100..900, "", 400) { edit(selected.copy(weight = it)) }
-                            TuningSwitch(stringResource(R.string.clock_maker_italic), selected.italic) { edit(selected.copy(italic = it)) }
-                            TuningSlider(stringResource(R.string.clock_maker_spacing), selected.letterSpacing, -10..50, "%", 0) { edit(selected.copy(letterSpacing = it)) }
-                            TuningSlider(stringResource(R.string.clock_maker_horizontal), (selected.x * 100).roundToInt(), 0..100, "%", 50) { edit(selected.copy(x = it / 100f)) }
-                            TuningSlider(stringResource(R.string.clock_maker_vertical), (selected.y / maxY * 100).roundToInt().coerceIn(0, 100), 0..100, "%", 10) { edit(selected.copy(y = it / 100f * maxY)) }
-                            TuningSlider(stringResource(R.string.custom_clock_rotation_title), selected.rotation, -180..180, "°", 0) { edit(selected.copy(rotation = it)) }
-                        }
-                        2 -> {
-                            TuningSwitch(stringResource(R.string.clock_maker_inherit), selected.color == null && !selected.gradient) {
-                                edit(selected.copy(color = if (it) null else android.graphics.Color.WHITE, gradient = false))
+                            2 -> {
+                                TuningSwitch(stringResource(R.string.clock_maker_inherit), selected.color == null && !selected.gradient) {
+                                    edit(selected.copy(color = if (it) null else android.graphics.Color.WHITE, gradient = false))
+                                }
+                                ClockColourPicker(ELEMENT_COLOURS, selected.color, wallpaper, allowImport) { edit(selected.copy(color = it)) }
+                                TuningSlider(stringResource(R.string.gallery_clock_opacity), selected.opacity, 0..100, "%", 100) { edit(selected.copy(opacity = it)) }
+                                TuningSwitch(stringResource(R.string.gallery_clock_colour_gradient), selected.gradient) { edit(selected.copy(gradient = it)) }
+                                AnimatedVisibility(
+                                    visible = selected.gradient,
+                                    enter = fadeIn(tween(180)) + expandVertically(),
+                                    exit = fadeOut(tween(140)) + shrinkVertically(),
+                                ) {
+                                    Text(stringResource(R.string.gallery_clock_gradient_start), Modifier.padding(horizontal = 20.dp))
+                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.gradientStart, wallpaper, allowImport) { edit(selected.copy(gradientStart = it ?: selected.gradientStart)) }
+                                    Text(stringResource(R.string.gallery_clock_gradient_end), Modifier.padding(horizontal = 20.dp))
+                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.gradientEnd, wallpaper, allowImport) { edit(selected.copy(gradientEnd = it ?: selected.gradientEnd)) }
+                                }
                             }
-                            ClockColourPicker(ELEMENT_COLOURS, selected.color, wallpaper, allowImport) { edit(selected.copy(color = it)) }
-                            TuningSlider(stringResource(R.string.gallery_clock_opacity), selected.opacity, 0..100, "%", 100) { edit(selected.copy(opacity = it)) }
-                            TuningSwitch(stringResource(R.string.gallery_clock_colour_gradient), selected.gradient) { edit(selected.copy(gradient = it)) }
-                            if (selected.gradient) {
-                                Text(stringResource(R.string.gallery_clock_gradient_start), Modifier.padding(horizontal = 20.dp))
-                                ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.gradientStart, wallpaper, allowImport) { edit(selected.copy(gradientStart = it ?: selected.gradientStart)) }
-                                Text(stringResource(R.string.gallery_clock_gradient_end), Modifier.padding(horizontal = 20.dp))
-                                ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.gradientEnd, wallpaper, allowImport) { edit(selected.copy(gradientEnd = it ?: selected.gradientEnd)) }
-                            }
-                        }
-                        3 -> {
-                            TuningSwitch(stringResource(R.string.gallery_clock_shadow), selected.shadow) { edit(selected.copy(shadow = it)) }
-                            if (selected.shadow) {
-                                ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.shadowColor, wallpaper, allowImport) { edit(selected.copy(shadowColor = it ?: selected.shadowColor)) }
-                                TuningSlider(stringResource(R.string.gallery_clock_shadow_softness), selected.shadowSoftness, 0..30, "", 8) { edit(selected.copy(shadowSoftness = it)) }
-                                TuningSlider(stringResource(R.string.gallery_clock_shadow_opacity), selected.shadowOpacity, 0..100, "%", 35) { edit(selected.copy(shadowOpacity = it)) }
+                            3 -> {
+                                TuningSwitch(stringResource(R.string.gallery_clock_shadow), selected.shadow) { edit(selected.copy(shadow = it)) }
+                                AnimatedVisibility(
+                                    visible = selected.shadow,
+                                    enter = fadeIn(tween(180)) + expandVertically(),
+                                    exit = fadeOut(tween(140)) + shrinkVertically(),
+                                ) {
+                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.shadowColor, wallpaper, allowImport) { edit(selected.copy(shadowColor = it ?: selected.shadowColor)) }
+                                    TuningSlider(stringResource(R.string.gallery_clock_shadow_softness), selected.shadowSoftness, 0..30, "", 8) { edit(selected.copy(shadowSoftness = it)) }
+                                    TuningSlider(stringResource(R.string.gallery_clock_shadow_opacity), selected.shadowOpacity, 0..100, "%", 35) { edit(selected.copy(shadowOpacity = it)) }
+                                }
                             }
                         }
                     }

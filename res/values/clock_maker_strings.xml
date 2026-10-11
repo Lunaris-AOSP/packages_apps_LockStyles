@@ -4,6 +4,7 @@
     <string name="clock_maker_undo">Undo</string>
     <string name="clock_maker_redo">Redo</string>
     <string name="clock_maker_add">Add element</string>
+    <string name="clock_maker_elements">Elements</string>
     <string name="clock_maker_designs">Saved designs</string>
     <string name="clock_maker_global">Clock settings</string>
     <string name="clock_maker_name">Design name</string>
