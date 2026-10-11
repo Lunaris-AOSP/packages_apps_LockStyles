@@ -34,6 +34,14 @@
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
         <provider
+            android:name=".ClockImageProvider"
+            android:authorities="org.lunaris.lockstyles.clockimages"
+            android:directBootAware="true"
+            android:exported="true"
+            android:readPermission="android.permission.STATUS_BAR_SERVICE"
+            android:writePermission="android.permission.STATUS_BAR_SERVICE" />
+
+        <provider
             android:name=".ClockFontProvider"
             android:authorities="org.lunaris.lockstyles.clockfonts"
             android:directBootAware="true"

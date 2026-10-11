@@ -16,6 +16,7 @@
 
 package org.lunaris.lockstyles.ui
 
+import android.content.Context
 import android.graphics.Typeface
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -30,11 +31,16 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -45,11 +51,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -77,19 +90,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -99,12 +122,16 @@ import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.clockmaker.ClockElement
 import org.lunaris.clockmaker.ClockElementKind
 import org.lunaris.clockmaker.ClockFonts
+import org.lunaris.clockmaker.ClockImageFit
+import org.lunaris.clockmaker.ClockImageShapes
+import org.lunaris.lockstyles.ClockImageStore
 import org.lunaris.lockstyles.ClockMakerStore
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.R
 import kotlin.math.roundToInt
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,26 +139,32 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     allowImport: Boolean, onCancel: () -> Unit, onSave: (ClockStyle) -> Unit) {
     val context = LocalContext.current
     val store = remember { ClockMakerStore(context) }
-    val restored = remember { store.draft(draftKey) ?: initial }
-    var design by remember { mutableStateOf(restored.design ?: ClockDesign()) }
-    var tuning by remember { mutableStateOf(restored.tuning ?: CustomClocks.Tuning.load(context)) }
-    var color by remember { mutableStateOf(restored.color) }
-    var selectedId by remember { mutableStateOf(design.elements.firstOrNull()?.id) }
-    var tab by remember { mutableStateOf(0) }
-    var dialog by remember { mutableStateOf<String?>(null) }
-    var undo by remember { mutableStateOf(emptyList<ClockDesign>()) }
-    var redo by remember { mutableStateOf(emptyList<ClockDesign>()) }
-    var dragging by remember { mutableStateOf(false) }
-    var finished by remember { mutableStateOf(false) }
-    var fonts by remember { mutableStateOf(store.fonts) }
+    val imageStore = remember { ClockImageStore(context) }
+    val restored = remember(draftKey, initial) { store.draft(draftKey) ?: initial }
+    var design by remember(draftKey, initial) { mutableStateOf(restored.design ?: ClockDesign()) }
+    var tuning by remember(draftKey, initial) { mutableStateOf(restored.tuning ?: CustomClocks.Tuning.load(context)) }
+    var color by remember(draftKey, initial) { mutableStateOf(restored.color) }
+    var selectedId by remember(draftKey, initial) { mutableStateOf(design.elements.firstOrNull()?.id) }
+    var tab by remember(draftKey) { mutableStateOf(0) }
+    var dialog by remember(draftKey) { mutableStateOf<String?>(null) }
+    var undo by remember(draftKey) { mutableStateOf(emptyList<ClockDesign>()) }
+    var redo by remember(draftKey) { mutableStateOf(emptyList<ClockDesign>()) }
+    var dragging by remember(draftKey) { mutableStateOf(false) }
+    var finished by remember(draftKey) { mutableStateOf(false) }
+    var fonts by remember(draftKey) { mutableStateOf(store.fonts) }
     val bundledFonts by produceState(emptyList<Pair<String, String>>()) {
-        value = withContext(Dispatchers.IO) { ClockFonts.bundled(context) }
+        value = withContext(Dispatchers.IO) { bundledFontChoices(context) }
     }
-    var library by remember { mutableStateOf(store.designs) }
-    var importing by remember { mutableStateOf(false) }
-    var fontTarget by remember { mutableStateOf<String?>(null) }
-    var error by remember { mutableStateOf(false) }
-    var removeFont by remember { mutableStateOf<ClockMakerStore.ImportedFont?>(null) }
+    var library by remember(draftKey) { mutableStateOf(store.designs) }
+    var importing by remember(draftKey) { mutableStateOf(false) }
+    var fontTarget by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
+    var error by remember(draftKey) { mutableStateOf(false) }
+    var removeFont by remember(draftKey) { mutableStateOf<ClockMakerStore.ImportedFont?>(null) }
+    var importingImage by remember(draftKey) { mutableStateOf(false) }
+    var imageError by remember(draftKey) { mutableStateOf(false) }
+    var imageTarget by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
+    var imageDesign by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
+    var previewAod by remember(draftKey) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val clock = initial.copy(face = ClockDesign.STYLE, design = design, tuning = tuning, color = color)
     val latestClock by rememberUpdatedState(clock)
@@ -142,6 +175,13 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
         if (record) undo = (undo + design).takeLast(50)
         redo = emptyList()
         design = value
+    }
+    LaunchedEffect(design.id, design.elements.map { it.id }) {
+        if (selectedId != null && design.elements.none { it.id == selectedId }) {
+            selectedId = design.elements.firstOrNull()?.id
+        } else if (selectedId == null && design.elements.isNotEmpty()) {
+            selectedId = design.elements.first().id
+        }
     }
     fun edit(element: ClockElement) = change(design.copy(elements = design.elements.map {
         if (it.id == element.id) element else it
@@ -161,6 +201,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     }
     val importer = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null && allowImport) {
+            error = false
             importing = true
             scope.launch {
                 val font = withContext(Dispatchers.IO) { runCatching { store.importFont(uri) }.getOrNull() }
@@ -171,6 +212,42 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                 }
             }
         }
+    }
+    val imageImporter = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null && allowImport) {
+            imageError = false
+            importingImage = true
+            val target = imageTarget
+            val targetDesign = imageDesign
+            val keepImages = (listOf(design) + undo + redo).flatMap { it.elements }.map { it.image }.toSet()
+            scope.launch {
+                val imported = withContext(Dispatchers.IO) { runCatching { imageStore.importImage(uri, keepImages) }.getOrNull() }
+                importingImage = false
+                if (imported == null) imageError = true else if (design.id == targetDesign) {
+                    if (target == null && design.elements.size < ClockDesign.MAX_ELEMENTS) {
+                        val element = ClockElement.create(ClockElementKind.IMAGE).copy(image = imported.id,
+                            imageAspectRatio = (imported.width.toFloat() / imported.height).coerceIn(16f / 720, 360f / 16))
+                            .resizeImage(width = 120)
+                        change(design.copy(elements = listOf(element) + design.elements))
+                        selectedId = element.id
+                        tab = 1
+                    } else {
+                        design.elements.firstOrNull { it.id == target && it.kind == ClockElementKind.IMAGE }?.let { element ->
+                            val ratio = (imported.width.toFloat() / imported.height)
+                                .coerceIn(16f / 720, 360f / 16)
+                            val replacement = element.copy(image = imported.id, imageAspectRatio = ratio)
+                            edit(if (element.imageAspectLocked) replacement.resizeImage(width = element.imageWidth)
+                            else replacement)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    fun chooseImage(target: String?) {
+        imageTarget = target
+        imageDesign = design.id
+        imageImporter.launch(arrayOf("image/*"))
     }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
@@ -213,9 +290,10 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                 }) {
                     Icon(Icons.Rounded.Redo, stringResource(R.string.clock_maker_redo))
                 }
-                FilledTonalButton(enabled = design.elements.isNotEmpty() && !importing, onClick = {
+                FilledTonalButton(enabled = design.elements.isNotEmpty() && !importing && !importingImage, onClick = {
                     val saved = design.copy(name = design.name.trim().ifEmpty { "Custom clock" })
                     store.save(clock.copy(design = saved))
+                    library = store.designs
                     finished = true
                     store.clearDraft(draftKey)
                     onSave(clock.copy(design = saved))
@@ -226,161 +304,296 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                 }
             }
         }
-        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
-            val aspect = context.resources.displayMetrics.widthPixels.toFloat() / context.resources.displayMetrics.heightPixels
-            val previewWidth = minOf(maxWidth, maxHeight * aspect)
-            val previewShape = MaterialTheme.shapes.extraLarge
-            Box(Modifier.size(previewWidth, previewWidth / aspect)
-                .clip(previewShape)
-                .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f), previewShape)
-                .background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
-                LiveWallpaper(wallpaper, Modifier.fillMaxSize())
-                MakerClockLayer(clock, tuning, selectedId = selectedId, onSelect = { selectedId = it },
-                    onMove = { id, x, y ->
-                        if (!dragging) { undo = (undo + design).takeLast(50); dragging = true }
-                        change(design.copy(elements = design.elements.map {
-                            if (it.id == id) it.copy(x = x, y = y.coerceIn(0f, maxY)) else it
-                        }), record = false)
-                    }, onDragFinished = { dragging = false })
-            }
-        }
-        Column(Modifier.weight(1f).fillMaxWidth()
-            .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .animateContentSize(animationSpec = spring())) {
-            Box(Modifier.padding(top = 10.dp).size(width = 32.dp, height = 4.dp)
-                .clip(CircleShape).background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f))
-                .align(Alignment.CenterHorizontally))
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    stringResource(R.string.clock_maker_elements),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-                FilledTonalButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS,
-                    onClick = { dialog = "add" }) {
-                    Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.clock_maker_add))
-                }
-            }
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                design.elements.forEach { element ->
-                    FilterChip(selected = selectedId == element.id, onClick = { selectedId = element.id },
-                        label = { Text(elementLabel(element.kind)) })
-                }
-            }
-            Row(
-                Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                AssistChip(onClick = { dialog = "library" },
-                    label = { Text(stringResource(R.string.clock_maker_designs)) })
-                AssistChip(onClick = { dialog = "global" },
-                    label = { Text(stringResource(R.string.clock_maker_global)) })
-                AssistChip(onClick = { dialog = "name" },
-                    label = { Text(design.name.trim().ifEmpty { stringResource(R.string.clock_maker_name) }) })
-            }
-            val selected = design.elements.firstOrNull { it.id == selectedId }
-            if (selected == null) {
-                Surface(
-                    shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                ) {
-                    Text(
-                        stringResource(R.string.clock_maker_select),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(16.dp),
-                    )
-                }
-            } else {
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(R.string.clock_maker_content, R.string.clock_maker_style,
-                        R.string.gallery_clock_colour, R.string.clock_maker_effects).forEachIndexed { index, label ->
-                        FilterChip(tab == index, { tab = index }, label = { Text(stringResource(label)) })
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val preview: @Composable (Modifier) -> Unit = { pane ->
+                BoxWithConstraints(pane.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
+                    val aspect = context.resources.displayMetrics.widthPixels.toFloat() / context.resources.displayMetrics.heightPixels
+                    val previewWidth = minOf(maxWidth, maxHeight * aspect)
+                    val previewShape = MaterialTheme.shapes.extraLarge
+                    Box(Modifier.size(previewWidth, previewWidth / aspect)
+                        .clip(previewShape)
+                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f), previewShape)
+                        .background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
+                        if (!previewAod) LiveWallpaper(wallpaper, Modifier.fillMaxSize())
+                        else {
+                            Box(Modifier.fillMaxSize().background(Color.Black))
+                            Surface(
+                                color = Color.Black.copy(alpha = 0.72f),
+                                shape = MaterialTheme.shapes.large,
+                                modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
+                            ) {
+                                Text(
+                                    stringResource(R.string.clock_maker_preview_aod_paused),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                )
+                            }
+                        }
+                        MakerClockLayer(clock, tuning, dozing = previewAod, selectedId = selectedId, onSelect = { selectedId = it },
+                            onMove = { id, x, y ->
+                                if (!dragging) { undo = (undo + design).takeLast(50); dragging = true }
+                                change(design.copy(elements = design.elements.map {
+                                    if (it.id == id) it.copy(x = x, y = y.coerceIn(0f, maxY)) else it
+                                }), record = false)
+                            }, onDragFinished = { dragging = false })
                     }
                 }
-                Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 20.dp)
-                    .animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    AnimatedContent(
-                        targetState = tab to selected.id,
-                        transitionSpec = {
-                            (fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f)) togetherWith
-                                (fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.98f))
-                        },
-                        label = "clock_maker_controls",
-                    ) { (selectedTab, _) ->
-                        when (selectedTab) {
-                            0 -> {
-                                ElementContent(selected) { edit(it) }
-                                TuningSwitch(stringResource(R.string.clock_maker_visible), selected.visible) { edit(selected.copy(visible = it)) }
-                                Row(Modifier.padding(horizontal = 12.dp)) {
-                                    TextButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS, onClick = {
-                                        val duplicate = selected.copy(id = java.util.UUID.randomUUID().toString(), y = (selected.y + 0.1f).coerceAtMost(maxY))
-                                        change(design.copy(elements = design.elements + duplicate))
-                                        selectedId = duplicate.id
-                                    }) { Text(stringResource(R.string.clock_maker_duplicate)) }
-                                    TextButton(onClick = {
-                                        change(design.copy(elements = design.elements.filter { it.id != selected.id }))
-                                        selectedId = design.elements.firstOrNull()?.id
-                                    }) { Text(stringResource(R.string.clock_maker_remove)) }
-                                }
+            }
+            val editor: @Composable (Modifier, Modifier) -> Unit = { pane, sheetHandle ->
+                val dragHandleDescription = stringResource(R.string.clock_maker_drag_editor)
+                Column(pane.fillMaxWidth()
+                    .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainer)) {
+                    Box(Modifier.fillMaxWidth().height(36.dp).then(sheetHandle)
+                        .semantics { contentDescription = dragHandleDescription },
+                        contentAlignment = Alignment.Center) {
+                        Box(Modifier.size(width = 32.dp, height = 4.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)))
+                    }
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        Row(
+                        Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                        Text(
+                            stringResource(R.string.clock_maker_elements),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(1f),
+                        )
+                        FilledTonalButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS && !importingImage,
+                            onClick = { dialog = "add" }) {
+                            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(stringResource(if (importingImage) R.string.clock_maker_importing else R.string.clock_maker_add))
+                        }
+                    }
+                    Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        design.elements.forEach { element ->
+                            FilterChip(selected = selectedId == element.id, onClick = { selectedId = element.id },
+                                label = { Text(elementLabel(element.kind)) })
+                        }
+                    }
+                    Row(
+                        Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        AssistChip(onClick = { dialog = "library" },
+                            label = { Text(stringResource(R.string.clock_maker_designs)) })
+                        AssistChip(onClick = { dialog = "global" },
+                            label = { Text(stringResource(R.string.clock_maker_global)) })
+                        AssistChip(onClick = { dialog = "name" },
+                            label = { Text(design.name.trim().ifEmpty { stringResource(R.string.clock_maker_name) }) })
+                        FilterChip(previewAod, { previewAod = !previewAod },
+                            label = { Text(stringResource(R.string.clock_maker_preview_aod)) })
+                    }
+                    val selected = design.elements.firstOrNull { it.id == selectedId }
+                    if (selected == null) {
+                        Surface(
+                            shape = MaterialTheme.shapes.large,
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            modifier = Modifier.fillMaxWidth().padding(16.dp),
+                        ) {
+                            Text(
+                                stringResource(R.string.clock_maker_select),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(16.dp),
+                            )
+                        }
+                    } else {
+                        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            val tabs = if (selected.kind == ClockElementKind.IMAGE) listOf(
+                                R.string.clock_maker_content, R.string.clock_maker_size_position,
+                                R.string.clock_maker_shape, R.string.clock_maker_effects) else listOf(
+                                R.string.clock_maker_content, R.string.clock_maker_style,
+                                R.string.gallery_clock_colour, R.string.clock_maker_effects)
+                            tabs.forEachIndexed { index, label ->
+                                FilterChip(tab == index, { tab = index }, label = { Text(stringResource(label)) })
                             }
-                            1 -> {
-                                TextButton(onClick = { dialog = "fonts" }, modifier = Modifier.padding(horizontal = 12.dp)) {
-                                    Text(stringResource(R.string.clock_maker_font) + ": " +
-                                        (fonts.firstOrNull { it.family == selected.font }?.name ?:
-                                            bundledFonts.firstOrNull { it.first == selected.font }?.second ?:
-                                            if (selected.font.startsWith("import:")) stringResource(R.string.clock_maker_missing_font) else selected.font))
-                                }
-                                TuningSlider(stringResource(R.string.gallery_clock_size), selected.size, 8..200, "", ClockElement.create(selected.kind).size) { edit(selected.copy(size = it)) }
-                                TuningSlider(stringResource(R.string.clock_maker_weight), selected.weight, 100..900, "", 400) { edit(selected.copy(weight = it)) }
-                                TuningSwitch(stringResource(R.string.clock_maker_italic), selected.italic) { edit(selected.copy(italic = it)) }
-                                TuningSlider(stringResource(R.string.clock_maker_spacing), selected.letterSpacing, -10..50, "%", 0) { edit(selected.copy(letterSpacing = it)) }
-                                TuningSlider(stringResource(R.string.clock_maker_horizontal), (selected.x * 100).roundToInt(), 0..100, "%", 50) { edit(selected.copy(x = it / 100f)) }
-                                TuningSlider(stringResource(R.string.clock_maker_vertical), (selected.y / maxY * 100).roundToInt().coerceIn(0, 100), 0..100, "%", 10) { edit(selected.copy(y = it / 100f * maxY)) }
-                                TuningSlider(stringResource(R.string.custom_clock_rotation_title), selected.rotation, -180..180, "°", 0) { edit(selected.copy(rotation = it)) }
-                            }
-                            2 -> {
-                                TuningSwitch(stringResource(R.string.clock_maker_inherit), selected.color == null && !selected.gradient) {
-                                    edit(selected.copy(color = if (it) null else android.graphics.Color.WHITE, gradient = false))
-                                }
-                                ClockColourPicker(ELEMENT_COLOURS, selected.color, wallpaper, allowImport) { edit(selected.copy(color = it)) }
-                                TuningSlider(stringResource(R.string.gallery_clock_opacity), selected.opacity, 0..100, "%", 100) { edit(selected.copy(opacity = it)) }
-                                TuningSwitch(stringResource(R.string.gallery_clock_colour_gradient), selected.gradient) { edit(selected.copy(gradient = it)) }
-                                AnimatedVisibility(
-                                    visible = selected.gradient,
-                                    enter = fadeIn(tween(180)) + expandVertically(),
-                                    exit = fadeOut(tween(140)) + shrinkVertically(),
-                                ) {
-                                    Text(stringResource(R.string.gallery_clock_gradient_start), Modifier.padding(horizontal = 20.dp))
-                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.gradientStart, wallpaper, allowImport) { edit(selected.copy(gradientStart = it ?: selected.gradientStart)) }
-                                    Text(stringResource(R.string.gallery_clock_gradient_end), Modifier.padding(horizontal = 20.dp))
-                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.gradientEnd, wallpaper, allowImport) { edit(selected.copy(gradientEnd = it ?: selected.gradientEnd)) }
-                                }
-                            }
-                            3 -> {
-                                TuningSwitch(stringResource(R.string.gallery_clock_shadow), selected.shadow) { edit(selected.copy(shadow = it)) }
-                                AnimatedVisibility(
-                                    visible = selected.shadow,
-                                    enter = fadeIn(tween(180)) + expandVertically(),
-                                    exit = fadeOut(tween(140)) + shrinkVertically(),
-                                ) {
-                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.shadowColor, wallpaper, allowImport) { edit(selected.copy(shadowColor = it ?: selected.shadowColor)) }
-                                    TuningSlider(stringResource(R.string.gallery_clock_shadow_softness), selected.shadowSoftness, 0..30, "", 8) { edit(selected.copy(shadowSoftness = it)) }
-                                    TuningSlider(stringResource(R.string.gallery_clock_shadow_opacity), selected.shadowOpacity, 0..100, "%", 35) { edit(selected.copy(shadowOpacity = it)) }
+                        }
+                        Column(Modifier.padding(bottom = 20.dp)
+                            .animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            AnimatedContent(
+                                targetState = tab to selected.id,
+                                transitionSpec = {
+                                    (fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f)) togetherWith
+                                        (fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.98f))
+                                },
+                                label = "clock_maker_controls",
+                            ) { (selectedTab, _) ->
+                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    when (selectedTab) {
+                                        0 -> {
+                                            if (selected.kind == ClockElementKind.IMAGE) {
+                                                FilledTonalButton(enabled = allowImport && !importingImage,
+                                                    onClick = { chooseImage(selected.id) }, modifier = Modifier.padding(horizontal = 20.dp)) {
+                                                    Text(stringResource(if (importingImage) R.string.clock_maker_importing else R.string.clock_maker_replace_image))
+                                                }
+                                                Text(stringResource(R.string.clock_maker_image_summary),
+                                                    style = MaterialTheme.typography.bodyMedium,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.padding(horizontal = 20.dp))
+                                            } else ElementContent(selected) { edit(it) }
+                                            TuningSwitch(stringResource(R.string.clock_maker_visible), selected.visible) { edit(selected.copy(visible = it)) }
+                                            Row(Modifier.padding(horizontal = 12.dp)) {
+                                                TextButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS, onClick = {
+                                                    val duplicate = selected.copy(id = java.util.UUID.randomUUID().toString(), y = (selected.y + 0.1f).coerceAtMost(maxY))
+                                                    change(design.copy(elements = design.elements + duplicate))
+                                                    selectedId = duplicate.id
+                                                }) { Text(stringResource(R.string.clock_maker_duplicate)) }
+                                                TextButton(onClick = {
+                                                    change(design.copy(elements = design.elements.filter { it.id != selected.id }))
+                                                    selectedId = design.elements.firstOrNull()?.id
+                                                }) { Text(stringResource(R.string.clock_maker_remove)) }
+                                            }
+                                            val index = design.elements.indexOfFirst { it.id == selected.id }
+                                            Row(Modifier.padding(horizontal = 12.dp)) {
+                                                TextButton(enabled = index > 0, onClick = {
+                                                    val elements = design.elements.toMutableList()
+                                                    elements.add(index - 1, elements.removeAt(index))
+                                                    change(design.copy(elements = elements))
+                                                }) { Text(stringResource(R.string.clock_maker_send_backward)) }
+                                                TextButton(enabled = index in 0 until design.elements.lastIndex, onClick = {
+                                                    val elements = design.elements.toMutableList()
+                                                    elements.add(index + 1, elements.removeAt(index))
+                                                    change(design.copy(elements = elements))
+                                                }) { Text(stringResource(R.string.clock_maker_bring_forward)) }
+                                            }
+                                        }
+                                        1 -> {
+                                            if (selected.kind == ClockElementKind.IMAGE) {
+                                                ImageSizeControls(selected) { edit(it) }
+                                            } else {
+                                                TextButton(onClick = { dialog = "fonts" }, modifier = Modifier.padding(horizontal = 12.dp)) {
+                                                    Text(stringResource(R.string.clock_maker_font) + ": " +
+                                                        (fonts.firstOrNull { it.family == selected.font }?.name ?:
+                                                            bundledFonts.firstOrNull { it.first == selected.font }?.second ?:
+                                                            if (selected.font.startsWith("import:")) stringResource(R.string.clock_maker_missing_font) else selected.font))
+                                                }
+                                                TuningSlider(stringResource(R.string.gallery_clock_size), selected.size, 8..200, "", ClockElement.create(selected.kind).size) { edit(selected.copy(size = it)) }
+                                                TuningSlider(stringResource(R.string.clock_maker_weight), selected.weight, 100..900, "", 400) { edit(selected.copy(weight = it)) }
+                                                TuningSwitch(stringResource(R.string.clock_maker_italic), selected.italic) { edit(selected.copy(italic = it)) }
+                                                TuningSlider(stringResource(R.string.clock_maker_spacing), selected.letterSpacing, -10..50, "%", 0) { edit(selected.copy(letterSpacing = it)) }
+                                            }
+                                            TuningSlider(stringResource(R.string.clock_maker_horizontal), (selected.x * 100).roundToInt(), 0..100, "%", 50) { edit(selected.copy(x = it / 100f)) }
+                                            TuningSlider(stringResource(R.string.clock_maker_vertical), (selected.y / maxY * 100).roundToInt().coerceIn(0, 100), 0..100, "%", 10) { edit(selected.copy(y = it / 100f * maxY)) }
+                                            TuningSlider(stringResource(R.string.custom_clock_rotation_title), selected.rotation, -180..180, "°", 0) { edit(selected.copy(rotation = it)) }
+                                        }
+                                        2 -> {
+                                            if (selected.kind == ClockElementKind.IMAGE) {
+                                                ShapePicker(selected.imageShape) { edit(selected.copy(imageShape = it)) }
+                                                TuningSwitch(stringResource(R.string.clock_maker_border), selected.imageBorderWidth > 0) {
+                                                    edit(selected.copy(imageBorderWidth = if (it) 2 else 0))
+                                                }
+                                                if (selected.imageBorderWidth > 0) {
+                                                    TuningSlider(stringResource(R.string.clock_maker_border_width), selected.imageBorderWidth,
+                                                        1..24, "", 2) { edit(selected.copy(imageBorderWidth = it)) }
+                                                    Text(stringResource(R.string.clock_maker_border_colour), Modifier.padding(horizontal = 20.dp),
+                                                        style = MaterialTheme.typography.titleSmall)
+                                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.imageBorderColor, wallpaper, allowImport) {
+                                                        edit(selected.copy(imageBorderColor = it ?: selected.imageBorderColor))
+                                                    }
+                                                }
+                                            } else {
+                                                TuningSwitch(stringResource(R.string.clock_maker_inherit), selected.color == null && !selected.gradient) {
+                                                    edit(selected.copy(color = if (it) null else android.graphics.Color.WHITE, gradient = false))
+                                                }
+                                                ClockColourPicker(ELEMENT_COLOURS, selected.color, wallpaper, allowImport) { edit(selected.copy(color = it)) }
+                                                TuningSlider(stringResource(R.string.gallery_clock_opacity), selected.opacity, 0..100, "%", 100) { edit(selected.copy(opacity = it)) }
+                                                TuningSwitch(stringResource(R.string.gallery_clock_colour_gradient), selected.gradient) { edit(selected.copy(gradient = it)) }
+                                                AnimatedVisibility(
+                                                    visible = selected.gradient,
+                                                    enter = fadeIn(tween(180)) + expandVertically(),
+                                                    exit = fadeOut(tween(140)) + shrinkVertically(),
+                                                ) {
+                                                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                        Text(stringResource(R.string.gallery_clock_gradient_start), Modifier.padding(horizontal = 20.dp))
+                                                        ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.gradientStart, wallpaper, allowImport) { edit(selected.copy(gradientStart = it ?: selected.gradientStart)) }
+                                                        Text(stringResource(R.string.gallery_clock_gradient_end), Modifier.padding(horizontal = 20.dp))
+                                                        ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.gradientEnd, wallpaper, allowImport) { edit(selected.copy(gradientEnd = it ?: selected.gradientEnd)) }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        3 -> {
+                                            TuningSwitch(stringResource(R.string.gallery_clock_shadow), selected.shadow) { edit(selected.copy(shadow = it)) }
+                                            AnimatedVisibility(
+                                                visible = selected.shadow,
+                                                enter = fadeIn(tween(180)) + expandVertically(),
+                                                exit = fadeOut(tween(140)) + shrinkVertically(),
+                                            ) {
+                                                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.shadowColor, wallpaper, allowImport) { edit(selected.copy(shadowColor = it ?: selected.shadowColor)) }
+                                                    TuningSlider(stringResource(R.string.gallery_clock_shadow_softness), selected.shadowSoftness, 0..30, "", 8) { edit(selected.copy(shadowSoftness = it)) }
+                                                    TuningSlider(stringResource(R.string.gallery_clock_shadow_opacity), selected.shadowOpacity, 0..100, "%", 35) { edit(selected.copy(shadowOpacity = it)) }
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
+                        }
                     }
+                }
+            }
+            if (maxWidth >= 600.dp || maxWidth > maxHeight) {
+                Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    preview(Modifier.weight(0.9f).fillMaxSize())
+                    editor(Modifier.weight(1.1f).fillMaxSize(), Modifier)
+                }
+            } else {
+                val sheetHeight = maxHeight * 0.86f
+                val peekHeight = minOf(sheetHeight - 24.dp,
+                    maxOf(112.dp, maxHeight * 0.28f))
+                val travel = sheetHeight - peekHeight
+                val density = LocalDensity.current
+                val travelPx = with(density) { travel.toPx() }
+                var rawSheetOffset by rememberSaveable(draftKey) {
+                    mutableFloatStateOf(Float.NaN)
+                }
+                var sheetDragging by remember(draftKey) { mutableStateOf(false) }
+                LaunchedEffect(travelPx) {
+                    rawSheetOffset = if (rawSheetOffset.isNaN()) travelPx
+                    else rawSheetOffset.coerceIn(0f, travelPx)
+                }
+                val renderedSheetOffset by animateFloatAsState(
+                    targetValue = if (rawSheetOffset.isNaN()) travelPx else rawSheetOffset,
+                    animationSpec = if (sheetDragging) snap() else spring(),
+                    label = "clock_maker_sheet_offset",
+                )
+                val dragState = rememberDraggableState { delta ->
+                    rawSheetOffset = ((if (rawSheetOffset.isNaN()) travelPx else rawSheetOffset) + delta)
+                        .coerceIn(0f, travelPx)
+                }
+                Box(Modifier.fillMaxSize()) {
+                    preview(Modifier.fillMaxSize())
+                    editor(
+                        Modifier.align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(sheetHeight)
+                            .offset { IntOffset(0, renderedSheetOffset.roundToInt()) },
+                        Modifier.draggable(
+                            state = dragState,
+                            orientation = Orientation.Vertical,
+                            onDragStarted = { sheetDragging = true },
+                            onDragStopped = {
+                                sheetDragging = false
+                                val expanded = travelPx * 0.28f
+                                val lowered = travelPx * 0.78f
+                                rawSheetOffset = when {
+                                    rawSheetOffset <= expanded -> 0f
+                                    rawSheetOffset >= lowered -> travelPx
+                                    else -> travelPx * 0.5f
+                                }
+                            },
+                        ),
+                    )
                 }
             }
         }
@@ -394,7 +607,12 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
         AlertDialog(onDismissRequest = { dialog = null }, title = { Text(stringResource(R.string.clock_maker_add)) },
             text = { Column {
                 ClockElementKind.entries.forEach { kind ->
-                    TextButton(onClick = {
+                    TextButton(enabled = kind != ClockElementKind.IMAGE || (allowImport && !importingImage), onClick = {
+                        if (kind == ClockElementKind.IMAGE) {
+                            dialog = null
+                            chooseImage(null)
+                            return@TextButton
+                        }
                         val element = ClockElement.create(kind)
                         change(design.copy(elements = design.elements + element))
                         selectedId = element.id
@@ -414,8 +632,20 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     if (dialog == "library") {
         AlertDialog(onDismissRequest = { dialog = null }, title = { Text(stringResource(R.string.clock_maker_designs)) },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-                TextButton(onClick = { change(ClockDesign()); selectedId = design.elements.firstOrNull()?.id; dialog = null }) {
+                TextButton(onClick = {
+                    val fresh = ClockDesign()
+                    change(fresh)
+                    selectedId = fresh.elements.firstOrNull()?.id
+                    dialog = null
+                }) {
                     Text(stringResource(R.string.clock_maker_new))
+                }
+                if (library.isEmpty()) {
+                    Text(
+                        stringResource(R.string.clock_maker_designs_empty),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
                 }
                 library.forEach { saved ->
                     val savedDesign = saved.design ?: return@forEach
@@ -435,20 +665,48 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
             } }, confirmButton = {})
     }
     if (dialog == "fonts") {
+        var search by remember { mutableStateOf("") }
+        val choices = remember(bundledFonts, fonts, search) {
+            val system = ClockFonts.families.map { it to it }
+            val bundled = bundledFonts.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.second })
+            val imported = fonts.map { it.family to it.name }
+                .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.second })
+            (system + bundled + imported)
+                .distinctBy { it.first.lowercase(Locale.ROOT) }
+                .filter { it.first.contains(search, ignoreCase = true) ||
+                    it.second.contains(search, ignoreCase = true) }
+        }
         AlertDialog(onDismissRequest = { dialog = null }, title = { Text(stringResource(R.string.clock_maker_font)) },
-            text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(search, { search = it }, singleLine = true,
+                    label = { Text(stringResource(R.string.clock_maker_search_fonts)) }, modifier = Modifier.fillMaxWidth())
                 TextButton(enabled = allowImport && !importing, onClick = {
                     fontTarget = selectedId
                     importer.launch(arrayOf("*/*"))
                 }) { Text(stringResource(if (importing) R.string.clock_maker_importing else R.string.clock_maker_import_font)) }
-                (ClockFonts.families.map { it to it } + bundledFonts + fonts.map { it.family to it.name }).forEach { (family, name) ->
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        FontOption(family, name, Modifier.weight(1f).clickable {
-                            design.elements.firstOrNull { it.id == selectedId }?.let { edit(it.copy(font = family)) }
-                            dialog = null
-                        })
-                        fonts.firstOrNull { it.family == family }?.let { font ->
-                            TextButton(onClick = { removeFont = font }) { Text(stringResource(R.string.clock_maker_remove)) }
+                LazyColumn(Modifier.heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (choices.isEmpty()) {
+                        item {
+                            Text(
+                                stringResource(if (search.isBlank()) R.string.clock_maker_fonts_empty
+                                    else R.string.clock_maker_fonts_no_match),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                            )
+                        }
+                    } else {
+                        items(choices, key = { it.first }) { (family, name) ->
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                val selected = design.elements.firstOrNull { it.id == selectedId }?.font == family
+                                FontOption(family, name, Modifier.weight(1f).clip(MaterialTheme.shapes.large)
+                                    .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).clickable {
+                                    design.elements.firstOrNull { it.id == selectedId }?.let { edit(it.copy(font = family)) }
+                                    dialog = null
+                                })
+                                fonts.firstOrNull { it.family == family }?.let { font ->
+                                    TextButton(onClick = { removeFont = font }) { Text(stringResource(R.string.clock_maker_remove)) }
+                                }
+                            }
                         }
                     }
                 }
@@ -473,6 +731,11 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
         AlertDialog(onDismissRequest = { error = false }, title = { Text(stringResource(R.string.clock_maker_font_error)) },
             text = { Text(stringResource(R.string.clock_maker_font_error_summary)) },
             confirmButton = { TextButton(onClick = { error = false }) { Text(stringResource(android.R.string.ok)) } })
+    }
+    if (imageError) {
+        AlertDialog(onDismissRequest = { imageError = false }, title = { Text(stringResource(R.string.clock_maker_image_error)) },
+            text = { Text(stringResource(R.string.clock_maker_image_error_summary)) },
+            confirmButton = { TextButton(onClick = { imageError = false }) { Text(stringResource(android.R.string.ok)) } })
     }
 }
 
@@ -504,9 +767,56 @@ private fun ElementContent(element: ClockElement, onChange: (ClockElement) -> Un
 }
 
 @Composable
+private fun ImageSizeControls(element: ClockElement, onChange: (ClockElement) -> Unit) {
+    TuningSwitch(stringResource(R.string.clock_maker_lock_aspect), element.imageAspectLocked) {
+        onChange(element.copy(imageAspectLocked = it, imageAspectRatio = element.imageWidth.toFloat() / element.imageHeight))
+    }
+    TuningSlider(stringResource(R.string.clock_maker_image_width), element.imageWidth, 16..360, "", 120) {
+        onChange(element.resizeImage(width = it))
+    }
+    TuningSlider(stringResource(R.string.clock_maker_image_height), element.imageHeight, 16..720, "", 120) {
+        onChange(element.resizeImage(height = it))
+    }
+    TuningSlider(stringResource(R.string.gallery_clock_opacity), element.opacity, 0..100, "%", 100) {
+        onChange(element.copy(opacity = it))
+    }
+    Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ClockImageFit.entries.forEach { fit ->
+            FilterChip(element.imageFit == fit, { onChange(element.copy(imageFit = fit)) },
+                label = { Text(stringResource(if (fit == ClockImageFit.CROP) R.string.clock_maker_crop else R.string.clock_maker_fit)) })
+        }
+    }
+}
+
+@Composable
+private fun ShapePicker(shape: String, onChange: (String) -> Unit) {
+    LazyVerticalGrid(columns = GridCells.Adaptive(88.dp), modifier = Modifier.fillMaxWidth()
+        .height(300.dp).padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(ClockImageShapes.ids, key = { it }) { id ->
+            val isSelected = id == shape
+            val tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            Surface(onClick = { onChange(id) }, shape = MaterialTheme.shapes.large,
+                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.semantics { selected = isSelected }) {
+                Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.size(40.dp).drawWithCache {
+                        val path = ClockImageShapes.path(id, size.width, size.height).asComposePath()
+                        onDrawBehind { drawPath(path, tint) }
+                    })
+                    Text(shapeLabel(id), style = MaterialTheme.typography.labelMedium, color = tint,
+                        textAlign = TextAlign.Center, minLines = 2)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun FontOption(family: String, name: String, modifier: Modifier) {
     val context = LocalContext.current
-    val face by produceState(Typeface.DEFAULT, family) {
+    val face by produceState(Typeface.DEFAULT, context.userId, family) {
         value = withContext(Dispatchers.IO) { ClockFonts.load(context, context.userId, family) }
     }
     Column(modifier.padding(8.dp)) {
@@ -515,12 +825,88 @@ private fun FontOption(family: String, name: String, modifier: Modifier) {
     }
 }
 
+/**
+ * The clock-maker font library is a static resource dependency. Keep a small resource fallback
+ * here because a stale resource table can make ClockFonts.bundled() return an empty list even
+ * though the bundled font array is present in the application.
+ */
+private fun bundledFontChoices(context: Context): List<Pair<String, String>> {
+    val bundled = ClockFonts.bundled(context)
+    val fallback = runCatching {
+        val arrayId = sequenceOf("org.lunaris.clockmaker.fonts", context.packageName)
+            .map { packageName -> context.resources.getIdentifier("clock_maker_fonts", "array", packageName) }
+            .firstOrNull { it != 0 } ?: 0
+        if (arrayId == 0) {
+            emptyList()
+        } else {
+            val array = context.resources.obtainTypedArray(arrayId)
+            try {
+                (0 until array.length()).mapNotNull { index ->
+                    array.getResourceId(index, 0).takeIf { it != 0 }?.let { resourceId ->
+                        runCatching {
+                            val entry = context.resources.getResourceEntryName(resourceId)
+                            "bundled:$entry" to entry.replace('_', ' ').replace('-', ' ')
+                        }.getOrNull()
+                    }
+                }.distinctBy { it.first.lowercase(Locale.ROOT) }
+                    .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.second })
+            } finally {
+                array.recycle()
+            }
+        }
+    }.getOrDefault(emptyList())
+    return (bundled + fallback)
+        .distinctBy { it.first.lowercase(Locale.ROOT) }
+        .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.second })
+}
+
 @Composable
 private fun elementLabel(kind: ClockElementKind): String = stringResource(when (kind) {
     ClockElementKind.TIME -> R.string.clock_maker_time
     ClockElementKind.DATE -> R.string.clock_maker_date
     ClockElementKind.WEATHER -> R.string.gallery_clock_weather
     ClockElementKind.TEXT -> R.string.clock_maker_text
+    ClockElementKind.IMAGE -> R.string.clock_maker_image
+})
+
+@Composable
+private fun shapeLabel(id: String): String = stringResource(when (id) {
+    "Circle" -> R.string.clock_maker_shape_circle
+    "Square" -> R.string.clock_maker_shape_square
+    "Slanted" -> R.string.clock_maker_shape_slanted
+    "Arch" -> R.string.clock_maker_shape_arch
+    "Fan" -> R.string.clock_maker_shape_fan
+    "Arrow" -> R.string.clock_maker_shape_arrow
+    "SemiCircle" -> R.string.clock_maker_shape_semicircle
+    "Oval" -> R.string.clock_maker_shape_oval
+    "Pill" -> R.string.clock_maker_shape_pill
+    "Triangle" -> R.string.clock_maker_shape_triangle
+    "Diamond" -> R.string.clock_maker_shape_diamond
+    "ClamShell" -> R.string.clock_maker_shape_clamshell
+    "Pentagon" -> R.string.clock_maker_shape_pentagon
+    "Gem" -> R.string.clock_maker_shape_gem
+    "Sunny" -> R.string.clock_maker_shape_sunny
+    "VerySunny" -> R.string.clock_maker_shape_verysunny
+    "Cookie4Sided" -> R.string.clock_maker_shape_cookie4sided
+    "Cookie6Sided" -> R.string.clock_maker_shape_cookie6sided
+    "Cookie7Sided" -> R.string.clock_maker_shape_cookie7sided
+    "Cookie9Sided" -> R.string.clock_maker_shape_cookie9sided
+    "Cookie12Sided" -> R.string.clock_maker_shape_cookie12sided
+    "Ghostish" -> R.string.clock_maker_shape_ghostish
+    "Clover4Leaf" -> R.string.clock_maker_shape_clover4leaf
+    "Clover8Leaf" -> R.string.clock_maker_shape_clover8leaf
+    "Burst" -> R.string.clock_maker_shape_burst
+    "SoftBurst" -> R.string.clock_maker_shape_softburst
+    "Boom" -> R.string.clock_maker_shape_boom
+    "SoftBoom" -> R.string.clock_maker_shape_softboom
+    "Flower" -> R.string.clock_maker_shape_flower
+    "Puffy" -> R.string.clock_maker_shape_puffy
+    "PuffyDiamond" -> R.string.clock_maker_shape_puffydiamond
+    "PixelCircle" -> R.string.clock_maker_shape_pixelcircle
+    "PixelTriangle" -> R.string.clock_maker_shape_pixeltriangle
+    "Bun" -> R.string.clock_maker_shape_bun
+    "Heart" -> R.string.clock_maker_shape_heart
+    else -> R.string.clock_maker_shape_none
 })
 
 private val ELEMENT_COLOURS: List<Int?> = listOf(null, 0xFFFFFFFF.toInt(), 0xFF000000.toInt(),

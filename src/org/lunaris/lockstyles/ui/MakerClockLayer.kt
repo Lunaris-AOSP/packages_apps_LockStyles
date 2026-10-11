@@ -36,25 +36,29 @@ import org.lunaris.lockstyles.CustomClocks
 
 @Composable
 fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Modifier = Modifier,
-    thumbnail: Boolean = false, selectedId: String? = null, onSelect: ((String) -> Unit)? = null,
+    thumbnail: Boolean = false, dozing: Boolean = false, selectedId: String? = null, onSelect: ((String) -> Unit)? = null,
     onMove: ((String, Float, Float) -> Unit)? = null, onDragFinished: (() -> Unit)? = null) {
     val context = LocalContext.current
     val fallback = remember { ClockDesign() }
     val selectionColor = MaterialTheme.colorScheme.primary.toArgb()
     AndroidView(factory = { MakerPreview(it) }, modifier = modifier.fillMaxSize(), update = {
         it.thumbnail = thumbnail
+        it.dozing = dozing
         it.tuning = tuning
         it.clock.selectedId = selectedId
         it.clock.selectionColor = selectionColor
         it.clock.onSelect = onSelect
         it.clock.onMove = onMove
         it.clock.onDragFinished = onDragFinished
+        // AOD previews must use the same non-animated image path as the dozing lock screen.
+        it.clock.animationsEnabled = !thumbnail && !dozing && tuning.opacity > 0
         val design = style.design ?: fallback
         if (it.clock.design != design) it.clock.setDesign(design)
         it.clock.setAppearance(ClockDesignAppearance(
             color = if (tuning.accent) context.getColor(android.R.color.system_accent1_100) else style.color ?: Color.WHITE,
             gradient = tuning.gradient, gradientStart = tuning.gradientStart, gradientEnd = tuning.gradientEnd,
-            gradientAnchor = tuning.gradientAnchorY, gradientRadius = tuning.gradientRadius, weather = tuning.weather))
+            gradientAnchor = tuning.gradientAnchorY, gradientRadius = tuning.gradientRadius,
+            weather = tuning.weather, dozing = dozing))
         it.requestLayout()
     })
 }
@@ -63,6 +67,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     val clock = ClockDesignView(context)
     var tuning = CustomClocks.Tuning()
     var thumbnail = false
+    var dozing = false
     private var frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE)
     private val stage = object : ViewGroup(context) {
         init {
@@ -90,7 +95,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
             clock.rotationY = tuning.tiltY.toFloat()
             clock.cameraDistance = maxOf(maxOf(w, h) * 4f, 1280f * resources.displayMetrics.density)
             clock.alpha = frame.alpha
-            clock.setRenderEffect(if (tuning.shadowEnabled) ClockEffects.shadow(tuning.shadowColor,
+            clock.setRenderEffect(if (tuning.shadowEnabled && !dozing) ClockEffects.shadow(tuning.shadowColor,
                 tuning.shadowOpacity, tuning.shadowSoftness, resources.displayMetrics.density) else null)
         }
     }

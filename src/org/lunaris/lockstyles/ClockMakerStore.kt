@@ -47,9 +47,11 @@ class ClockMakerStore(context: Context) {
         get() = readArray("fonts").let { a ->
             (0 until a.length()).mapNotNull { i ->
                 a.optJSONObject(i)?.let { j ->
-                    ImportedFont(j.optString("id"), j.optString("name")).takeIf { file(it.id)?.isFile == true }
+                    ImportedFont(j.optString("id"), j.optString("name").trim()).takeIf {
+                        it.name.isNotEmpty() && file(it.id)?.isFile == true
+                    }
                 }
-            }
+            }.distinctBy { it.id }
         }
 
     private fun readArray(key: String): JSONArray =
