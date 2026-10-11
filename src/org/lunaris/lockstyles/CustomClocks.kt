@@ -2,9 +2,11 @@ package org.lunaris.lockstyles
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.LinearGradient
+import android.graphics.Paint
 import android.graphics.Shader
 import android.provider.Settings
 import android.util.AttributeSet
@@ -17,6 +19,8 @@ import android.view.ViewGroup
 import android.widget.TextClock
 import android.widget.TextView
 import org.json.JSONObject
+import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /**
  * The custom lock screen clock styles from Singularity. SystemUI owns the layouts that are
@@ -33,6 +37,10 @@ object CustomClocks {
     private const val KEY_SIZE = "lock_screen_custom_clock_size_scale"
     private const val KEY_MARGIN_TOP = "lock_screen_custom_clock_margin_top"
     private const val KEY_OPACITY = "lock_screen_custom_clock_opacity"
+    private const val KEY_SHADOW_ENABLED = "lock_screen_custom_clock_shadow_enabled"
+    private const val KEY_SHADOW_COLOR = "lock_screen_custom_clock_shadow_color"
+    private const val KEY_SHADOW_SOFTNESS = "lock_screen_custom_clock_shadow_softness"
+    private const val KEY_SHADOW_OPACITY = "lock_screen_custom_clock_shadow_opacity"
     private const val CATEGORY_HIDE_CLOCK = "android.theme.customization.hideclock"
     private const val CATEGORY_SMARTSPACE = "android.theme.customization.smartspace"
     private const val OVERLAY_HIDE_CLOCK = "com.android.systemui.clocks.hideclock"
@@ -73,6 +81,10 @@ object CustomClocks {
     data class Tuning(
         val scale: Int = 100,
         val opacity: Int = 100,
+        val shadowEnabled: Boolean = false,
+        val shadowColor: Int = Color.BLACK,
+        val shadowSoftness: Int = 8,
+        val shadowOpacity: Int = 35,
         val marginTop: Int = 15,
         val marginStart: Int = 0,
         val rotation: Int = 0,
@@ -90,6 +102,13 @@ object CustomClocks {
         val wobbleOnCharge: Boolean = true,
         val weather: Boolean = true,
     ) {
+        val shadowArgb: Int
+            get() = if (shadowEnabled) {
+                Color.argb((Color.alpha(shadowColor) * shadowOpacity.coerceIn(0, 100) / 100f)
+                    .roundToInt(), Color.red(shadowColor), Color.green(shadowColor),
+                    Color.blue(shadowColor))
+            } else Color.TRANSPARENT
+
         companion object {
             fun load(context: Context): Tuning {
                 val cr = context.contentResolver
@@ -100,6 +119,10 @@ object CustomClocks {
                 return Tuning(
                     scale = int(KEY_SIZE, d.scale),
                     opacity = int(KEY_OPACITY, d.opacity),
+                    shadowEnabled = int(KEY_SHADOW_ENABLED, 0) != 0,
+                    shadowColor = int(KEY_SHADOW_COLOR, d.shadowColor),
+                    shadowSoftness = int(KEY_SHADOW_SOFTNESS, d.shadowSoftness).coerceIn(0, 30),
+                    shadowOpacity = int(KEY_SHADOW_OPACITY, d.shadowOpacity).coerceIn(0, 100),
                     marginTop = int(KEY_MARGIN_TOP, d.marginTop),
                     marginStart = int(KEY_MARGIN_START, d.marginStart),
                     rotation = int(KEY_ROTATION, d.rotation).coerceIn(-180, 180),
@@ -125,6 +148,10 @@ object CustomClocks {
                 return Tuning(
                     scale = json.optInt("scale", d.scale),
                     opacity = json.optInt("opacity", d.opacity),
+                    shadowEnabled = json.optBoolean("shadowEnabled", d.shadowEnabled),
+                    shadowColor = json.optInt("shadowColor", d.shadowColor),
+                    shadowSoftness = json.optInt("shadowSoftness", d.shadowSoftness).coerceIn(0, 30),
+                    shadowOpacity = json.optInt("shadowOpacity", d.shadowOpacity).coerceIn(0, 100),
                     marginTop = json.optInt("marginTop", d.marginTop),
                     marginStart = json.optInt("marginStart", d.marginStart),
                     rotation = json.optInt("rotation", d.rotation),
@@ -148,6 +175,10 @@ object CustomClocks {
         fun toJson(): JSONObject = JSONObject()
             .put("scale", scale)
             .put("opacity", opacity)
+            .put("shadowEnabled", shadowEnabled)
+            .put("shadowColor", shadowColor)
+            .put("shadowSoftness", shadowSoftness)
+            .put("shadowOpacity", shadowOpacity)
             .put("marginTop", marginTop)
             .put("marginStart", marginStart)
             .put("rotation", rotation)
@@ -171,6 +202,10 @@ object CustomClocks {
             fun put(key: String, value: Boolean) = put(key, if (value) 1 else 0)
             put(KEY_SIZE, scale)
             put(KEY_OPACITY, opacity)
+            put(KEY_SHADOW_ENABLED, shadowEnabled)
+            put(KEY_SHADOW_COLOR, shadowColor)
+            put(KEY_SHADOW_SOFTNESS, shadowSoftness.coerceIn(0, 30))
+            put(KEY_SHADOW_OPACITY, shadowOpacity.coerceIn(0, 100))
             put(KEY_MARGIN_TOP, marginTop)
             put(KEY_MARGIN_START, marginStart)
             put(KEY_ROTATION, rotation)
@@ -221,6 +256,12 @@ object CustomClocks {
     fun supportsHorizontalMargin(style: Int) = style !in NO_HORIZONTAL_MARGIN
     fun supportsHyperBlur(style: Int) = style in 93..102
 
+    private fun shadowPadding(context: Context, tuning: Tuning?): Int {
+        if (tuning == null || Color.alpha(tuning.shadowArgb) == 0) return 0
+        return ceil((tuning.shadowSoftness.coerceIn(0, 30) * 2f + 2f) *
+            context.resources.displayMetrics.density + 2f).toInt()
+    }
+
     fun frame(context: Context, tuning: Tuning = Tuning.load(context), style: Int = 0): Frame {
         val density = context.resources.displayMetrics.density
         val screen = context.resources.displayMetrics.widthPixels
@@ -258,7 +299,8 @@ object CustomClocks {
             val inflater = LayoutInflater.from(cat.inflateContext).cloneInContext(
                 cat.inflateContext).apply { factory2 = SystemUiViews(cat.systemUi?.classLoader) }
             val view = inflater.inflate(cat.layouts[style], null)
-            prepare(view, if (isColourable(style)) color ?: Color.WHITE else null)
+            prepare(view, if (isColourable(style)) color ?: Color.WHITE else null,
+                tuning?.shadowEnabled == true)
             view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
             view.layout(0, 0, view.measuredWidth, view.measuredHeight)
@@ -266,10 +308,15 @@ object CustomClocks {
             if (isColourable(style)) {
                 prepareColours(view, view, color ?: Color.WHITE, tuning)
             }
-            Bitmap.createBitmap(view.measuredWidth, view.measuredHeight, Bitmap.Config.ARGB_8888)
+            val padding = shadowPadding(context, tuning)
+            Bitmap.createBitmap(view.measuredWidth + padding * 2,
+                view.measuredHeight + padding * 2, Bitmap.Config.ARGB_8888)
                 .let {
-                    view.draw(Canvas(it))
-                    if (trim) trimmed(it) else it
+                    val canvas = Canvas(it)
+                    canvas.translate(padding.toFloat(), padding.toFloat())
+                    view.draw(canvas)
+                    val preview = addShadow(it, context, tuning)
+                    if (trim) trimmed(preview) else preview
                 }
                 ?.also { previews.put(key, it) }
         } catch (e: Exception) {
@@ -304,7 +351,7 @@ object CustomClocks {
             onCreateView(null, name, context, attrs)
     }
 
-    private fun prepare(view: View, color: Int?) {
+    private fun prepare(view: View, color: Int?, customShadow: Boolean) {
         if (view is TextView) {
             // Detached views never tick, and single-line centred text is only scrolled into
             // place once attached, so both are done by hand.
@@ -319,12 +366,34 @@ object CustomClocks {
             }
             // The lock screen dims the wallpaper behind the clock and the previews don't, so
             // white clocks vanish on light wallpapers without this.
-            view.setShadowLayer(view.textSize * 0.08f, 0f, view.textSize * 0.02f, PREVIEW_SHADOW)
+            if (!customShadow) {
+                view.setShadowLayer(view.textSize * 0.08f, 0f, view.textSize * 0.02f, PREVIEW_SHADOW)
+            }
         }
         if (view is ViewGroup) {
             view.clipChildren = false
-            for (i in 0 until view.childCount) prepare(view.getChildAt(i), color)
+            view.clipToPadding = false
+            for (i in 0 until view.childCount) prepare(view.getChildAt(i), color, customShadow)
         }
+    }
+
+    private fun addShadow(bitmap: Bitmap, context: Context, tuning: Tuning?): Bitmap {
+        if (tuning == null || Color.alpha(tuning.shadowArgb) == 0) return bitmap
+        val density = context.resources.displayMetrics.density
+        val radius = tuning.shadowSoftness.coerceIn(0, 30) * density
+        val blur = Paint().apply {
+            if (radius > 0f) maskFilter = BlurMaskFilter(radius, BlurMaskFilter.Blur.NORMAL)
+        }
+        val offset = IntArray(2)
+        val mask = bitmap.extractAlpha(blur, offset)
+        val preview = Bitmap.createBitmap(bitmap.width, bitmap.height, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(preview)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = tuning.shadowArgb }
+        canvas.drawBitmap(mask, offset[0].toFloat(), offset[1] + 2f * density, paint)
+        canvas.drawBitmap(bitmap, 0f, 0f, null)
+        mask.recycle()
+        bitmap.recycle()
+        return preview
     }
 
     /** Match ClockStyle's vertical gradient and HyperClockView colour API after measuring. */

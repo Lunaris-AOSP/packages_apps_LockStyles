@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -241,13 +242,16 @@ fun CustomClockLayer(
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val bitmap = preview ?: return@BoxWithConstraints
+        val shadowPadding = (bitmap.width - frame.width) / 2
         val k = constraints.maxWidth / context.resources.displayMetrics.widthPixels.toFloat()
         val density = LocalDensity.current
         Image(
             bitmap.asImageBitmap(), null,
             Modifier
-                .offset { IntOffset((frame.side * k).toInt(), (frame.top * k).toInt()) }
-                .size(with(density) { (frame.width * k).toDp() },
+                .offset { IntOffset(((frame.side - shadowPadding) * k).toInt(),
+                    ((frame.top - shadowPadding) * k).toInt()) }
+                .wrapContentSize(Alignment.TopStart, unbounded = true)
+                .size(with(density) { (bitmap.width * k).toDp() },
                     with(density) { (bitmap.height * k).toDp() })
                 .graphicsLayer {
                     transformOrigin = TransformOrigin.Center
@@ -257,7 +261,7 @@ fun CustomClockLayer(
                     rotationX = currentTuning.tiltX.toFloat()
                     rotationY = currentTuning.tiltY.toFloat()
                     rotationZ = currentTuning.rotation.toFloat()
-                    cameraDistance = maxOf(maxOf(frame.width, bitmap.height) * 4f,
+                    cameraDistance = maxOf(maxOf(frame.width, bitmap.height - shadowPadding * 2) * 4f,
                         1280f * context.resources.displayMetrics.density) * k
                 },
             contentScale = ContentScale.FillBounds,

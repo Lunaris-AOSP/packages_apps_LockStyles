@@ -39,6 +39,10 @@
     <string name="gallery_clock_gradient_end">End colour</string>
     <string name="gallery_clock_gradient_position">Gradient position</string>
     <string name="gallery_clock_gradient_spread">Gradient spread</string>
+    <string name="gallery_clock_shadow">Shadow</string>
+    <string name="gallery_clock_shadow_colour">Shadow colour</string>
+    <string name="gallery_clock_shadow_softness">Shadow softness</string>
+    <string name="gallery_clock_shadow_opacity">Shadow opacity</string>
     <string name="gallery_clock_adjust">Adjust</string>
     <string name="gallery_clock_size">Size</string>
     <string name="gallery_clock_opacity">Opacity</string>

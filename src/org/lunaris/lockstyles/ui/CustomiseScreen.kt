@@ -684,6 +684,23 @@ private fun ClockSheet(
             }
         }
         if (clock.face > 0) {
+            TuningSwitch(stringResource(R.string.gallery_clock_shadow), tuning.shadowEnabled) {
+                onTuning(tuning.copy(shadowEnabled = it))
+            }
+            if (tuning.shadowEnabled) {
+                SheetLabel(stringResource(R.string.gallery_clock_shadow_colour))
+                ClockColourPicker(SHADOW_COLOURS, tuning.shadowColor, wallpaper, allowPhotoPicking) {
+                    onTuning(tuning.copy(shadowColor = it ?: CustomClocks.Tuning().shadowColor))
+                }
+                TuningSlider(stringResource(R.string.gallery_clock_shadow_softness),
+                    tuning.shadowSoftness, 0..30, " dp", CustomClocks.Tuning().shadowSoftness) {
+                    onTuning(tuning.copy(shadowSoftness = it))
+                }
+                TuningSlider(stringResource(R.string.gallery_clock_shadow_opacity),
+                    tuning.shadowOpacity, 0..100, "%", CustomClocks.Tuning().shadowOpacity) {
+                    onTuning(tuning.copy(shadowOpacity = it))
+                }
+            }
             Text(stringResource(R.string.gallery_clock_adjust), color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 20.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp))
@@ -734,6 +751,8 @@ private fun ClockSheet(
 private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
     0xFFFFD60A.toInt(), 0xFFFF9F0A.toInt(), 0xFF30D158.toInt(), 0xFFBF5AF2.toInt(),
     0xFF0A84FF.toInt(), 0xFFFFFFFF.toInt())
+
+private val SHADOW_COLOURS = listOf(0xFF000000.toInt()) + CLOCK_COLOURS.filterNotNull()
 
 @Composable
 private fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: GalleryWallpaper,
