@@ -54,6 +54,8 @@
     <string name="clock_maker_preview_aod">Preview AOD</string>
     <string name="clock_maker_preview_aod_paused">AOD preview · animated images paused</string>
     <string name="clock_maker_drag_editor">Drag to resize the clock editor</string>
+    <string name="clock_maker_editor_fullscreen">Use full-screen preview with draggable editor</string>
+    <string name="clock_maker_editor_split">Use split preview and editor</string>
     <string name="clock_maker_fonts_empty">No fonts are available.</string>
     <string name="clock_maker_fonts_no_match">No fonts match your search.</string>
     <string name="clock_maker_bring_forward">Bring forward</string>

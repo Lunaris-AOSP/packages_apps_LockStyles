@@ -83,6 +83,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Redo
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Undo
@@ -165,6 +167,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     var imageTarget by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
     var imageDesign by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
     var previewAod by remember(draftKey) { mutableStateOf(false) }
+    var fullScreenEditor by rememberSaveable(draftKey) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val clock = initial.copy(face = ClockDesign.STYLE, design = design, tuning = tuning, color = color)
     val latestClock by rememberUpdatedState(clock)
@@ -274,6 +277,13 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
+                    )
+                }
+                IconButton(onClick = { fullScreenEditor = !fullScreenEditor }) {
+                    Icon(
+                        if (fullScreenEditor) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                        stringResource(if (fullScreenEditor) R.string.clock_maker_editor_split
+                            else R.string.clock_maker_editor_fullscreen),
                     )
                 }
                 IconButton(enabled = undo.isNotEmpty(), onClick = {
@@ -546,6 +556,11 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     preview(Modifier.weight(0.9f).fillMaxSize())
                     editor(Modifier.weight(1.1f).fillMaxSize(), Modifier)
+                }
+            } else if (!fullScreenEditor) {
+                Column(Modifier.fillMaxSize()) {
+                    preview(Modifier.weight(0.9f))
+                    editor(Modifier.weight(1.1f), Modifier)
                 }
             } else {
                 val sheetHeight = maxHeight * 0.86f
