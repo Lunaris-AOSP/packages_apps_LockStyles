@@ -2,6 +2,7 @@ package org.lunaris.lockstyles
 
 import org.json.JSONArray
 import org.json.JSONObject
+import org.lunaris.clockmaker.ClockDesign
 
 /** Everything needed to draw one gallery wallpaper; kept as JSON in [GalleryStore]. */
 data class GalleryWallpaper(
@@ -138,6 +139,7 @@ data class ClockStyle(
     val small: Boolean = false,
     /** Null preserves the current tuning for lock screens saved by older versions. */
     val tuning: CustomClocks.Tuning? = null,
+    val design: ClockDesign? = null,
 ) {
     fun toJson(): JSONObject =
         JSONObject()
@@ -147,6 +149,7 @@ data class ClockStyle(
             .put("color", color ?: JSONObject.NULL)
             .put("small", small)
             .put("tuning", tuning?.toJson() ?: JSONObject.NULL)
+            .put("design", design?.toJson() ?: JSONObject.NULL)
 
     companion object {
         fun fromJson(json: JSONObject) =
@@ -157,6 +160,7 @@ data class ClockStyle(
                 color = if (json.isNull("color")) null else json.optInt("color"),
                 small = json.optBoolean("small"),
                 tuning = json.optJSONObject("tuning")?.let(CustomClocks.Tuning::fromJson),
+                design = json.optJSONObject("design")?.let { runCatching { ClockDesign.fromJson(it) }.getOrNull() },
             )
     }
 }

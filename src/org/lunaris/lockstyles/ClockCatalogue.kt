@@ -110,5 +110,6 @@ internal object ClockCatalogue {
         "keyguard_clock_graffiti_art" to "Graffiti Art", // 100
         "keyguard_clock_graffiti_stack" to "Graffiti Stack", // 101
         "keyguard_clock_graffiti_compact" to "Graffiti Compact", // 102
+        "keyguard_clock_maker" to "Clock Maker",
     )
 }

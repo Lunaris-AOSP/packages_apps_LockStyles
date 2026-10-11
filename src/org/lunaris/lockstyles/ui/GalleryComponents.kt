@@ -62,6 +62,7 @@ import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWeather
+import org.lunaris.clockmaker.ClockDesign
 import java.io.File
 import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
@@ -196,6 +197,11 @@ fun LockClock(
     fixedTime: Boolean = false,
     onLight: Boolean = false,
 ) {
+    if (style.face == ClockDesign.STYLE) {
+        MakerClockLayer(style, style.tuning ?: CustomClocks.Tuning(),
+            modifier.width(widthDp).height(heightDp), thumbnail = true)
+        return
+    }
     if (style.face <= 0) {
         ClockText(style, heightDp, modifier, fixedTime, onLight)
         return
@@ -229,6 +235,10 @@ fun CustomClockLayer(
     val context = LocalContext.current
     val fallbackTuning = remember { CustomClocks.Tuning.load(context) }
     val currentTuning = tuning ?: style.tuning ?: fallbackTuning
+    if (style.face == ClockDesign.STYLE) {
+        MakerClockLayer(style, currentTuning, modifier)
+        return
+    }
     val frame = remember(currentTuning, style.face) {
         CustomClocks.frame(context, currentTuning, style.face)
     }

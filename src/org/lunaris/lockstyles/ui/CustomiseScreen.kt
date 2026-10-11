@@ -108,6 +108,7 @@ import org.lunaris.lockstyles.HomeStyle
 import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.Shortcuts
 import org.lunaris.lockstyles.R
+import org.lunaris.clockmaker.ClockDesign
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlin.math.abs
@@ -141,9 +142,20 @@ fun CustomiseScreen(
     var wallpaper by remember { mutableStateOf(initial.wallpaper.copy(effect = 0)) }
     var clock by remember { mutableStateOf(initial.clock) }
     var tuning by remember { mutableStateOf(initial.clock.tuning ?: CustomClocks.Tuning.load(context)) }
+    var showMaker by remember { mutableStateOf(false) }
     var sheet by remember { mutableStateOf<String?>(if (openClock) "clock" else null) }
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
+    if (showMaker) {
+        ClockMakerScreen(clock.copy(face = ClockDesign.STYLE, tuning = tuning), wallpaper,
+            initial.id, allowPhotoPicking, onCancel = { showMaker = false }, onSave = {
+                clock = it
+                tuning = it.tuning ?: tuning
+                sheet = null
+                showMaker = false
+            })
+        return
+    }
     LaunchedEffect(Unit) {
         weather = withContext(Dispatchers.IO) { GalleryWeather.query(context) }
     }
@@ -233,7 +245,8 @@ fun CustomiseScreen(
 
     if (sheet == "clock") {
         ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            ClockSheet(clock, tuning, wallpaper, allowPhotoPicking, { clock = it }, { tuning = it })
+            ClockSheet(clock, tuning, wallpaper, allowPhotoPicking, { clock = it }, { tuning = it },
+                onMaker = { showMaker = true })
         }
     }
     if (sheet == "shortcuts") {
@@ -559,13 +572,15 @@ private fun VariantStrip(
 private val VARIANT_WIDTH = 52.dp
 
 @Composable
-private fun ClockSheet(
+internal fun ClockSheet(
     clock: ClockStyle,
     tuning: CustomClocks.Tuning,
     wallpaper: GalleryWallpaper,
     allowPhotoPicking: Boolean,
     onChange: (ClockStyle) -> Unit,
     onTuning: (CustomClocks.Tuning) -> Unit,
+    onMaker: (() -> Unit)? = null,
+    showStyles: Boolean = true,
 ) {
     val context = LocalContext.current
     val styles by produceState(emptyList<String>()) {
@@ -576,7 +591,12 @@ private fun ClockSheet(
     Column(Modifier.fillMaxWidth().heightIn(max = maxHeight)
         .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        if (styles.size > 1) {
+        if (onMaker != null) {
+            TextButton(onClick = onMaker, modifier = Modifier.padding(horizontal = 12.dp)) {
+                Text(stringResource(R.string.clock_maker_title), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            }
+        }
+        if (showStyles && styles.size > 1) {
             Text(stringResource(R.string.gallery_clock_style), color = MaterialTheme.colorScheme.onSurface,
                 fontSize = 20.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(horizontal = 20.dp))
@@ -755,7 +775,7 @@ private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
 private val SHADOW_COLOURS = listOf(0xFF000000.toInt()) + CLOCK_COLOURS.filterNotNull()
 
 @Composable
-private fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: GalleryWallpaper,
+internal fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: GalleryWallpaper,
         allowPhotoPicking: Boolean, onChange: (Int?) -> Unit) {
     var showPicker by remember { mutableStateOf(false) }
     var showWallpaper by remember { mutableStateOf(false) }
@@ -806,7 +826,7 @@ private fun SheetLabel(text: String) {
 }
 
 @Composable
-private fun TuningSlider(
+internal fun TuningSlider(
     label: String,
     value: Int,
     range: IntRange,
@@ -833,7 +853,7 @@ private fun TuningSlider(
 }
 
 @Composable
-private fun TuningSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun TuningSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Text(label, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, modifier = Modifier.weight(1f))

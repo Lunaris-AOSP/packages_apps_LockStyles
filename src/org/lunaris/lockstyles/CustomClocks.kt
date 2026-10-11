@@ -21,6 +21,7 @@ import android.widget.TextView
 import org.json.JSONObject
 import kotlin.math.ceil
 import kotlin.math.roundToInt
+import org.lunaris.clockmaker.ClockDesign
 
 /**
  * The custom lock screen clock styles from Singularity. SystemUI owns the layouts that are
@@ -461,8 +462,11 @@ object CustomClocks {
      * Applies [style] as Settings would. Switching between the default clock and a custom one
      * needs SystemUI to restart, as parts of the keyguard only read it at startup.
      */
-    fun apply(context: Context, style: Int, color: Int?, tuning: Tuning? = null) {
+    fun apply(context: Context, style: Int, color: Int?, tuning: Tuning? = null, design: ClockDesign? = null) {
         val resolver = context.contentResolver
+        if (style == ClockDesign.STYLE) {
+            Settings.Secure.putString(resolver, ClockDesign.SETTING, (design ?: ClockDesign()).toJson().toString())
+        }
         val before = runCatching { Settings.Secure.getInt(resolver, KEY_STYLE, 0) }.getOrDefault(0)
         Settings.Secure.putInt(resolver, KEY_STYLE, style)
         val stockClockVisibilityChanged = (before == 0) != (style == 0)

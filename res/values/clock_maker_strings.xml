@@ -1,0 +1,40 @@
+<resources>
+    <string name="clock_maker_title">Clock Maker</string>
+    <string name="clock_maker_save">Save</string>
+    <string name="clock_maker_undo">Undo</string>
+    <string name="clock_maker_redo">Redo</string>
+    <string name="clock_maker_add">Add element</string>
+    <string name="clock_maker_designs">Saved designs</string>
+    <string name="clock_maker_global">Clock settings</string>
+    <string name="clock_maker_name">Design name</string>
+    <string name="clock_maker_new">New design</string>
+    <string name="clock_maker_select">Tap an element on the wallpaper or choose one above to edit it.</string>
+    <string name="clock_maker_content">Content</string>
+    <string name="clock_maker_style">Style</string>
+    <string name="clock_maker_effects">Effects</string>
+    <string name="clock_maker_visible">Visible</string>
+    <string name="clock_maker_duplicate">Duplicate</string>
+    <string name="clock_maker_remove">Remove</string>
+    <string name="clock_maker_font">Typeface</string>
+    <string name="clock_maker_missing_font">System fallback (font removed)</string>
+    <string name="clock_maker_weight">Weight</string>
+    <string name="clock_maker_italic">Italic</string>
+    <string name="clock_maker_spacing">Letter spacing</string>
+    <string name="clock_maker_horizontal">Horizontal position</string>
+    <string name="clock_maker_vertical">Vertical position</string>
+    <string name="clock_maker_inherit">Use clock colours</string>
+    <string name="clock_maker_time">Time</string>
+    <string name="clock_maker_date">Date</string>
+    <string name="clock_maker_text">Text</string>
+    <string name="clock_maker_weather_summary">Shows current weather when the weather service is enabled and has data.</string>
+    <string name="clock_maker_automatic">Automatic</string>
+    <string name="clock_maker_format">Custom format</string>
+    <string name="clock_maker_format_summary">Use date and time patterns such as HH:mm or EEE, MMM d. Leave blank to follow system settings.</string>
+    <string name="clock_maker_import_font">Import TTF or OTF</string>
+    <string name="clock_maker_importing">Importing…</string>
+    <string name="clock_maker_font_sample" translatable="false">09:41 · Thu 11</string>
+    <string name="clock_maker_remove_font">Remove imported font?</string>
+    <string name="clock_maker_remove_font_summary">Elements using this font will fall back to the system typeface, including saved designs.</string>
+    <string name="clock_maker_font_error">Could not update fonts</string>
+    <string name="clock_maker_font_error_summary">Choose a valid TTF or OTF font up to 10 MB. You can keep up to 32 imported fonts.</string>
+</resources>

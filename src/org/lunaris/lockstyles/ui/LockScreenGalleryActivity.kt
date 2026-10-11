@@ -422,7 +422,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
         if (style.face == 0) applyStockClock(style)
         withContext(Dispatchers.IO) {
             runCatching { CustomClocks.apply(this@LockScreenGalleryActivity, style.face,
-                style.color, tuning) }
+                style.color, tuning, style.design) }
         }
     }
 
