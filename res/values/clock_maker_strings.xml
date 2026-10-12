@@ -27,6 +27,12 @@
     <string name="clock_maker_inherit">Use clock colours</string>
     <string name="clock_maker_time">Time</string>
     <string name="clock_maker_date">Date</string>
+    <string name="clock_maker_quicklook">QuickLook</string>
+    <string name="clock_maker_quicklook_summary">Shows live weather and the highest-priority update from your enabled QuickLook sources. Drag it anywhere, or use the position controls in Style.</string>
+    <string name="clock_maker_quicklook_date_fallback">Show date when there are no updates</string>
+    <string name="clock_maker_quicklook_replace_date">Replace with QuickLook</string>
+    <string name="clock_maker_quicklook_restore_date">Replace with date</string>
+    <string name="clock_maker_quicklook_settings">QuickLook sources</string>
     <string name="clock_maker_text">Text</string>
     <string name="clock_maker_weather_summary">Shows current weather when the weather service is enabled and has data.</string>
     <string name="clock_maker_automatic">Automatic</string>

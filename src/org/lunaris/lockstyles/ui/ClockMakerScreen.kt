@@ -756,12 +756,35 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
 
 @Composable
 private fun ElementContent(element: ClockElement, onChange: (ClockElement) -> Unit) {
-    if (element.kind == ClockElementKind.WEATHER) {
+    if (element.kind == ClockElementKind.QUICKLOOK) {
+        val context = LocalContext.current
+        val settings = remember { android.content.Intent("com.android.axion.quicklook.SETTINGS")
+            .setPackage("com.android.axion.quicklook") }
+        val settingsAvailable = remember { settings.resolveActivity(context.packageManager) != null }
+        Text(stringResource(R.string.clock_maker_quicklook_summary), Modifier.padding(horizontal = 20.dp))
+        TuningSwitch(stringResource(R.string.clock_maker_quicklook_date_fallback), element.quickLookDateFallback) {
+            onChange(element.copy(quickLookDateFallback = it))
+        }
+        TextButton(enabled = settingsAvailable, onClick = { context.startActivity(settings) },
+            modifier = Modifier.padding(horizontal = 12.dp)) {
+            Text(stringResource(R.string.clock_maker_quicklook_settings))
+        }
+        TextButton(onClick = { onChange(element.copy(kind = ClockElementKind.DATE)) },
+            modifier = Modifier.padding(horizontal = 12.dp)) {
+            Text(stringResource(R.string.clock_maker_quicklook_restore_date))
+        }
+    } else if (element.kind == ClockElementKind.WEATHER) {
         Text(stringResource(R.string.clock_maker_weather_summary), Modifier.padding(horizontal = 20.dp))
     } else if (element.kind == ClockElementKind.TEXT) {
         OutlinedTextField(element.text, { onChange(element.copy(text = it.take(240))) },
             label = { Text(stringResource(R.string.clock_maker_text)) }, modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp))
     } else {
+        if (element.kind == ClockElementKind.DATE) {
+            TextButton(onClick = { onChange(element.copy(kind = ClockElementKind.QUICKLOOK)) },
+                modifier = Modifier.padding(horizontal = 12.dp)) {
+                Text(stringResource(R.string.clock_maker_quicklook_replace_date))
+            }
+        }
         val presets = if (element.kind == ClockElementKind.TIME) listOf("", "HH:mm", "h:mm a", "HH:mm:ss", "HH\nmm")
             else listOf("", "EEE, MMM d", "EEEE", "dd/MM", "MM/dd", "yyyy-MM-dd")
         Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
@@ -882,6 +905,7 @@ private fun elementLabel(kind: ClockElementKind): String = stringResource(when (
     ClockElementKind.WEATHER -> R.string.gallery_clock_weather
     ClockElementKind.TEXT -> R.string.clock_maker_text
     ClockElementKind.IMAGE -> R.string.clock_maker_image
+    ClockElementKind.QUICKLOOK -> R.string.clock_maker_quicklook
 })
 
 @Composable
