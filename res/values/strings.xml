@@ -10,6 +10,8 @@
     <string name="gallery_applied">Lock screen applied</string>
     <string name="clock_style_in_gallery">Clock style</string>
     <string name="clock_style_in_gallery_summary">Style, colour and size, set for each lock screen in Customise</string>
+    <string name="notifications_above_clock_title">Notifications above clock</string>
+    <string name="notifications_above_clock_summary">Show notifications near the top of the lock screen, over custom clocks, so full-screen styles do not push them off-screen</string>
     <string name="depth_in_gallery">Enable depth for the current wallpaper here, or for a saved photo lock screen in Customise. Position and fade adjustments apply to all depth wallpapers.</string>
     <string name="credits_title">Credits</string>
     <string name="credits_wallwidgy">Wallpapers, from WallWidgy</string>

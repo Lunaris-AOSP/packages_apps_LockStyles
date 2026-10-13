@@ -48,6 +48,7 @@ object Keys {
 
     // Clock
     // The clock's style, colours, size and animations are the gallery's, in CustomClocks.
+    val NOTIFICATIONS_ABOVE_CLOCK = Bool(SECURE, "lock_screen_notifications_above_clock", false)
     val AOD_IMAGE = Bool(SYSTEM, "custom_aod_image_enabled", false)
     val AOD_IMAGE_URI = Text(SYSTEM, "custom_aod_image_uri", null)
 

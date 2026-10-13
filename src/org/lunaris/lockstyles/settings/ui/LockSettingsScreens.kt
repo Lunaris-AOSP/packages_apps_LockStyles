@@ -271,6 +271,10 @@ private fun ClockPage(open: (Page) -> Unit, back: () -> Unit) {
         ))
         item { ClockFontPicker() }
         group(null, listOf(
+            switchRow(s(R.string.notifications_above_clock_title),
+                s(R.string.notifications_above_clock_summary), Keys.NOTIFICATIONS_ABOVE_CLOCK),
+        ))
+        group(null, listOf(
             navRow(s(R.string.lockscreen_widgets_title),
                 s(R.string.lockscreen_widgets_enabled_summary), Icons.Rounded.Widgets) {
                 open(Page.WIDGETS)
