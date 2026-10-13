@@ -121,6 +121,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockDesignPositioning
 import org.lunaris.clockmaker.ClockElement
 import org.lunaris.clockmaker.ClockElementKind
 import org.lunaris.clockmaker.ClockFonts
@@ -168,11 +169,10 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     var imageDesign by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
     var previewAod by remember(draftKey) { mutableStateOf(false) }
     var fullScreenEditor by rememberSaveable(draftKey) { mutableStateOf(false) }
+    var positioning by remember(draftKey) { mutableStateOf<ClockDesignPositioning?>(null) }
     val scope = rememberCoroutineScope()
     val clock = initial.copy(face = ClockDesign.STYLE, design = design, tuning = tuning, color = color)
     val latestClock by rememberUpdatedState(clock)
-    val frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE)
-    val maxY = ((context.resources.displayMetrics.heightPixels - frame.top) / frame.width.toFloat()).coerceIn(0.1f, 4f)
     fun change(value: ClockDesign, record: Boolean = true) {
         if (value == design) return
         if (record) undo = (undo + design).takeLast(50)
@@ -344,9 +344,10 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                             onMove = { id, x, y ->
                                 if (!dragging) { undo = (undo + design).takeLast(50); dragging = true }
                                 change(design.copy(elements = design.elements.map {
-                                    if (it.id == id) it.copy(x = x, y = y.coerceIn(0f, maxY)) else it
+                                    if (it.id == id) it.copy(x = x, y = y) else it
                                 }), record = false)
-                            }, onDragFinished = { dragging = false })
+                            }, onDragFinished = { dragging = false },
+                            onPositioningChanged = { positioning = it })
                     }
                 }
             }
@@ -452,7 +453,10 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                             TuningSwitch(stringResource(R.string.clock_maker_visible), selected.visible) { edit(selected.copy(visible = it)) }
                                             Row(Modifier.padding(horizontal = 12.dp)) {
                                                 TextButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS, onClick = {
-                                                    val duplicate = selected.copy(id = java.util.UUID.randomUUID().toString(), y = (selected.y + 0.1f).coerceAtMost(maxY))
+                                                    val position = positioning?.move(selected.x, selected.y + 0.1f)
+                                                        ?: (selected.x to (selected.y + 0.1f).coerceAtMost(ClockElement.MAX_POSITION))
+                                                    val duplicate = selected.copy(id = java.util.UUID.randomUUID().toString(),
+                                                        x = position.first, y = position.second)
                                                     change(design.copy(elements = design.elements + duplicate))
                                                     selectedId = duplicate.id
                                                 }) { Text(stringResource(R.string.clock_maker_duplicate)) }
@@ -490,8 +494,19 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                                 TuningSwitch(stringResource(R.string.clock_maker_italic), selected.italic) { edit(selected.copy(italic = it)) }
                                                 TuningSlider(stringResource(R.string.clock_maker_spacing), selected.letterSpacing, -10..50, "%", 0) { edit(selected.copy(letterSpacing = it)) }
                                             }
-                                            TuningSlider(stringResource(R.string.clock_maker_horizontal), (selected.x * 100).roundToInt(), 0..100, "%", 50) { edit(selected.copy(x = it / 100f)) }
-                                            TuningSlider(stringResource(R.string.clock_maker_vertical), (selected.y / maxY * 100).roundToInt().coerceIn(0, 100), 0..100, "%", 10) { edit(selected.copy(y = it / 100f * maxY)) }
+                                            positioning?.let { placement ->
+                                                val position = placement.position(selected.x, selected.y)
+                                                TuningSlider(stringResource(R.string.clock_maker_horizontal),
+                                                    (position.first * 100).roundToInt(), 0..100, "%", 50) {
+                                                    val moved = placement.move(selected.x, selected.y, horizontal = it / 100f)
+                                                    edit(selected.copy(x = moved.first, y = moved.second))
+                                                }
+                                                TuningSlider(stringResource(R.string.clock_maker_vertical),
+                                                    (position.second * 100).roundToInt(), 0..100, "%", 10) {
+                                                    val moved = placement.move(selected.x, selected.y, vertical = it / 100f)
+                                                    edit(selected.copy(x = moved.first, y = moved.second))
+                                                }
+                                            }
                                             TuningSlider(stringResource(R.string.custom_clock_rotation_title), selected.rotation, -180..180, "°", 0) { edit(selected.copy(rotation = it)) }
                                         }
                                         2 -> {
