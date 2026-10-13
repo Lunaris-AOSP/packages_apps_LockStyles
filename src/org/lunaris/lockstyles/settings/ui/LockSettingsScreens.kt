@@ -312,6 +312,7 @@ fun DepthPage(back: () -> Unit, inSheet: Boolean = false,
     val s = strings()
     val context = LocalContext.current
     val depth by Keys.DEPTH.state()
+    val spatial by Keys.DEPTH_SPATIAL.state()
     val autoSubject by Keys.DEPTH_AUTO_SUBJECT.state()
     var subject by Keys.DEPTH_SUBJECT.state()
     val scope = rememberCoroutineScope()
@@ -344,6 +345,9 @@ fun DepthPage(back: () -> Unit, inSheet: Boolean = false,
                 s(R.string.depthwall_wallpaper_enabled_summary), Keys.DEPTH) { enabled ->
                 if (enabled && autoSubject) extract()
             },
+            switchRow(s(R.string.depthwall_spatial_effect_title),
+                s(R.string.depthwall_spatial_effect_summary), Keys.DEPTH_SPATIAL,
+                enabled = depth),
         ))
         group(null, listOf(
             footer(s(R.string.depth_in_gallery)),
@@ -380,6 +384,10 @@ fun DepthPage(back: () -> Unit, inSheet: Boolean = false,
             sliderRow(s(R.string.depth_wallpaper_bottom_inset_title),
                 s(R.string.depth_wallpaper_bottom_inset_summary), Keys.DEPTH_BOTTOM_INSET,
                 0..400, unit = " dp", enabled = depth),
+            sliderRow(s(R.string.depthwall_spatial_sensitivity_title),
+                s(R.string.depthwall_spatial_sensitivity_summary),
+                Keys.DEPTH_SPATIAL_SENSITIVITY, 0..100, unit = "%",
+                enabled = depth && spatial),
             footer(s(R.string.depthwall_footer_text)),
         ))
     }

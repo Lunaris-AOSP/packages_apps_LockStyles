@@ -63,6 +63,9 @@ object Keys {
 
     // Depth wallpaper
     val DEPTH = Bool(SYSTEM, "depth_wallpaper_enabled", false)
+    val DEPTH_SPATIAL = Bool(SYSTEM, "depth_wallpaper_spatial_effect", false)
+    val DEPTH_SPATIAL_SENSITIVITY =
+        Num(SYSTEM, "depth_wallpaper_spatial_sensitivity", 100)
     val DEPTH_AUTO_SUBJECT = Bool(SYSTEM, "depth_wallpaper_auto_subject", false)
     val DEPTH_SUBJECT = Text(SYSTEM, "depth_wallpaper_subject_image_uri", null)
     val DEPTH_OPACITY = Num(SYSTEM, "depth_wallpaper_opacity", 100)
