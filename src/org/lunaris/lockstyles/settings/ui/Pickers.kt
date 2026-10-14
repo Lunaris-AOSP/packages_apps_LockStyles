@@ -170,6 +170,7 @@ fun WidgetSlots(enabled: Boolean) {
     val saved = remember(main, extras) { split(main, 2) + split(extras, 4) }
     var slots by rememberSaveable(main, extras) { mutableStateOf(ArrayList(saved)) }
     val changed = slots != saved
+    LegacyWidgetPreview(slots, enabled)
 
     Group(null, buildList {
         add(choiceRow(stringResource(R.string.lockscreen_widgets_style_title),

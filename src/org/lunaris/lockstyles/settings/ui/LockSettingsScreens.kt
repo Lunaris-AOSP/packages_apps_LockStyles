@@ -306,7 +306,9 @@ fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false) {
             switchRow(s(R.string.lockscreen_widgets_enabled_title),
                 s(R.string.lockscreen_widgets_enabled_summary), Keys.WIDGETS),
         ))
+        item { DeviceInfoPreview() }
         item { WidgetSlots(widgets) }
+        item { AppWidgetsPanel() }
     }
 }
 
