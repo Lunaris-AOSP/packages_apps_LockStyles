@@ -33,6 +33,7 @@ object GalleryApplier {
     private const val DEPTH_AUTO_SUBJECT = "depth_wallpaper_auto_subject"
     const val DEPTH_SUBJECT = "depth_wallpaper_subject_image_uri"
     private const val SUBJECT_TIMEOUT_MS = 15_000L
+    private const val WALLPAPER_STATE_TIMEOUT_MS = 3_000L
 
     fun screenSize(context: Context): Pair<Int, Int> {
         val bounds = context.getSystemService(WindowManager::class.java)!!
@@ -50,6 +51,12 @@ object GalleryApplier {
         val wallpaper = lockScreen.wallpaper
         val live = ComponentName(context, GalleryWallpaperService::class.java)
         val wantsDepth = wallpaper.kind == GalleryWallpaper.Kind.PHOTO && wallpaper.depth
+        // The extractor treats any live home wallpaper as a signal to read its device-protected
+        // snapshot instead of the lock wallpaper. Keep the component so KEEP can be restored
+        // after we briefly make the home wallpaper static for extraction.
+        val keptHomeLive = if (wantsDepth && lockScreen.home == HomeStyle.KEEP) {
+            wm.wallpaperInfo?.component
+        } else null
         var depthReady = false
         try {
             // Stop the previous subject appearing over a different wallpaper while extracting.
@@ -67,7 +74,7 @@ object GalleryApplier {
                         // Effects replace both screens, so stage this photo on both of them.
                         wm.setBitmap(photo, null, true,
                             WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
-                        depthReady = extractSubject(context)
+                        depthReady = waitForStaticHome(wm) && extractSubject(context)
                     } finally {
                         photo.recycle()
                     }
@@ -83,8 +90,15 @@ object GalleryApplier {
                     wm.setWallpaperComponentWithFlags(live, WallpaperManager.FLAG_LOCK)
                 } else {
                     store.setLiveWallpaper(lock = true, wallpaper = null)
-                    wm.setBitmap(GalleryRenderer.toBitmap(context, wallpaper, w, h), null, true,
-                        WallpaperManager.FLAG_LOCK)
+                    val photo = GalleryRenderer.toBitmap(context, wallpaper, w, h)
+                    try {
+                        val flags = if (keptHomeLive != null) {
+                            WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
+                        } else WallpaperManager.FLAG_LOCK
+                        wm.setBitmap(photo, null, true, flags)
+                    } finally {
+                        photo.recycle()
+                    }
                 }
             } else if (lockScreen.home == HomeStyle.PAIR) {
                 store.setLiveWallpaper(lock = false, wallpaper = null)
@@ -112,10 +126,20 @@ object GalleryApplier {
                 }
             }
         } catch (e: Exception) {
+            restoreKeptHome(wm, keptHomeLive)
             Log.e(TAG, "Could not set the wallpaper", e)
             return Result.FAILED
         }
-        if (wantsDepth && wallpaper.effect == 0) depthReady = extractSubject(context)
+        if (wantsDepth && wallpaper.effect == 0) {
+            try {
+                // WallpaperManager changes from a live to a static wallpaper asynchronously. Do
+                // not ask the extractor to inspect the lock wallpaper until that transition is
+                // visible, otherwise it can still select the old live wallpaper's snapshot.
+                depthReady = waitForStaticHome(wm) && extractSubject(context)
+            } finally {
+                restoreKeptHome(wm, keptHomeLive)
+            }
+        }
         Settings.System.putInt(context.contentResolver, DEPTH_ENABLED, if (depthReady) 1 else 0)
         // Effects are live wallpapers: auto-extraction could replace their still-photo mask.
         Settings.System.putInt(context.contentResolver, DEPTH_AUTO_SUBJECT,
@@ -138,6 +162,25 @@ object GalleryApplier {
         }
         Log.w(TAG, "Timed out waiting for a depth subject")
         return false
+    }
+
+    /** Wait until the subject extractor will select the lock wallpaper rather than live storage. */
+    private fun waitForStaticHome(wm: WallpaperManager): Boolean {
+        val deadline = SystemClock.uptimeMillis() + WALLPAPER_STATE_TIMEOUT_MS
+        while (SystemClock.uptimeMillis() < deadline) {
+            if (wm.wallpaperInfo == null) return true
+            SystemClock.sleep(50)
+        }
+        val staticHome = wm.wallpaperInfo == null
+        if (!staticHome) Log.w(TAG, "Timed out waiting for a static home wallpaper")
+        return staticHome
+    }
+
+    private fun restoreKeptHome(wm: WallpaperManager, component: ComponentName?) {
+        component ?: return
+        runCatching {
+            wm.setWallpaperComponentWithFlags(component, WallpaperManager.FLAG_SYSTEM)
+        }.onFailure { Log.w(TAG, "Could not restore the kept home wallpaper", it) }
     }
 
     fun homeBitmap(context: Context, lockScreen: LockScreen, w: Int, h: Int): Bitmap =
