@@ -36,6 +36,7 @@ fun LockStylesTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable 
             else dynamicLightColorScheme(context),
         motionScheme = MotionScheme.expressive(),
         shapes = ExpressiveShapes,
-        content = content,
-    )
+    ) {
+        AppWidgetStateProvider(content)
+    }
 }

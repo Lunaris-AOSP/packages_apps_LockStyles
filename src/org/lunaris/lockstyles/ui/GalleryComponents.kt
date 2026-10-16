@@ -1,5 +1,9 @@
 package org.lunaris.lockstyles.ui
 
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Typeface
@@ -231,12 +235,13 @@ fun CustomClockLayer(
     style: ClockStyle,
     modifier: Modifier = Modifier,
     tuning: CustomClocks.Tuning? = null,
+    onBottomChanged: ((Float) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val fallbackTuning = remember { CustomClocks.Tuning.load(context) }
     val currentTuning = tuning ?: style.tuning ?: fallbackTuning
     if (style.face == ClockDesign.STYLE) {
-        MakerClockLayer(style, currentTuning, modifier)
+        MakerClockLayer(style, currentTuning, modifier, onBottomChanged = onBottomChanged)
         return
     }
     val frame = remember(currentTuning, style.face) {
@@ -273,7 +278,7 @@ fun CustomClockLayer(
                     rotationZ = currentTuning.rotation.toFloat()
                     cameraDistance = maxOf(maxOf(frame.width, bitmap.height - shadowPadding * 2) * 4f,
                         1280f * context.resources.displayMetrics.density) * k
-                },
+                }.onGloballyPositioned { onBottomChanged?.invoke(it.boundsInParent().bottom) },
             contentScale = ContentScale.FillBounds,
         )
     }
@@ -301,6 +306,7 @@ fun LockScreenCard(
 ) {
     val shape = RoundedCornerShape(corner.coerceAtLeast(0.dp))
     val onLight = rememberTopLight(wallpaper)
+    var clockBottom by remember(clock.face, clock.small) { mutableStateOf<Float?>(null) }
     BoxWithConstraints(
         modifier
             .clip(shape)
@@ -311,23 +317,25 @@ fun LockScreenCard(
         WallpaperImage(wallpaper, Modifier.fillMaxSize(), weather)
         if (live && wallpaper.isAnimated) LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
         if (clock.face > 0) {
-            CustomClockLayer(clock)
-            return@BoxWithConstraints
+            CustomClockLayer(clock, onBottomChanged = { clockBottom = it })
+        } else {
+            val clockHeight = maxHeight * if (clock.small) 0.06f else 0.24f
+            val dateSize = (maxWidth.value * 0.055f).sp
+            Column(
+                Modifier.fillMaxWidth().onSizeChanged { clockBottom = it.height.toFloat() }
+                    .padding(top = maxHeight * 0.1f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    dateString(),
+                    color = if (onLight) Color(0xFF1C1C1E) else Color.White,
+                    fontSize = dateSize,
+                    fontWeight = FontWeight.Medium,
+                )
+                ClockText(clock, clockHeight, fixedTime = fixedTime, onLight = onLight)
+            }
         }
-        val clockHeight = maxHeight * if (clock.small) 0.06f else 0.24f
-        val dateSize = (maxWidth.value * 0.055f).sp
-        Column(
-            Modifier.fillMaxWidth().padding(top = maxHeight * 0.1f),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                dateString(),
-                color = if (onLight) Color(0xFF1C1C1E) else Color.White,
-                fontSize = dateSize,
-                fontWeight = FontWeight.Medium,
-            )
-            ClockText(clock, clockHeight, fixedTime = fixedTime, onLight = onLight)
-        }
+        AppWidgetWallpaperLayer(clockBottom)
     }
 }
 

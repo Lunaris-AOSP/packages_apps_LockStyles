@@ -42,7 +42,8 @@ import org.lunaris.lockstyles.CustomClocks
 fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Modifier = Modifier,
     thumbnail: Boolean = false, dozing: Boolean = false, selectedId: String? = null, onSelect: ((String) -> Unit)? = null,
     onMove: ((String, Float, Float) -> Unit)? = null, onDragFinished: (() -> Unit)? = null,
-    onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null) {
+    onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null,
+    onBottomChanged: ((Float) -> Unit)? = null) {
     val context = LocalContext.current
     val fallback = remember { ClockDesign() }
     val selectionColor = MaterialTheme.colorScheme.primary.toArgb()
@@ -55,6 +56,7 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
         it.clock.onSelect = onSelect
         it.onMove = onMove
         it.onPositioningChanged = onPositioningChanged
+        it.onBottomChanged = onBottomChanged
         it.clock.onDragFinished = onDragFinished
         // AOD previews must use the same non-animated image path as the dozing lock screen.
         it.clock.animationsEnabled = !thumbnail && !dozing && tuning.opacity > 0
@@ -76,6 +78,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     var dozing = false
     var onMove: ((String, Float, Float) -> Unit)? = null
     var onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null
+    var onBottomChanged: ((Float) -> Unit)? = null
     private var positioning: ClockDesignPositioning? = null
     private var frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE)
     private val stage = object : ViewGroup(context) {
@@ -154,7 +157,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
         stage.layout(0, 0, stage.measuredWidth, stage.measuredHeight)
         val bounds = RectF(0f, 0f, clock.width.toFloat(), clock.height.toFloat())
-        if (thumbnail) {
+        if (thumbnail || onBottomChanged != null) {
             for (index in 0 until clock.childCount) {
                 val child = clock.getChildAt(index)
                 if (child.visibility != VISIBLE) continue
@@ -174,5 +177,6 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
         stage.scaleY = scale
         stage.translationX = if (thumbnail) width / 2f - bounds.centerX() * scale else 0f
         stage.translationY = if (thumbnail) height / 2f - bounds.centerY() * scale else 0f
+        onBottomChanged?.invoke(bounds.bottom * scale + stage.translationY)
     }
 }

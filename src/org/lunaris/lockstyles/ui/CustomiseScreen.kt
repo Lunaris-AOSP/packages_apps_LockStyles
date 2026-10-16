@@ -1,5 +1,7 @@
 package org.lunaris.lockstyles.ui
 
+import androidx.compose.ui.layout.onSizeChanged
+
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.animateColorAsState
@@ -55,6 +57,7 @@ import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.AccountCircle
 import org.lunaris.lockstyles.settings.ui.DepthPage
 import org.lunaris.lockstyles.settings.ui.WidgetsPage
+import org.lunaris.lockstyles.settings.ui.AppWidgetsBottomSheet
 import org.lunaris.lockstyles.settings.ui.SettingsPage
 import org.lunaris.lockstyles.settings.ui.AodAvatarSettings
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -149,6 +152,7 @@ fun CustomiseScreen(
     var sheet by remember { mutableStateOf<String?>(if (openClock) "clock" else null) }
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
+    var clockBottom by remember(clock.face, clock.small) { mutableStateOf<Float?>(null) }
     if (showMaker) {
         ClockMakerScreen(clock.copy(face = ClockDesign.STYLE, tuning = tuning), wallpaper,
             initial.id, allowPhotoPicking, onCancel = { showMaker = false }, onSave = {
@@ -170,7 +174,7 @@ fun CustomiseScreen(
         LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
         val onLight = rememberTopLight(wallpaper)
         if (clock.face > 0) {
-            CustomClockLayer(clock, tuning = tuning)
+            CustomClockLayer(clock, tuning = tuning, onBottomChanged = { clockBottom = it })
             // The clock area stays tappable, as iOS lets you tap the clock to edit it.
             Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f).clickable { sheet = "clock" })
         } else BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -178,7 +182,8 @@ fun CustomiseScreen(
             val screenHeight = maxHeight
             val dateSize = (maxWidth.value * 0.055f).sp
             Column(
-                Modifier.fillMaxWidth().padding(top = maxHeight * 0.1f),
+                Modifier.fillMaxWidth().onSizeChanged { clockBottom = it.height.toFloat() }
+                    .padding(top = maxHeight * 0.1f),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(dateString(), color = if (onLight) Color(0xFF1C1C1E) else Color.White,
@@ -197,6 +202,8 @@ fun CustomiseScreen(
                 }
             }
         }
+
+        AppWidgetWallpaperLayer(clockBottom)
 
         Row(
             Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = 20.dp,
@@ -270,7 +277,7 @@ fun CustomiseScreen(
             sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             if (sheet == "widgets") {
-                WidgetsPage(back = { sheet = null }, inSheet = true)
+                WidgetsPage(back = { sheet = null }, inSheet = true, onAppWidgets = { sheet = "app_widgets" })
             } else {
                 SettingsPage(stringResource(R.string.aod_avatar_title), { sheet = null }, inSheet = true) {
                     item { AodAvatarSettings(allowPhotoPicking = allowPhotoPicking) }
@@ -278,6 +285,7 @@ fun CustomiseScreen(
             }
         }
     }
+    if (sheet == "app_widgets") AppWidgetsBottomSheet(onDismiss = { sheet = "widgets" })
     if (askHome) {
         HomeDialog(wallpaper, onDismiss = { askHome = false }, onSkip = {
             askHome = false

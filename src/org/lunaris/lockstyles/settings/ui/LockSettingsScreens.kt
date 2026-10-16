@@ -289,11 +289,18 @@ private fun ClockPage(open: (Page) -> Unit, back: () -> Unit) {
 }
 
 @Composable
-fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false) {
+fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false, onAppWidgets: (() -> Unit)? = null) {
     val s = strings()
     val info by Keys.INFO_WIDGETS.state()
     val widgets by Keys.WIDGETS.state()
+    var appWidgetsOpen by remember { mutableStateOf(false) }
     SettingsPage(s(R.string.lockscreen_widgets_title), back, inSheet) {
+        group(null, listOf(
+            navRow(s(org.lunaris.lockscreenwidgets.R.string.app_widgets_title),
+                s(R.string.app_widget_browse), Icons.Rounded.Widgets) {
+                onAppWidgets?.invoke() ?: run { appWidgetsOpen = true }
+            },
+        ))
         group(null, listOf(
             switchRow(s(R.string.lockscreen_display_widgets_title),
                 s(R.string.lockscreen_display_widgets_summary), Keys.INFO_WIDGETS),
@@ -308,8 +315,8 @@ fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false) {
         ))
         item { DeviceInfoPreview() }
         item { WidgetSlots(widgets) }
-        item { AppWidgetsPanel() }
     }
+    if (appWidgetsOpen) AppWidgetsBottomSheet(onDismiss = { appWidgetsOpen = false })
 }
 
 @Composable

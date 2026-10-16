@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_widget_browse">Preview, add, and arrange widgets from your apps</string>
+    <string name="app_widget_show">Show app widgets</string>
+    <string name="app_widget_picker_summary">Choose a widget to add to your lock screen.</string>
+    <string name="app_widget_search">Search apps and widgets</string>
+    <string name="app_widget_count">Widgets: %1$d</string>
+    <string name="app_widget_dimensions">%1$d × %2$d</string>
+    <string name="app_widget_no_results">No matching apps or widgets</string>
+    <string name="app_widget_no_preview">Preview unavailable</string>
+    <string name="app_widget_back">Back to app widgets</string>
+    <string name="app_widget_close">Close app widgets</string>
+</resources>
