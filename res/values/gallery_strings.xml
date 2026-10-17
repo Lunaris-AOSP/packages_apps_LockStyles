@@ -4,6 +4,10 @@
     <string name="gallery_customise">Customise</string>
     <string name="gallery_add">Add</string>
     <string name="gallery_done">Done</string>
+    <string name="gallery_loading">Loading wallpaper…</string>
+    <string name="gallery_saving">Saving lock screen…</string>
+    <string name="gallery_import_failed">Could not load the selected photos. Please try again.</string>
+    <string name="gallery_shuffle_limit">Choose up to %1$d photos for Photo Shuffle.</string>
     <string name="gallery_photos">Photos</string>
     <string name="gallery_live">Live</string>
     <string name="gallery_photo">Photo</string>

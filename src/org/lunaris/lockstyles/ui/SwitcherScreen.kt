@@ -130,6 +130,13 @@ fun SwitcherScreen(
         if (cardBounds != null && zoom.value > 0f && zooming == null) zoom.animateTo(0f, spring)
     }
 
+    LaunchedEffect(version) {
+        if (zooming != null) {
+            zoom.animateTo(0f, spring)
+            zooming = null
+        }
+    }
+
     fun zoomOut(lockScreen: LockScreen, then: (LockScreen) -> Unit) {
         if (zooming != null) return
         zooming = lockScreen

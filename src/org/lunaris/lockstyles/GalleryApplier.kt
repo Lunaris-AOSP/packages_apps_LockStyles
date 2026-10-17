@@ -47,6 +47,8 @@ object GalleryApplier {
     fun apply(context: Context, lockScreen: LockScreen): Result {
         val wm = WallpaperManager.getInstance(context)
         val store = GalleryStore.get(context)
+        val previousLiveLock = store.liveWallpaper(true)
+        val previousLiveHome = store.liveWallpaper(false)
         val (w, h) = screenSize(context)
         val wallpaper = lockScreen.wallpaper
         val live = ComponentName(context, GalleryWallpaperService::class.java)
@@ -72,22 +74,22 @@ object GalleryApplier {
                     try {
                         // The extractor checks the home wallpaper's live/static state too.
                         // Effects replace both screens, so stage this photo on both of them.
-                        wm.setBitmap(photo, null, true,
-                            WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
+                        check(wm.setBitmap(photo, null, true,
+                            WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK) != 0)
                         depthReady = waitForStaticHome(wm) && extractSubject(context)
                     } finally {
                         photo.recycle()
                     }
                 }
-                wm.setWallpaperComponentWithFlags(
+                check(wm.setWallpaperComponentWithFlags(
                     ComponentName(context, GalleryEffectService::class.java),
-                    WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
+                    WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK))
             } else if (lockScreen.home == HomeStyle.KEEP) {
                 // The user chose Skip: update only the lock screen and leave the
                 // wallpaper already assigned to the home screen untouched.
                 if (wallpaper.kind.live) {
                     store.setLiveWallpaper(lock = true, wallpaper = wallpaper)
-                    wm.setWallpaperComponentWithFlags(live, WallpaperManager.FLAG_LOCK)
+                    check(wm.setWallpaperComponentWithFlags(live, WallpaperManager.FLAG_LOCK))
                 } else {
                     store.setLiveWallpaper(lock = true, wallpaper = null)
                     val photo = GalleryRenderer.toBitmap(context, wallpaper, w, h)
@@ -95,7 +97,7 @@ object GalleryApplier {
                         val flags = if (keptHomeLive != null) {
                             WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
                         } else WallpaperManager.FLAG_LOCK
-                        wm.setBitmap(photo, null, true, flags)
+                        check(wm.setBitmap(photo, null, true, flags) != 0)
                     } finally {
                         photo.recycle()
                     }
@@ -104,28 +106,32 @@ object GalleryApplier {
                 store.setLiveWallpaper(lock = false, wallpaper = null)
                 if (wallpaper.kind.live) {
                     store.setLiveWallpaper(lock = true, wallpaper = wallpaper)
-                    wm.setWallpaperComponentWithFlags(live,
-                        WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
+                    check(wm.setWallpaperComponentWithFlags(live,
+                        WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK))
                 } else {
                     store.setLiveWallpaper(lock = true, wallpaper = null)
-                    wm.setBitmap(GalleryRenderer.toBitmap(context, wallpaper, w, h), null, true,
+                    setBitmap(wm, GalleryRenderer.toBitmap(context, wallpaper, w, h),
                         WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK)
                 }
             } else {
                 // Home first, so the old shared wallpaper doesn't linger on the lock screen.
                 store.setLiveWallpaper(lock = false, wallpaper = null)
-                wm.setBitmap(homeBitmap(context, lockScreen, w, h), null, true,
+                setBitmap(wm, homeBitmap(context, lockScreen, w, h),
                     WallpaperManager.FLAG_SYSTEM)
                 if (wallpaper.kind.live) {
                     store.setLiveWallpaper(lock = true, wallpaper = wallpaper)
-                    wm.setWallpaperComponentWithFlags(live, WallpaperManager.FLAG_LOCK)
+                    check(wm.setWallpaperComponentWithFlags(live, WallpaperManager.FLAG_LOCK))
                 } else {
                     store.setLiveWallpaper(lock = true, wallpaper = null)
-                    wm.setBitmap(GalleryRenderer.toBitmap(context, wallpaper, w, h), null, true,
+                    setBitmap(wm, GalleryRenderer.toBitmap(context, wallpaper, w, h),
                         WallpaperManager.FLAG_LOCK)
                 }
             }
         } catch (e: Exception) {
+            runCatching {
+                store.setLiveWallpaper(lock = true, wallpaper = previousLiveLock)
+                store.setLiveWallpaper(lock = false, wallpaper = previousLiveHome)
+            }.onFailure { Log.w(TAG, "Could not restore the live wallpaper configuration", it) }
             restoreKeptHome(wm, keptHomeLive)
             Log.e(TAG, "Could not set the wallpaper", e)
             return Result.FAILED
@@ -144,9 +150,15 @@ object GalleryApplier {
         // Effects are live wallpapers: auto-extraction could replace their still-photo mask.
         Settings.System.putInt(context.contentResolver, DEPTH_AUTO_SUBJECT,
             if (depthReady && wallpaper.effect == 0) 1 else 0)
-        store.setCurrent(lockScreen.id)
-        store.pruneImportedPhotos()
         return if (wantsDepth && !depthReady) Result.DEPTH_FAILED else Result.APPLIED
+    }
+
+    private fun setBitmap(wm: WallpaperManager, bitmap: Bitmap, flags: Int) {
+        try {
+            check(wm.setBitmap(bitmap, null, true, flags) != 0)
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     /** Wait for the service to publish a new, readable subject, not just accept the intent. */
@@ -185,8 +197,16 @@ object GalleryApplier {
 
     fun homeBitmap(context: Context, lockScreen: LockScreen, w: Int, h: Int): Bitmap =
         when (lockScreen.home) {
-            HomeStyle.BLUR -> blur(GalleryRenderer.toBitmap(context, lockScreen.wallpaper, w, h),
-                context.resources.displayMetrics.density * 40)
+            HomeStyle.BLUR -> {
+                val source = GalleryRenderer.toBitmap(context, lockScreen.wallpaper, w, h)
+                var result: Bitmap? = null
+                try {
+                    blur(source, context.resources.displayMetrics.density * 40)
+                        .also { result = it }
+                } finally {
+                    if (result !== source) source.recycle()
+                }
+            }
             HomeStyle.COLOUR, HomeStyle.GRADIENT -> {
                 val color = GalleryRenderer.dominantColor(context, lockScreen.wallpaper)
                 Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).also { bitmap ->

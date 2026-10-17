@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import android.graphics.Bitmap
 import android.graphics.ImageDecoder
 import android.net.Uri
+import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 import java.util.UUID
@@ -18,6 +19,7 @@ class GalleryStore private constructor(private val context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences("wallpaper_gallery", Context.MODE_PRIVATE)
     private val listeners = mutableListOf<() -> Unit>()
+    private val pendingPhotos = mutableMapOf<String, Int>()
     // Held strongly: SharedPreferences only keeps a weak reference.
     private val prefsListener =
         SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> listeners.forEach { it() } }
@@ -43,25 +45,30 @@ class GalleryStore private constructor(private val context: Context) {
     val currentId: String?
         get() = prefs.getString(KEY_CURRENT, null)
 
-    fun save(lockScreen: LockScreen) {
+    @Synchronized
+    fun save(lockScreen: LockScreen, makeCurrent: Boolean = false) {
         val list = lockScreens.toMutableList()
         val index = list.indexOfFirst { it.id == lockScreen.id }
         if (index >= 0) list[index] = lockScreen else list += lockScreen
-        write(list)
+        write(list, if (makeCurrent) lockScreen.id else currentId)
     }
 
+    @Synchronized
+    fun saveInitial(lockScreen: LockScreen): Boolean {
+        if (lockScreens.isNotEmpty()) return false
+        save(lockScreen, makeCurrent = true)
+        return true
+    }
+
+    @Synchronized
     fun delete(id: String) {
-        write(lockScreens.filter { it.id != id })
-        if (currentId == id) prefs.edit().remove(KEY_CURRENT).apply()
+        write(lockScreens.filter { it.id != id }, currentId?.takeUnless { it == id })
     }
 
-    fun setCurrent(id: String) {
-        prefs.edit().putString(KEY_CURRENT, id).apply()
-    }
-
-    private fun write(list: List<LockScreen>) {
+    private fun write(list: List<LockScreen>, current: String?) {
         prefs.edit().putString(KEY_LOCK_SCREENS,
-            JSONArray().also { a -> list.forEach { a.put(it.toJson()) } }.toString()).apply()
+            JSONArray().also { a -> list.forEach { a.put(it.toJson()) } }.toString())
+            .putString(KEY_CURRENT, current).apply()
     }
 
     fun newId(): String = UUID.randomUUID().toString()
@@ -99,29 +106,80 @@ class GalleryStore private constructor(private val context: Context) {
         set(value) = prefs.edit().putLong(KEY_SHUFFLE_AT, value).apply()
 
     /** Copies a picked photo into the app, scaled to the screen, and returns its path. */
-    fun importPhoto(uri: Uri): String? =
-        runCatching {
+    fun importPhoto(uri: Uri): String? {
+        var bitmap: Bitmap? = null
+        return try {
             val maxSide = max(context.resources.displayMetrics.widthPixels,
-                context.resources.displayMetrics.heightPixels) * 3 / 2
-            val bitmap = ImageDecoder.decodeBitmap(ImageDecoder.createSource(
+                context.resources.displayMetrics.heightPixels).coerceAtLeast(1).toLong() * 3 / 2
+            val decoded = ImageDecoder.decodeBitmap(ImageDecoder.createSource(
                 context.contentResolver, uri)) { decoder, info, _ ->
                 val side = max(info.size.width, info.size.height)
                 if (side > maxSide) {
-                    decoder.setTargetSize(info.size.width * maxSide / side,
-                        info.size.height * maxSide / side)
+                    decoder.setTargetSize((info.size.width * maxSide / side).toInt().coerceAtLeast(1),
+                        (info.size.height * maxSide / side).toInt().coerceAtLeast(1))
                 }
                 decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
             }
+            bitmap = decoded
+            importBitmap(decoded)
+        } catch (e: Exception) {
+            Log.w("GalleryStore", "Could not import a wallpaper photo", e)
+            null
+        } finally {
+            bitmap?.recycle()
+        }
+    }
+
+    fun importBitmap(bitmap: Bitmap): String? {
+        var file: File? = null
+        return try {
             val dir = File(context.filesDir, "gallery").apply { mkdirs() }
-            val file = File(dir, "${UUID.randomUUID()}.jpg")
-            FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }
-            file.absolutePath
-        }.getOrNull()
+            val destination = File(dir, "${UUID.randomUUID()}.jpg")
+            file = destination
+            retainImportedPhotos(listOf(destination.absolutePath))
+            FileOutputStream(destination).use {
+                check(bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it))
+            }
+            destination.absolutePath
+        } catch (e: Exception) {
+            file?.let { destination ->
+                synchronized(this) {
+                    destination.delete()
+                    pendingPhotos -= destination.absolutePath
+                }
+            }
+            Log.w("GalleryStore", "Could not import a wallpaper photo", e)
+            null
+        }
+    }
+
+    @Synchronized
+    fun retainImportedPhotos(paths: Collection<String>) {
+        paths.toSet().forEach { pendingPhotos[it] = (pendingPhotos[it] ?: 0) + 1 }
+    }
+
+    @Synchronized
+    fun discardImportedPhotos(paths: Collection<String>) {
+        paths.toSet().forEach { path ->
+            val count = pendingPhotos[path] ?: 0
+            if (count <= 1) pendingPhotos.remove(path) else pendingPhotos[path] = count - 1
+        }
+        val used = usedPhotos()
+        val dir = File(context.filesDir, "gallery")
+        paths.forEach { path ->
+            val file = File(path)
+            if (file.parentFile == dir && path !in used) file.delete()
+        }
+    }
+
+    private fun usedPhotos(): Set<String> =
+        lockScreens.flatMap { it.wallpaper.photos }.toSet() + pendingPhotos.keys +
+            listOfNotNull(liveWallpaper(true), liveWallpaper(false)).flatMap { it.photos }
 
     /** Removes imported photos no saved lock screen uses any more. */
+    @Synchronized
     fun pruneImportedPhotos() {
-        val used = lockScreens.flatMap { it.wallpaper.photos }.toSet() +
-            listOfNotNull(liveWallpaper(true), liveWallpaper(false)).flatMap { it.photos }
+        val used = usedPhotos()
         File(context.filesDir, "gallery").listFiles()?.forEach {
             if (it.absolutePath !in used) it.delete()
         }

@@ -8,8 +8,10 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Canvas
+import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -28,13 +30,28 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.lifecycleScope
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
@@ -47,10 +64,13 @@ import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.Shortcuts
 import org.lunaris.lockstyles.StockClock
 import org.lunaris.lockstyles.settings.ui.LockStylesTheme
-import java.io.File
-import java.io.FileOutputStream
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 /**
@@ -66,6 +86,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
     private var launchGeneration = 0
     private var launchRequest by mutableStateOf(LaunchRequest(false, false, false, 0))
     private var deviceLocked by mutableStateOf(false)
+    private var initializing by mutableStateOf(true)
 
     private data class LaunchRequest(
         val fromLockScreen: Boolean,
@@ -95,8 +116,18 @@ class LockScreenGalleryActivity : ComponentActivity() {
         launchRequest = requestFor(intent, 0)
         updateWindowForEntry()
         val store = GalleryStore.get(this)
-        lifecycleScope.launch(Dispatchers.IO) { adoptCurrentWallpaper(store) }
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) { adoptCurrentWallpaper(store) }
+            } finally {
+                initializing = false
+            }
+        }
         setContent {
+            if (initializing) {
+                LockStylesTheme(dark = true) { GalleryProgress(R.string.gallery_loading) }
+                return@setContent
+            }
             val request = launchRequest
             // A new singleTask intent must discard the previous editor immediately. In
             // particular, do not animate an old photo-backed editor into a locked entry.
@@ -116,49 +147,96 @@ class LockScreenGalleryActivity : ComponentActivity() {
                 var version by remember { mutableStateOf(0) }
                 val scope = rememberCoroutineScope()
                 val allowPhotoPicking = !deviceLocked
+                var importing by remember { mutableStateOf(false) }
+
+                DisposableEffect(screen) {
+                    val draft = (screen as? Screen.Customise)?.takeIf { it.isNew }
+                    onDispose {
+                        if (draft != null) {
+                            lifecycleScope.launch(NonCancellable + Dispatchers.IO) {
+                                store.discardImportedPhotos(draft.lockScreen.wallpaper.photos)
+                            }
+                        }
+                    }
+                }
+
+                fun openWallpaper(wallpaper: GalleryWallpaper) {
+                    if (importing || applying) return
+                    val hasExternalPhoto = wallpaper.photos.any { it.startsWith("content:") }
+                    if (!hasExternalPhoto) {
+                        screen = Screen.Customise(newLockScreen(store, wallpaper), isNew = true)
+                        return
+                    }
+                    if (!allowPhotoPicking || !canUsePrivatePhotos()) return
+                    importing = true
+                    scope.launch {
+                        val imported = mutableListOf<String>()
+                        var opened = false
+                        try {
+                            val photos = withContext(Dispatchers.IO) {
+                                wallpaper.photos.map { path ->
+                                    coroutineContext.ensureActive()
+                                    if (path.startsWith("content:")) {
+                                        val copy = store.importPhoto(Uri.parse(path))
+                                            ?: return@withContext null
+                                        imported += copy
+                                        copy
+                                    } else path
+                                }
+                            }
+                            if (!canUsePrivatePhotos()) return@launch
+                            if (photos == null) {
+                                Toast.makeText(this@LockScreenGalleryActivity,
+                                    R.string.gallery_import_failed, Toast.LENGTH_LONG).show()
+                                return@launch
+                            }
+                            screen = Screen.Customise(newLockScreen(store,
+                                wallpaper.copy(photos = photos)), isNew = true)
+                            opened = true
+                        } finally {
+                            if (!opened) {
+                                withContext(NonCancellable + Dispatchers.IO) {
+                                    store.discardImportedPhotos(imported)
+                                }
+                            }
+                            importing = false
+                        }
+                    }
+                }
 
                 val pickPhoto = rememberLauncherForActivityResult(
                     ActivityResultContracts.PickVisualMedia()) { uri ->
                     if (!allowPhotoPicking || !canUsePrivatePhotos() || uri == null) {
                         return@rememberLauncherForActivityResult
                     }
-                    scope.launch {
-                        val path = withContext(Dispatchers.IO) { store.importPhoto(uri) }
-                            ?: return@launch
-                        screen = Screen.Customise(newLockScreen(store, GalleryWallpaper(
-                            Kind.PHOTO, photos = listOf(path))), isNew = true)
-                    }
+                    openWallpaper(GalleryWallpaper(Kind.PHOTO, photos = listOf(uri.toString())))
                 }
                 val pickKaleidoscope = rememberLauncherForActivityResult(
                     ActivityResultContracts.PickVisualMedia()) { uri ->
                     if (!allowPhotoPicking || !canUsePrivatePhotos() || uri == null) {
                         return@rememberLauncherForActivityResult
                     }
-                    scope.launch {
-                        val path = withContext(Dispatchers.IO) { store.importPhoto(uri) }
-                            ?: return@launch
-                        screen = Screen.Customise(newLockScreen(store, GalleryWallpaper(
-                            Kind.KALEIDOSCOPE, photos = listOf(path))), isNew = true)
-                    }
+                    openWallpaper(GalleryWallpaper(Kind.KALEIDOSCOPE,
+                        photos = listOf(uri.toString())))
                 }
                 val pickShuffle = rememberLauncherForActivityResult(
                     ActivityResultContracts.PickMultipleVisualMedia(MAX_SHUFFLE)) { uris ->
                     if (!allowPhotoPicking || !canUsePrivatePhotos() || uris.isEmpty())
                         return@rememberLauncherForActivityResult
-                    scope.launch {
-                        val paths = withContext(Dispatchers.IO) {
-                            uris.mapNotNull { store.importPhoto(it) }
-                        }
-                        if (paths.isNotEmpty()) {
-                            screen = Screen.Customise(newLockScreen(store, GalleryWallpaper(
-                                Kind.SHUFFLE, photos = paths)), isNew = true)
-                        }
+                    if (uris.size > MAX_SHUFFLE) {
+                        Toast.makeText(this@LockScreenGalleryActivity,
+                            getString(R.string.gallery_shuffle_limit, MAX_SHUFFLE),
+                            Toast.LENGTH_LONG).show()
+                    } else {
+                        openWallpaper(GalleryWallpaper(Kind.SHUFFLE,
+                            photos = uris.distinct().map { it.toString() }))
                     }
                 }
                 val requestPhotos = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission()) { version++ }
 
                 BackHandler {
+                    if (importing || applying) return@BackHandler
                     when (screen) {
                         is Screen.Switcher -> finish()
                         Screen.Gallery ->
@@ -197,72 +275,63 @@ class LockScreenGalleryActivity : ComponentActivity() {
                             version = version,
                             zoomIn = current.zoomIn,
                             onApply = { lockScreen ->
-                                apply(lockScreen, closeWhenApplied = request.fromLockScreen)
+                                apply(lockScreen, closeWhenApplied = request.fromLockScreen,
+                                    onFinished = { version++ })
                             },
                             onCustomise = { screen = Screen.Customise(it, isNew = false) },
                             onAdd = { screen = Screen.Gallery },
                             onDelete = {
-                                store.delete(it.id)
-                                version++
+                                if (!applying) {
+                                    store.delete(it.id)
+                                    version++
+                                    scope.launch(Dispatchers.IO) { store.pruneImportedPhotos() }
+                                }
                             },
                             onClock = { lockScreen ->
                                 screen = Screen.Customise(lockScreen, isNew = false, openClock = true)
                             },
                         )
-                        Screen.Gallery -> GalleryScreen(
-                            featured = remember(version, allowPhotoPicking) {
-                                featuredPhotos(allowPhotoPicking)
-                            },
-                            hasPhotoAccess = allowPhotoPicking && hasPhotoAccess(),
-                            allowPhotoPicking = allowPhotoPicking,
-                            onRequestPhotoAccess = {
-                                if (allowPhotoPicking && canUsePrivatePhotos()) {
-                                    requestPhotos.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                        Screen.Gallery -> {
+                            val featured by produceState<List<Pair<String, Long>>>(emptyList(),
+                                version, allowPhotoPicking) {
+                                value = withContext(Dispatchers.IO) {
+                                    featuredPhotos(allowPhotoPicking)
                                 }
-                            },
-                            onCancel = {
-                                if (request.startInGallery || request.fromLockScreen) finish()
-                                else screen = Screen.Switcher(false)
-                            },
-                            onPick = { wallpaper ->
-                                val hasExternalPhoto = wallpaper.photos.any {
-                                    it.startsWith("content:")
-                                }
-                                if (!hasExternalPhoto ||
-                                    (allowPhotoPicking && canUsePrivatePhotos())) {
-                                    scope.launch {
-                                        // Featured photos come from MediaStore; keep our own copy.
-                                        val imported = withContext(Dispatchers.IO) {
-                                            wallpaper.copy(photos = wallpaper.photos.map {
-                                                if (it.startsWith("content:"))
-                                                    store.importPhoto(android.net.Uri.parse(it)) ?: it
-                                                else it
-                                            })
-                                        }
-                                        screen = Screen.Customise(newLockScreen(store, imported),
-                                            isNew = true)
+                            }
+                            GalleryScreen(
+                                featured = if (allowPhotoPicking) featured else emptyList(),
+                                hasPhotoAccess = allowPhotoPicking && hasPhotoAccess(),
+                                allowPhotoPicking = allowPhotoPicking,
+                                onRequestPhotoAccess = {
+                                    if (allowPhotoPicking && canUsePrivatePhotos()) {
+                                        requestPhotos.launch(Manifest.permission.READ_MEDIA_IMAGES)
                                     }
-                                }
-                            },
-                            onPickPhoto = {
-                                if (allowPhotoPicking && canUsePrivatePhotos()) {
-                                    pickPhoto.launch(PickVisualMediaRequest(
-                                        ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }
-                            },
-                            onPickShuffle = {
-                                if (allowPhotoPicking && canUsePrivatePhotos()) {
-                                    pickShuffle.launch(PickVisualMediaRequest(
-                                        ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }
-                            },
-                            onPickKaleidoscope = {
-                                if (allowPhotoPicking && canUsePrivatePhotos()) {
-                                    pickKaleidoscope.launch(PickVisualMediaRequest(
-                                        ActivityResultContracts.PickVisualMedia.ImageOnly))
-                                }
-                            },
-                        )
+                                },
+                                onCancel = {
+                                    if (request.startInGallery || request.fromLockScreen) finish()
+                                    else screen = Screen.Switcher(false)
+                                },
+                                onPick = ::openWallpaper,
+                                onPickPhoto = {
+                                    if (allowPhotoPicking && canUsePrivatePhotos()) {
+                                        pickPhoto.launch(PickVisualMediaRequest(
+                                            ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    }
+                                },
+                                onPickShuffle = {
+                                    if (allowPhotoPicking && canUsePrivatePhotos()) {
+                                        pickShuffle.launch(PickVisualMediaRequest(
+                                            ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    }
+                                },
+                                onPickKaleidoscope = {
+                                    if (allowPhotoPicking && canUsePrivatePhotos()) {
+                                        pickKaleidoscope.launch(PickVisualMediaRequest(
+                                            ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                    }
+                                },
+                            )
+                        }
                         is Screen.Customise -> CustomiseScreen(
                             initial = current.lockScreen,
                             isNew = current.isNew,
@@ -279,15 +348,18 @@ class LockScreenGalleryActivity : ComponentActivity() {
                                     lockScreen.id != store.currentId ||
                                     lockScreen.wallpaper != current.lockScreen.wallpaper ||
                                     lockScreen.home != current.lockScreen.home
-                                store.save(lockScreen)
-                                version++
                                 apply(lockScreen, tuning, updateWallpaper,
                                     closeWhenApplied = request.fromLockScreen) {
+                                    version++
                                     screen = Screen.Switcher(zoomIn = true)
                                 }
                             },
                         )
                     }
+                }
+                if (importing || applying) {
+                    GalleryProgress(if (importing) R.string.gallery_loading
+                        else R.string.gallery_saving)
                 }
             }
         }
@@ -375,30 +447,47 @@ class LockScreenGalleryActivity : ComponentActivity() {
      * Opened from the lock screen, applying goes back to it, as on iOS. Opened from the
      * launcher, closing would look like a crash, so the switcher stays and says so instead.
      */
-    private var applying = false
+    private var applying by mutableStateOf(false)
 
     private fun apply(lockScreen: LockScreen, tuning: CustomClocks.Tuning? = null,
             updateWallpaper: Boolean = true, closeWhenApplied: Boolean = launchRequest.fromLockScreen,
+            onFinished: () -> Unit = {},
             onApplied: () -> Unit = {}) {
         if (applying) return
         applying = true
+        val generation = launchRequest.generation
+        val store = GalleryStore.get(this)
+        store.retainImportedPhotos(lockScreen.wallpaper.photos)
         lifecycleScope.launch {
             try {
                 if (updateWallpaper && lockScreen.wallpaper.depth) {
                     Toast.makeText(this@LockScreenGalleryActivity,
                         R.string.depthwall_extracting_toast, Toast.LENGTH_LONG).show()
                 }
-                val result = if (updateWallpaper) {
-                    withContext(Dispatchers.IO) {
-                        GalleryApplier.apply(this@LockScreenGalleryActivity, lockScreen)
+                val result = withContext(NonCancellable) {
+                    applyMutex.withLock {
+                        val applied = if (updateWallpaper) {
+                            withContext(Dispatchers.IO) {
+                                GalleryApplier.apply(this@LockScreenGalleryActivity, lockScreen)
+                            }
+                        } else GalleryApplier.Result.APPLIED
+                        if (applied != GalleryApplier.Result.FAILED) {
+                            applyClock(lockScreen.clock, tuning ?: lockScreen.clock.tuning)
+                            withContext(Dispatchers.IO) {
+                                store.save(lockScreen, makeCurrent = true)
+                                store.pruneImportedPhotos()
+                            }
+                        }
+                        applied
                     }
-                } else GalleryApplier.Result.APPLIED
+                }
+                coroutineContext.ensureActive()
                 if (result == GalleryApplier.Result.FAILED) {
                     Toast.makeText(this@LockScreenGalleryActivity, R.string.gallery_apply_failed,
                         Toast.LENGTH_LONG).show()
                     return@launch
                 }
-                applyClock(lockScreen.clock, tuning ?: lockScreen.clock.tuning)
+                if (generation != launchRequest.generation) return@launch
                 if (result == GalleryApplier.Result.DEPTH_FAILED) {
                     Toast.makeText(this@LockScreenGalleryActivity, R.string.depthwall_apply_failed,
                         Toast.LENGTH_LONG).show()
@@ -412,8 +501,18 @@ class LockScreenGalleryActivity : ComponentActivity() {
                     }
                     onApplied()
                 }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("LockScreenGallery", "Could not save the lock screen", e)
+                Toast.makeText(this@LockScreenGalleryActivity, R.string.gallery_apply_failed,
+                    Toast.LENGTH_LONG).show()
             } finally {
+                withContext(NonCancellable + Dispatchers.IO) {
+                    store.discardImportedPhotos(lockScreen.wallpaper.photos)
+                }
                 applying = false
+                if (generation == launchRequest.generation) onFinished()
             }
         }
     }
@@ -450,14 +549,21 @@ class LockScreenGalleryActivity : ComponentActivity() {
             ?: runCatching { wm.builtInDrawable }.getOrNull() ?: return
         val (w, h) = GalleryApplier.screenSize(this)
         val bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
-        drawable.setBounds(0, 0, w, h)
-        drawable.draw(Canvas(bitmap))
-        val file = File(File(filesDir, "gallery").apply { mkdirs() }, "current.jpg")
-        FileOutputStream(file).use { bitmap.compress(Bitmap.CompressFormat.JPEG, 92, it) }
-        val lockScreen = LockScreen(store.newId(),
-            GalleryWallpaper(Kind.PHOTO, photos = listOf(file.absolutePath)))
-        store.save(lockScreen)
-        store.setCurrent(lockScreen.id)
+        try {
+            drawable.setBounds(0, 0, w, h)
+            drawable.draw(Canvas(bitmap))
+            val path = store.importBitmap(bitmap) ?: return
+            try {
+                store.saveInitial(LockScreen(store.newId(),
+                    GalleryWallpaper(Kind.PHOTO, photos = listOf(path))))
+            } finally {
+                store.discardImportedPhotos(listOf(path))
+            }
+        } catch (e: Exception) {
+            Log.w("LockScreenGallery", "Could not import the current wallpaper", e)
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     companion object {
@@ -467,5 +573,20 @@ class LockScreenGalleryActivity : ComponentActivity() {
             "org.lunaris.lockstyles.action.LOCK_SCREEN_CLOCK"
         private const val MAX_SHUFFLE = 30
         private const val FEATURED = 6
+        private val applyMutex = Mutex()
+    }
+}
+
+@Composable
+private fun GalleryProgress(message: Int) {
+    Dialog(onDismissRequest = {}, properties = DialogProperties(
+        dismissOnBackPress = false, dismissOnClickOutside = false)) {
+        Surface(shape = MaterialTheme.shapes.extraLarge) {
+            Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                CircularProgressIndicator()
+                Text(stringResource(message), style = MaterialTheme.typography.bodyLarge)
+            }
+        }
     }
 }
