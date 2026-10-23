@@ -115,6 +115,7 @@ import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.Shortcuts
 import org.lunaris.lockstyles.R
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockGlass
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlin.math.abs
@@ -174,7 +175,7 @@ fun CustomiseScreen(
         LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
         val onLight = rememberTopLight(wallpaper)
         if (clock.face > 0) {
-            CustomClockLayer(clock, tuning = tuning, onBottomChanged = { clockBottom = it })
+            CustomClockLayer(clock, tuning = tuning, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
             // The clock area stays tappable, as iOS lets you tap the clock to edit it.
             Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f).clickable { sheet = "clock" })
         } else BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -690,7 +691,8 @@ internal fun ClockSheet(
                 Chips(listOf(stringResource(R.string.gallery_clock_colour_custom),
                     stringResource(R.string.gallery_clock_colour_accent),
                     stringResource(R.string.gallery_clock_colour_gradient)), mode) {
-                    onTuning(tuning.copy(accent = it == 1, gradient = it == 2))
+                    onTuning(tuning.copy(accent = it == 1, gradient = it == 2,
+                        textGlass = if (CustomClocks.supportsTextGlass(clock.face)) false else tuning.textGlass))
                 }
             }
             if (clock.face == 0 || (!tuning.accent && !tuning.gradient)) {
@@ -758,6 +760,17 @@ internal fun ClockSheet(
                 -75..75, "°", CustomClocks.Tuning().tiltX) { onTuning(tuning.copy(tiltX = it)) }
             TuningSlider(stringResource(R.string.clock_tilt_y_title), tuning.tiltY,
                 -75..75, "°", CustomClocks.Tuning().tiltY) { onTuning(tuning.copy(tiltY = it)) }
+            if (CustomClocks.supportsTextGlass(clock.face)) {
+                TuningSwitch(stringResource(R.string.clock_text_glass), tuning.textGlass) {
+                    onTuning(tuning.copy(textGlass = it, gradient = if (it) false else tuning.gradient))
+                }
+                if (tuning.textGlass) {
+                    TuningSlider(stringResource(R.string.clock_glass_intensity), tuning.glassIntensity,
+                        0..100, "%", 100) { onTuning(tuning.copy(glassIntensity = it)) }
+                    TuningSlider(stringResource(R.string.clock_glass_lift), tuning.glassLift,
+                        0..100, "%", ClockGlass.DEFAULT_LIFT) { onTuning(tuning.copy(glassLift = it)) }
+                }
+            }
             if (CustomClocks.supportsHyperBlur(clock.face) && !tuning.gradient) {
                 TuningSwitch(stringResource(R.string.lock_screen_custom_clock_hyper_blur_title),
                     tuning.hyperBlur) { onTuning(tuning.copy(hyperBlur = it)) }

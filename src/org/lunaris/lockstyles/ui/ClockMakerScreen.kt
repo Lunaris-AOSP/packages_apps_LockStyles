@@ -121,6 +121,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.clockmaker.ClockDesignPositioning
 import org.lunaris.clockmaker.ClockElement
 import org.lunaris.clockmaker.ClockElementKind
@@ -340,7 +341,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                 )
                             }
                         }
-                        MakerClockLayer(clock, tuning, dozing = previewAod, selectedId = selectedId, onSelect = { selectedId = it },
+                        MakerClockLayer(clock, tuning, wallpaper = wallpaper, dozing = previewAod, selectedId = selectedId, onSelect = { selectedId = it },
                             onMove = { id, x, y ->
                                 if (!dragging) { undo = (undo + design).takeLast(50); dragging = true }
                                 change(design.copy(elements = design.elements.map {
@@ -525,12 +526,21 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                                     }
                                                 }
                                             } else {
-                                                TuningSwitch(stringResource(R.string.clock_maker_inherit), selected.color == null && !selected.gradient) {
-                                                    edit(selected.copy(color = if (it) null else android.graphics.Color.WHITE, gradient = false))
+                                                TuningSwitch(stringResource(R.string.clock_maker_inherit), selected.color == null && !selected.gradient && !selected.glass) {
+                                                    edit(selected.copy(color = if (it) null else android.graphics.Color.WHITE, gradient = false, glass = false))
                                                 }
                                                 ClockColourPicker(ELEMENT_COLOURS, selected.color, wallpaper, allowImport) { edit(selected.copy(color = it)) }
+                                                TuningSwitch(stringResource(R.string.clock_text_glass), selected.glass) {
+                                                    edit(selected.copy(glass = it, gradient = if (it) false else selected.gradient))
+                                                }
+                                                if (selected.glass) {
+                                                    TuningSlider(stringResource(R.string.clock_glass_intensity), selected.blurIntensity,
+                                                        0..100, "%", 100) { edit(selected.copy(blurIntensity = it)) }
+                                                    TuningSlider(stringResource(R.string.clock_glass_lift), selected.blurLift,
+                                                        0..100, "%", ClockGlass.DEFAULT_LIFT) { edit(selected.copy(blurLift = it)) }
+                                                }
                                                 TuningSlider(stringResource(R.string.gallery_clock_opacity), selected.opacity, 0..100, "%", 100) { edit(selected.copy(opacity = it)) }
-                                                TuningSwitch(stringResource(R.string.gallery_clock_colour_gradient), selected.gradient) { edit(selected.copy(gradient = it)) }
+                                                TuningSwitch(stringResource(R.string.gallery_clock_colour_gradient), selected.gradient) { edit(selected.copy(gradient = it, glass = if (it) false else selected.glass)) }
                                                 AnimatedVisibility(
                                                     visible = selected.gradient,
                                                     enter = fadeIn(tween(180)) + expandVertically(),

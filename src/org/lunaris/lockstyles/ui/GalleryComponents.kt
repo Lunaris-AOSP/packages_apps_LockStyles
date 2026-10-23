@@ -67,6 +67,7 @@ import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWeather
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockGlass
 import java.io.File
 import java.util.Calendar
 import kotlinx.coroutines.Dispatchers
@@ -114,6 +115,25 @@ fun WallpaperImage(
             } ?: Box(Modifier.fillMaxSize().background(Color(0xFF1C1C1E)))
         }
     }
+}
+
+@Composable
+internal fun rememberClockGlass(wallpaper: GalleryWallpaper?, enabled: Boolean): ClockGlass? {
+    val context = LocalContext.current
+    val metrics = context.resources.displayMetrics
+    val width = metrics.widthPixels
+    val height = metrics.heightPixels
+    val background by produceState<ClockGlass?>(null, wallpaper, enabled, width, height) {
+        value = null
+        if (enabled && wallpaper != null) {
+            value = withContext(Dispatchers.Default) {
+                runCatching {
+                    ClockGlass.prepare(GalleryRenderer.toBitmap(context, wallpaper, width, height))
+                }.getOrNull()
+            }
+        }
+    }
+    return background
 }
 
 /** A wallpaper drawn every frame, for kinds that move. */
@@ -236,12 +256,13 @@ fun CustomClockLayer(
     modifier: Modifier = Modifier,
     tuning: CustomClocks.Tuning? = null,
     onBottomChanged: ((Float) -> Unit)? = null,
+    wallpaper: GalleryWallpaper? = null,
 ) {
     val context = LocalContext.current
     val fallbackTuning = remember { CustomClocks.Tuning.load(context) }
     val currentTuning = tuning ?: style.tuning ?: fallbackTuning
     if (style.face == ClockDesign.STYLE) {
-        MakerClockLayer(style, currentTuning, modifier, onBottomChanged = onBottomChanged)
+        MakerClockLayer(style, currentTuning, modifier, wallpaper = wallpaper, onBottomChanged = onBottomChanged)
         return
     }
     val frame = remember(currentTuning, style.face) {
@@ -252,8 +273,10 @@ fun CustomClockLayer(
         currentTuning.accent -> context.getColor(android.R.color.system_accent1_100)
         else -> style.color
     }
-    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning) {
-        value = CustomClocks.preview(context, style.face, frame.width, color, tuning = currentTuning)
+    val glass = rememberClockGlass(wallpaper, currentTuning.textGlass && CustomClocks.supportsTextGlass(style.face))
+    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning, glass) {
+        value = CustomClocks.preview(context, style.face, frame.width, color, tuning = currentTuning,
+            glassBackground = glass)
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val bitmap = preview ?: return@BoxWithConstraints
@@ -317,7 +340,7 @@ fun LockScreenCard(
         WallpaperImage(wallpaper, Modifier.fillMaxSize(), weather)
         if (live && wallpaper.isAnimated) LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
         if (clock.face > 0) {
-            CustomClockLayer(clock, onBottomChanged = { clockBottom = it })
+            CustomClockLayer(clock, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
         } else {
             val clockHeight = maxHeight * if (clock.small) 0.06f else 0.24f
             val dateSize = (maxWidth.value * 0.055f).sp

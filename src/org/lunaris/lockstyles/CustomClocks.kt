@@ -16,12 +16,15 @@ import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import android.widget.TextClock
 import android.widget.TextView
 import org.json.JSONObject
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockGlass
+import org.lunaris.clockmaker.ClockGlassController
 
 /**
  * The custom lock screen clock styles from Singularity. SystemUI owns the layouts that are
@@ -92,6 +95,9 @@ object CustomClocks {
         val tiltX: Int = 0,
         val tiltY: Int = 0,
         val hyperBlur: Boolean = false,
+        val textGlass: Boolean = false,
+        val glassIntensity: Int = ClockGlass.DEFAULT_INTENSITY,
+        val glassLift: Int = ClockGlass.DEFAULT_LIFT,
         val accent: Boolean = false,
         val gradient: Boolean = false,
         val gradientStart: Int = 0xFF00E5FF.toInt(),
@@ -130,6 +136,9 @@ object CustomClocks {
                     tiltX = int(KEY_TILT_X, d.tiltX).coerceIn(-75, 75),
                     tiltY = int(KEY_TILT_Y, d.tiltY).coerceIn(-75, 75),
                     hyperBlur = int(KEY_HYPER_BLUR, 0) != 0,
+                    textGlass = int(ClockGlass.ENABLED_SETTING, 0) != 0,
+                    glassIntensity = int(ClockGlass.INTENSITY_SETTING, d.glassIntensity).coerceIn(0, 100),
+                    glassLift = int(ClockGlass.LIFT_SETTING, d.glassLift).coerceIn(0, 100),
                     accent = runCatching { Settings.Secure.getString(cr, KEY_COLOR_MODE) }
                         .getOrNull() == COLOR_MODE_ACCENT,
                     gradient = int(KEY_GRADIENT, 0) != 0,
@@ -159,6 +168,9 @@ object CustomClocks {
                     tiltX = json.optInt("tiltX", d.tiltX),
                     tiltY = json.optInt("tiltY", d.tiltY),
                     hyperBlur = json.optBoolean("hyperBlur", d.hyperBlur),
+                    textGlass = json.optBoolean("textGlass", d.textGlass),
+                    glassIntensity = json.optInt("glassIntensity", d.glassIntensity).coerceIn(0, 100),
+                    glassLift = json.optInt("glassLift", d.glassLift).coerceIn(0, 100),
                     accent = json.optBoolean("accent", d.accent),
                     gradient = json.optBoolean("gradient", d.gradient),
                     gradientStart = json.optInt("gradientStart", d.gradientStart),
@@ -186,6 +198,9 @@ object CustomClocks {
             .put("tiltX", tiltX)
             .put("tiltY", tiltY)
             .put("hyperBlur", hyperBlur)
+            .put("textGlass", textGlass)
+            .put("glassIntensity", glassIntensity)
+            .put("glassLift", glassLift)
             .put("accent", accent)
             .put("gradient", gradient)
             .put("gradientStart", gradientStart)
@@ -213,6 +228,9 @@ object CustomClocks {
             put(KEY_TILT_X, tiltX)
             put(KEY_TILT_Y, tiltY)
             put(KEY_HYPER_BLUR, hyperBlur)
+            put(ClockGlass.ENABLED_SETTING, textGlass)
+            put(ClockGlass.INTENSITY_SETTING, glassIntensity.coerceIn(0, 100))
+            put(ClockGlass.LIFT_SETTING, glassLift.coerceIn(0, 100))
             put(KEY_GRADIENT, gradient)
             put(KEY_GRADIENT_START, gradientStart)
             put(KEY_GRADIENT_END, gradientEnd)
@@ -256,6 +274,7 @@ object CustomClocks {
     fun isColourable(style: Int) = style !in NO_COLOR
     fun supportsHorizontalMargin(style: Int) = style !in NO_HORIZONTAL_MARGIN
     fun supportsHyperBlur(style: Int) = style in 93..102
+    fun supportsTextGlass(style: Int) = style in 1..92 && isColourable(style)
 
     private fun shadowPadding(context: Context, tuning: Tuning?): Int {
         if (tuning == null || Color.alpha(tuning.shadowArgb) == 0) return 0
@@ -289,10 +308,10 @@ object CustomClocks {
      * [trim] crops the empty space around it, for small tiles.
      */
     fun preview(context: Context, style: Int, width: Int, color: Int?,
-            trim: Boolean = false, tuning: Tuning? = null): Bitmap? {
+            trim: Boolean = false, tuning: Tuning? = null, glassBackground: ClockGlass? = null): Bitmap? {
         if (style <= 0) return null
         val minute = System.currentTimeMillis() / 60_000
-        val key = "$style/$width/$color/$minute/$trim/$tuning"
+        val key = "$style/$width/$color/$minute/$trim/$tuning/${System.identityHashCode(glassBackground)}"
         previews.get(key)?.let { return it }
         val cat = load(context) ?: return null
         if (style >= cat.layouts.size) return null
@@ -309,6 +328,36 @@ object CustomClocks {
             if (isColourable(style)) {
                 prepareColours(view, view, color ?: Color.WHITE, tuning)
             }
+            val glass = if (tuning?.textGlass == true && supportsTextGlass(style) && glassBackground != null) {
+                val frame = frame(context, tuning, style)
+                val stage = FrameLayout(context)
+                stage.addView(view)
+                stage.layout(0, 0, context.resources.displayMetrics.widthPixels,
+                    context.resources.displayMetrics.heightPixels)
+                view.layout(frame.side, frame.top, frame.side + view.measuredWidth,
+                    frame.top + view.measuredHeight)
+                view.pivotX = view.width / 2f
+                view.pivotY = view.height / 2f
+                view.scaleX = frame.scale
+                view.scaleY = frame.scale
+                view.rotation = tuning.rotation.toFloat()
+                view.rotationX = tuning.tiltX.toFloat()
+                view.rotationY = tuning.tiltY.toFloat()
+                view.cameraDistance = maxOf(maxOf(view.width, view.height) * 4f,
+                    1280f * context.resources.displayMetrics.density)
+                ClockGlassController(view).apply {
+                    setPreview(glassBackground, stage)
+                    fun collect(child: View) {
+                        if (child is TextView) {
+                            child.paint.shader = null
+                            add(child, tuning.glassIntensity, tuning.glassLift)
+                        }
+                        if (child is ViewGroup) for (i in 0 until child.childCount) collect(child.getChildAt(i))
+                    }
+                    collect(view)
+                    commit()
+                }
+            } else null
             val padding = shadowPadding(context, tuning)
             Bitmap.createBitmap(view.measuredWidth + padding * 2,
                 view.measuredHeight + padding * 2, Bitmap.Config.ARGB_8888)
@@ -316,6 +365,7 @@ object CustomClocks {
                     val canvas = Canvas(it)
                     canvas.translate(padding.toFloat(), padding.toFloat())
                     view.draw(canvas)
+                    glass?.clear()
                     val preview = addShadow(it, context, tuning)
                     if (trim) trimmed(preview) else preview
                 }

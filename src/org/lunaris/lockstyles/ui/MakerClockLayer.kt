@@ -37,17 +37,20 @@ import org.lunaris.clockmaker.ClockDesignView
 import org.lunaris.clockmaker.ClockEffects
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
+import org.lunaris.lockstyles.GalleryWallpaper
 
 @Composable
 fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Modifier = Modifier,
     thumbnail: Boolean = false, dozing: Boolean = false, selectedId: String? = null, onSelect: ((String) -> Unit)? = null,
     onMove: ((String, Float, Float) -> Unit)? = null, onDragFinished: (() -> Unit)? = null,
     onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null,
-    onBottomChanged: ((Float) -> Unit)? = null) {
+    onBottomChanged: ((Float) -> Unit)? = null, wallpaper: GalleryWallpaper? = null) {
     val context = LocalContext.current
     val fallback = remember { ClockDesign() }
     val selectionColor = MaterialTheme.colorScheme.primary.toArgb()
+    val glass = rememberClockGlass(wallpaper, !dozing && style.design?.elements?.any { it.glass && it.visible } == true)
     AndroidView(factory = { MakerPreview(it) }, modifier = modifier.fillMaxSize(), update = {
+        it.clock.setGlassPreview(glass, it.stage)
         it.thumbnail = thumbnail
         it.dozing = dozing
         it.tuning = tuning
@@ -81,7 +84,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     var onBottomChanged: ((Float) -> Unit)? = null
     private var positioning: ClockDesignPositioning? = null
     private var frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE)
-    private val stage = object : ViewGroup(context) {
+    val stage = object : ViewGroup(context) {
         init {
             clipChildren = false
             clipToPadding = false

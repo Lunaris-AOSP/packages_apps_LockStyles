@@ -106,4 +106,7 @@
     <string name="clock_maker_shape_pixeltriangle">Pixel Triangle</string>
     <string name="clock_maker_shape_bun">Bun</string>
     <string name="clock_maker_shape_heart">Heart</string>
+    <string name="clock_text_glass">Glass text</string>
+    <string name="clock_glass_intensity">Blur intensity</string>
+    <string name="clock_glass_lift">White lift</string>
 </resources>
