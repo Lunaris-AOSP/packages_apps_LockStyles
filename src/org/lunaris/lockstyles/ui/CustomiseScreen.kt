@@ -63,8 +63,6 @@ import org.lunaris.lockstyles.settings.ui.AodAvatarSettings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
@@ -255,27 +253,25 @@ fun CustomiseScreen(
     }
 
     if (sheet == "clock") {
-        ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        LockStylesBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             ClockSheet(clock, tuning, wallpaper, allowPhotoPicking, { clock = it }, { tuning = it },
                 onMaker = { showMaker = true })
         }
     }
     if (sheet == "shortcuts") {
-        ModalBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
+        LockStylesBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             ShortcutsSheet(shortcuts)
         }
     }
     if (sheet == "depth") {
-        ModalBottomSheet(onDismissRequest = { sheet = null },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        LockStylesBottomSheet(onDismissRequest = { sheet = null },
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             DepthPage(back = { sheet = null }, inSheet = true,
                 allowPhotoPicking = allowPhotoPicking)
         }
     }
     if (sheet == "widgets" || sheet == "avatar") {
-        ModalBottomSheet(onDismissRequest = { sheet = null },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        LockStylesBottomSheet(onDismissRequest = { sheet = null },
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             if (sheet == "widgets") {
                 WidgetsPage(back = { sheet = null }, inSheet = true, onAppWidgets = { sheet = "app_widgets" })
@@ -942,7 +938,8 @@ private fun ShortcutsSheet(shortcuts: Shortcuts) {
         }
     }
     val (slots, affordances, selections) = state
-    Column(Modifier.fillMaxWidth().padding(bottom = 32.dp),
+    Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+        .navigationBarsPadding().padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.gallery_shortcuts), color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp,
             fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))

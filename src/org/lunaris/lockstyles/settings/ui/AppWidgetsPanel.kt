@@ -35,13 +35,11 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,6 +53,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import org.lunaris.lockstyles.R
+import org.lunaris.lockstyles.ui.LockStylesBottomSheet
 import androidx.compose.ui.unit.dp
 import org.lunaris.lockscreenwidgets.WidgetContract
 import org.lunaris.lockscreenwidgets.WidgetEntry
@@ -75,8 +74,7 @@ fun AppWidgetsBottomSheet(onDismiss: () -> Unit) {
             Toast.makeText(context, WidgetR.string.app_widgets_failed, Toast.LENGTH_LONG).show()
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    LockStylesBottomSheet(onDismissRequest = onDismiss,
         containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
         BackHandler(enabled = picking) { picking = false }
         Column(Modifier.fillMaxWidth()

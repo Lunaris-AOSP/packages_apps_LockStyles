@@ -32,8 +32,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
@@ -48,7 +50,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -76,6 +77,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.lunaris.lockstyles.settings.LockSetting
 import org.lunaris.lockstyles.ui.ColorPickerDialog
+import org.lunaris.lockstyles.ui.LockStylesBottomSheet
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.HapticFeedbackHelper.HapticIntensity
 import org.lunaris.lockstyles.settings.ui.components.ModernSettingSlider
@@ -454,10 +456,11 @@ fun colorRow(
             open = false
         }
     } else if (open) {
-        ModalBottomSheet(onDismissRequest = { open = false },
+        LockStylesBottomSheet(onDismissRequest = { open = false },
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             var hex by remember { mutableStateOf("%08X".format(value)) }
-            Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(24.dp),
+            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
+                .navigationBarsPadding().padding(24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(title, style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold)
