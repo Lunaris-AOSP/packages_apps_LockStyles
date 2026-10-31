@@ -76,6 +76,7 @@ object CustomClocks {
         val layouts: IntArray,
         val inflateContext: Context,
         val systemUi: Context?,
+        val assetsSeq: Int,
     )
 
     /** Where SystemUI puts the clock, in pixels of the real screen. */
@@ -249,7 +250,8 @@ object CustomClocks {
     }
 
     private fun load(context: Context): Catalogue? {
-        catalogue?.let { return it }
+        val assetsSeq = context.resources.configuration.assetsSeq
+        catalogue?.takeIf { it.assetsSeq == assetsSeq }?.let { return it }
         return try {
             val systemUi = context.createPackageContext(SYSTEMUI,
                 Context.CONTEXT_INCLUDE_CODE or Context.CONTEXT_IGNORE_SECURITY)
@@ -261,6 +263,7 @@ object CustomClocks {
                 ContextThemeWrapper(systemUi,
                     android.R.style.Theme_DeviceDefault_NoActionBar),
                 systemUi,
+                assetsSeq,
             ).also { catalogue = it }
         } catch (e: Exception) {
             Log.w(TAG, "SystemUI has no custom clock styles", e)
@@ -311,7 +314,8 @@ object CustomClocks {
             trim: Boolean = false, tuning: Tuning? = null, glassBackground: ClockGlass? = null): Bitmap? {
         if (style <= 0) return null
         val minute = System.currentTimeMillis() / 60_000
-        val key = "$style/$width/$color/$minute/$trim/$tuning/${System.identityHashCode(glassBackground)}"
+        val assetsSeq = context.resources.configuration.assetsSeq
+        val key = "$style/$width/$color/$minute/$trim/$tuning/$assetsSeq/${System.identityHashCode(glassBackground)}"
         previews.get(key)?.let { return it }
         val cat = load(context) ?: return null
         if (style >= cat.layouts.size) return null

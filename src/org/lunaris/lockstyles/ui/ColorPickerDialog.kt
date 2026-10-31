@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
@@ -38,13 +37,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
-import org.lunaris.lockstyles.R
 import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import org.lunaris.lockstyles.R
 
 @Composable
 fun ColorPickerDialog(initialColor: Int, onDismiss: () -> Unit, onColorSelected: (Int) -> Unit) {
@@ -67,8 +66,8 @@ fun ColorPickerDialog(initialColor: Int, onDismiss: () -> Unit, onColorSelected:
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Box(Modifier.fillMaxWidth().height(36.dp)
-                    .background(selected, RoundedCornerShape(12.dp)))
+                Box(Modifier.fillMaxWidth().height(48.dp)
+                    .background(selected, MaterialTheme.shapes.large))
                 ColorWheel(hue, saturation, brightness) { h, s ->
                     hue = h
                     saturation = s
@@ -108,9 +107,8 @@ fun ColorPickerDialog(initialColor: Int, onDismiss: () -> Unit, onColorSelected:
             }
         },
         confirmButton = {
-            TextButton(enabled = parsed != null, onClick = { parsed?.let(onColorSelected) }) {
-                Text(stringResource(R.string.apply_change))
-            }
+            ExpressiveButton(stringResource(R.string.apply_change), enabled = parsed != null,
+                onClick = { parsed?.let(onColorSelected) })
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }

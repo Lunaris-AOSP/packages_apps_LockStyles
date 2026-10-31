@@ -8,8 +8,8 @@ package org.lunaris.lockstyles.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -25,7 +25,7 @@ import androidx.compose.ui.unit.Velocity
 @Composable
 internal fun LockStylesBottomSheet(
     onDismissRequest: () -> Unit,
-    containerColor: Color = BottomSheetDefaults.ContainerColor,
+    containerColor: Color = MaterialTheme.colorScheme.surfaceContainerLow,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     ModalBottomSheet(

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +35,7 @@ import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.AodAvatar
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
+import org.lunaris.lockstyles.ui.ExpressiveLoadingIndicator
 
 @Composable
 fun AodAvatarSettings(allowPhotoPicking: Boolean = true) {
@@ -86,7 +86,7 @@ fun AodAvatarSettings(allowPhotoPicking: Boolean = true) {
             },
         ))
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            if (saving) CircularProgressIndicator()
+            if (saving) ExpressiveLoadingIndicator()
             else preview?.let {
                 Image(it.asImageBitmap(), stringResource(R.string.aod_avatar_preview),
                     Modifier.size(120.dp).clip(CircleShape), contentScale = ContentScale.Crop)

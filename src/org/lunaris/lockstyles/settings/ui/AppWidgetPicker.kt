@@ -29,7 +29,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -37,9 +36,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,10 +51,11 @@ import androidx.compose.ui.viewinterop.AndroidView
 import java.text.Collator
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.lunaris.lockscreenwidgets.R as WidgetR
 import org.lunaris.lockscreenwidgets.WidgetEntry
 import org.lunaris.lockscreenwidgets.WidgetSizes
 import org.lunaris.lockstyles.R
-import org.lunaris.lockscreenwidgets.R as WidgetR
+import org.lunaris.lockstyles.ui.ExpressiveLoadingIndicator
 
 private data class WidgetChoice(val info: AppWidgetProviderInfo, val label: String, val sizes: List<Pair<Int, Int>>)
 private data class WidgetApp(val packageName: String, val label: String, val icon: Drawable?, val widgets: List<WidgetChoice>)
@@ -99,7 +99,7 @@ internal fun AppWidgetPicker(onPick: (AppWidgetProviderInfo, Pair<Int, Int>) -> 
         val loaded = apps
         when {
             loaded == null -> Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+                ExpressiveLoadingIndicator()
             }
             loaded.isFailure -> Column(Modifier.padding(24.dp)) {
                 Text(stringResource(WidgetR.string.app_widgets_failed), color = MaterialTheme.colorScheme.error)
@@ -196,7 +196,7 @@ private fun WidgetProviderPreview(info: AppWidgetProviderInfo, size: Pair<Int, I
     Box(modifier, contentAlignment = Alignment.Center) {
         val loaded = preview
         when {
-            loaded == null -> CircularProgressIndicator(Modifier.size(24.dp))
+            loaded == null -> ExpressiveLoadingIndicator(Modifier.size(24.dp))
             loaded.remoteViews != null -> AndroidView(factory = { ProviderPreviewView(it) },
                 modifier = Modifier.matchParentSize(), update = {
                     val sizes = WidgetSizes(context, gridWidth)

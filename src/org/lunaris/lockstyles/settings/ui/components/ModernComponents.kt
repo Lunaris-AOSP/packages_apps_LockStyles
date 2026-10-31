@@ -7,75 +7,38 @@ package org.lunaris.lockstyles.settings.ui.components
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.InteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.input.pointer.PointerEventType
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.indication
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import org.lunaris.lockstyles.settings.ui.components.HapticFeedbackHelper
+import org.lunaris.lockstyles.ui.ExpressiveButton
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun Modifier.squishable(
-    enabled: Boolean = true,
-    scaleDown: Float = 0.93f
-): Modifier {
-    var isPressed by remember { mutableStateOf(false) }
-    
-    val scale by animateFloatAsState(
-        targetValue = if (isPressed && enabled) scaleDown else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "squish_scale"
-    )
-    
-    return this
-        .graphicsLayer {
-            scaleX = scale
-            scaleY = scale
-        }
-        .indication(
-            interactionSource = remember { MutableInteractionSource() },
-            indication = null
-        )
-        .pointerInput(enabled) {
-            if (enabled) {
-                awaitPointerEventScope {
-                    while (true) {
-                        val event = awaitPointerEvent()
-                        when (event.type) {
-                            PointerEventType.Press -> {
-                                isPressed = true
-                            }
-                            PointerEventType.Release -> {
-                                isPressed = false
-                            }
-                        }
-                    }
-                }
-            }
-        }
+fun Modifier.squishable(interactionSource: InteractionSource, enabled: Boolean = true,
+    scaleDown: Float = 0.97f): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed && enabled) scaleDown else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(), label = "press_scale")
+    return graphicsLayer { scaleX = scale; scaleY = scale }
 }
 
 @Composable
@@ -89,10 +52,10 @@ fun ModernSettingsCard(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.extraLarge,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceBright
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         )
     ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Column(modifier = Modifier.padding(16.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(bottom = 16.dp)
@@ -100,7 +63,7 @@ fun ModernSettingsCard(
                 Surface(
                     modifier = Modifier.size(40.dp),
                     shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.primaryContainer
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
@@ -116,8 +79,7 @@ fun ModernSettingsCard(
                 
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface
                 )
             }
@@ -135,89 +97,37 @@ fun ModernSettingSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
-    icon: ImageVector? = null
+    icon: ImageVector? = null,
+    enabled: Boolean = true,
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
-    
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large),
-        color = if (checked) 
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
-        else 
-            MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                modifier = Modifier.weight(1f),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                icon?.let {
-                    Icon(
-                        imageVector = it,
-                        contentDescription = null,
-                        modifier = Modifier.size(24.dp),
-                        tint = if (checked) 
-                            MaterialTheme.colorScheme.primary 
-                        else 
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                }
-                
-                Column {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = subtitle,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+    val container by animateColorAsState(
+        if (checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+        MaterialTheme.motionScheme.fastEffectsSpec(), label = "switch_surface")
+    val foreground = if (checked) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+    Surface(shape = MaterialTheme.shapes.large, color = container,
+        modifier = modifier.fillMaxWidth().clip(MaterialTheme.shapes.large)
+            .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = {
+                scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.TICK) }
+                onCheckedChange(it)
+            })) {
+        Row(Modifier.heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            if (icon != null) Icon(icon, null, Modifier.size(24.dp), tint = foreground)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
+                    color = foreground)
+                if (subtitle.isNotBlank()) {
+                    Text(subtitle, style = MaterialTheme.typography.bodyMedium,
+                        color = if (checked) foreground else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            
-            Switch(
-                checked = checked,
-                onCheckedChange = { 
-                    scope.launch {
-                        haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.DOUBLE_CLICK)
-                    }
-                    onCheckedChange(it)
-                },
-                thumbContent = {
-                    Crossfade(
-                        targetState = checked,
-                        animationSpec = MaterialTheme.motionScheme.slowEffectsSpec(),
-                        label = "switch_icon"
-                    ) { isChecked ->
-                        if (isChecked) {
-                            Icon(
-                                imageVector = Icons.Rounded.Check,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Rounded.Close,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
-                }
-            )
+            Switch(checked = checked, onCheckedChange = null, enabled = enabled,
+                thumbContent = if (checked) {{
+                    Icon(Icons.Rounded.Check, null, Modifier.size(SwitchDefaults.IconSize))
+                }} else null)
         }
     }
 }
@@ -230,7 +140,8 @@ fun ModernSettingSlider(
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
     modifier: Modifier = Modifier,
-    valueLabel: (Int) -> String = { it.toString() }
+    valueLabel: (Int) -> String = { it.toString() },
+    enabled: Boolean = true,
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
@@ -244,6 +155,7 @@ fun ModernSettingSlider(
         ) {
             Text(
                 text = title,
+                modifier = Modifier.weight(1f).padding(end = 12.dp),
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.onSurface
@@ -266,7 +178,8 @@ fun ModernSettingSlider(
         Spacer(modifier = Modifier.height(8.dp))
         
         Slider(
-            value = value.toFloat(),
+            value = value.toFloat().coerceIn(valueRange),
+            enabled = enabled,
             onValueChange = { newValue ->
                 val intValue = newValue.toInt()
                 if (intValue != lastHapticValue) {
@@ -279,11 +192,14 @@ fun ModernSettingSlider(
             },
             valueRange = valueRange,
             steps = steps,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().semantics {
+                contentDescription = title
+                stateDescription = valueLabel(value)
+            },
             colors = SliderDefaults.colors(
                 thumbColor = MaterialTheme.colorScheme.primary,
                 activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
             )
         )
     }
@@ -339,10 +255,10 @@ fun ModernSettingSelector(
                         expanded = true 
                     },
                     shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
@@ -352,7 +268,7 @@ fun ModernSettingSelector(
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Icon(
-                            imageVector = Icons.Default.ArrowDropDown,
+                            imageVector = Icons.Rounded.ArrowDropDown,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onSurface
                         )
@@ -392,7 +308,7 @@ fun ModernSettingSelector(
 fun ModernConfirmDialog(
     title: String,
     message: String,
-    icon: ImageVector = Icons.Default.Info,
+    icon: ImageVector = Icons.Rounded.Info,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -422,12 +338,7 @@ fun ModernConfirmDialog(
             ) 
         },
         confirmButton = {
-            Button(
-                onClick = onConfirm,
-                shape = MaterialTheme.shapes.medium
-            ) {
-                Text(stringResource(android.R.string.yes))
-            }
+            ExpressiveButton(stringResource(android.R.string.yes), onClick = onConfirm)
         },
         dismissButton = {
             TextButton(

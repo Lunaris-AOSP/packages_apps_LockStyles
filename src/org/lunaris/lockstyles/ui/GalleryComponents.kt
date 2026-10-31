@@ -1,20 +1,15 @@
 package org.lunaris.lockstyles.ui
 
-import androidx.compose.ui.layout.boundsInParent
-import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.layout.onSizeChanged
-
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.text.format.DateFormat
-import androidx.compose.foundation.Image
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -28,12 +23,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -49,6 +48,10 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInParent
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.PlatformTextStyle
@@ -61,17 +64,17 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.io.File
+import java.util.Calendar
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWeather
-import org.lunaris.clockmaker.ClockDesign
-import org.lunaris.clockmaker.ClockGlass
-import java.io.File
-import java.util.Calendar
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 /** The flex clock's weight/width presets, heaviest and narrowest first, as SystemUI has them. */
 val CLOCK_PRESETS = listOf(800f to 30f, 700f to 55f, 600f to 80f, 500f to 100f, 400f to 108f,
@@ -86,6 +89,7 @@ private val clockTypeface: Typeface by lazy { Typeface.create("google-sans-flex-
     Typeface.NORMAL) }
 
 /** A still of a wallpaper, drawn off the main thread at the size it is shown. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun WallpaperImage(
     wallpaper: GalleryWallpaper,
@@ -108,11 +112,11 @@ fun WallpaperImage(
                 }
             }
         }
-        Crossfade(bitmap, animationSpec = tween(180), label = "wallpaper") { shown ->
+        Crossfade(bitmap, animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(), label = "wallpaper") { shown ->
             shown?.let {
                 Image(it.asImageBitmap(), null, Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop)
-            } ?: Box(Modifier.fillMaxSize().background(Color(0xFF1C1C1E)))
+            } ?: Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainerHigh))
         }
     }
 }
@@ -236,7 +240,8 @@ fun LockClock(
         style.tuning?.accent == true -> context.getColor(android.R.color.system_accent1_100)
         else -> style.color
     }
-    val preview by produceState<Bitmap?>(null, style.face, color, style.tuning) {
+    val assetsSeq = LocalConfiguration.current.assetsSeq
+    val preview by produceState<Bitmap?>(null, style.face, color, style.tuning, assetsSeq) {
         value = CustomClocks.preview(context, style.face, CustomClocks.frame(context).width,
             color, trim = true, tuning = style.tuning)
     }
@@ -274,7 +279,8 @@ fun CustomClockLayer(
         else -> style.color
     }
     val glass = rememberClockGlass(wallpaper, currentTuning.textGlass && CustomClocks.supportsTextGlass(style.face))
-    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning, glass) {
+    val assetsSeq = LocalConfiguration.current.assetsSeq
+    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning, glass, assetsSeq) {
         value = CustomClocks.preview(context, style.face, frame.width, color, tuning = currentTuning,
             glassBackground = glass)
     }
@@ -333,7 +339,7 @@ fun LockScreenCard(
     BoxWithConstraints(
         modifier
             .clip(shape)
-            .border(1.dp, Color(0x33FFFFFF), shape)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
     ) {
         // The still stays underneath, so turning live never flashes an empty card.
@@ -376,25 +382,29 @@ fun dateString(): String =
     DateFormat.format(DateFormat.getBestDateTimePattern(java.util.Locale.getDefault(),
         "EEEdMMM"), System.currentTimeMillis()).toString()
 
-/** A round source button at the top of the gallery, drawn from the wallpaper it opens. */
 @Composable
 fun SourceButton(label: String, preview: GalleryWallpaper?, icon: ImageVector?,
         onClick: () -> Unit) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.padding(horizontal = 6.dp).clickable(onClick = onClick),
-    ) {
-        Box(
-            Modifier.size(76.dp).clip(CircleShape).background(Color(0xFF2C2C2E))
-                .border(1.dp, Color(0x22FFFFFF), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (preview != null) WallpaperImage(preview, Modifier.fillMaxSize())
-            if (icon != null) {
-                Icon(icon, null, tint = Color.White, modifier = Modifier.size(32.dp))
+    Surface(onClick = onClick, shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        modifier = Modifier.width(104.dp)) {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(72.dp).clip(MaterialTheme.shapes.large)
+                .background(MaterialTheme.colorScheme.secondaryContainer),
+                contentAlignment = Alignment.Center) {
+                if (preview != null) WallpaperImage(preview, Modifier.fillMaxSize())
+                if (icon != null) {
+                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
+                        Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(10.dp).size(26.dp))
+                    }
+                }
             }
+            Text(label, color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
+                minLines = 2)
         }
-        Text(label, color = Color.White, fontSize = 14.sp,
-            modifier = Modifier.padding(top = 8.dp))
     }
 }

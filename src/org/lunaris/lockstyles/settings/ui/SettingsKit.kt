@@ -6,16 +6,14 @@
 
 package org.lunaris.lockstyles.settings.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.material3.LargeTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +31,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -40,6 +39,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.ArrowDropDown
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Card
@@ -47,8 +47,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -68,16 +70,23 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalConfiguration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.LockSetting
-import org.lunaris.lockstyles.ui.ColorPickerDialog
-import org.lunaris.lockstyles.ui.LockStylesBottomSheet
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.HapticFeedbackHelper.HapticIntensity
 import org.lunaris.lockstyles.settings.ui.components.ModernSettingSlider
@@ -85,6 +94,9 @@ import org.lunaris.lockstyles.settings.ui.components.ModernSettingSwitch
 import org.lunaris.lockstyles.settings.ui.components.ModernSettingsCard
 import org.lunaris.lockstyles.settings.ui.components.rememberHapticFeedback
 import org.lunaris.lockstyles.settings.ui.components.squishable
+import org.lunaris.lockstyles.ui.ColorPickerDialog
+import org.lunaris.lockstyles.ui.ColorSwatch
+import org.lunaris.lockstyles.ui.LockStylesBottomSheet
 
 /*
  * The settings are laid out as LunarisDolby's: pages on the surface container under a plain
@@ -105,12 +117,15 @@ val Accent: Color
     @Composable get() = MaterialTheme.colorScheme.primary
 
 /** The tile look for picker items: tonal, or primary with an outline when chosen. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun Modifier.pickTile(on: Boolean): Modifier {
     val shape = MaterialTheme.shapes.large
     val colors = MaterialTheme.colorScheme
+    val container by animateColorAsState(if (on) colors.primaryContainer else colors.surfaceContainerHigh,
+        MaterialTheme.motionScheme.fastEffectsSpec(), label = "selection_surface")
     return clip(shape)
-        .background(if (on) colors.primaryContainer else colors.surfaceVariant.copy(alpha = 0.6f))
+        .background(container)
         .border(if (on) 2.dp else 0.dp, if (on) colors.primary else Color.Transparent, shape)
 }
 
@@ -144,16 +159,16 @@ fun SettingsPage(title: String, onBack: () -> Unit, inSheet: Boolean = false,
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.gallery_back))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                    containerColor = MaterialTheme.colorScheme.surface,
                     scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer),
                 scrollBehavior = scroll,
             )
         },
-        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        containerColor = MaterialTheme.colorScheme.surface,
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
@@ -204,9 +219,9 @@ fun Group(
             modifier = Modifier.fillMaxWidth(),
             shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceBright),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         ) {
-            Box(Modifier.padding(20.dp)) { body() }
+            Box(Modifier.padding(16.dp)) { body() }
         }
     }
 }
@@ -223,13 +238,17 @@ private fun Tile(
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
+    val interactions = remember { MutableInteractionSource() }
     Surface(
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
         modifier = Modifier.fillMaxWidth()
-            .squishable(enabled = enabled && onClick != null)
+            .squishable(interactions, enabled = enabled && onClick != null)
             .clip(MaterialTheme.shapes.large)
-            .then(if (onClick != null && enabled) Modifier.clickable {
+            .then(if (onClick != null) Modifier.clickable(
+                interactionSource = interactions, indication = LocalIndication.current,
+                enabled = enabled, role = Role.Button,
+            ) {
                 scope.launch { haptic.performHaptic(HapticIntensity.TICK) }
                 onClick()
             } else Modifier)
@@ -246,7 +265,7 @@ private fun Labels(title: String, summary: String?, modifier: Modifier = Modifie
         Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface)
         if (!summary.isNullOrEmpty()) {
-            Text(summary, style = MaterialTheme.typography.bodySmall,
+            Text(summary, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
@@ -263,7 +282,7 @@ fun LazyListScope.mainSwitch(title: String, setting: LockSetting<Boolean>,
             shape = MaterialTheme.shapes.extraLarge,
             colors = CardDefaults.cardColors(
                 containerColor = if (on) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceBright),
+                    else MaterialTheme.colorScheme.surfaceContainerLow),
         ) {
             Box(Modifier.padding(12.dp)) {
                 ModernSettingSwitch(
@@ -291,6 +310,7 @@ fun switchRow(
         checked = on,
         onCheckedChange = { if (enabled) { on = it; onChange(it) } },
         modifier = Modifier.dimmed(enabled),
+        enabled = enabled,
     )
 }
 
@@ -320,9 +340,10 @@ fun sliderRow(
             valueRange = range.first.toFloat()..range.last.toFloat(),
             steps = if (steps in 1..60) steps else 0,
             valueLabel = { "$it$unit" },
+            enabled = enabled,
         )
         if (!summary.isNullOrEmpty()) {
-            Text(summary, style = MaterialTheme.typography.bodySmall,
+            Text(summary, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -362,36 +383,40 @@ private fun <T> ChoiceRow(
     var expanded by remember { mutableStateOf(false) }
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
-    Row(
-        Modifier.fillMaxWidth().dimmed(enabled)
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    LaunchedEffect(enabled) { if (!enabled) expanded = false }
+    Column(Modifier.fillMaxWidth().dimmed(enabled).padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
-            color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-        Box {
+            color = MaterialTheme.colorScheme.onSurface)
+        Box(Modifier.fillMaxWidth()) {
             Surface(
                 onClick = {
                     if (!enabled) return@Surface
                     scope.launch { haptic.performHaptic(HapticIntensity.TICK) }
                     expanded = true
                 },
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = title },
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
             ) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     Text(entries.firstOrNull { it.first == value }?.second.orEmpty(),
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis,
                         color = MaterialTheme.colorScheme.onSurface)
                     Spacer(Modifier.width(4.dp))
                     Icon(Icons.Rounded.ArrowDropDown, null,
                         tint = MaterialTheme.colorScheme.onSurface)
                 }
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
                 entries.forEach { (v, label) ->
                     DropdownMenuItem(
+                        enabled = enabled,
+                        modifier = Modifier.semantics { selected = v == value },
+                        trailingIcon = if (v == value) {{ Icon(Icons.Rounded.Check, null) }} else null,
                         text = {
                             Text(label, color = if (v == value) MaterialTheme.colorScheme.primary
                                 else MaterialTheme.colorScheme.onSurface)
@@ -443,6 +468,7 @@ fun colorRow(
 ): @Composable (RowShape) -> Unit = {
     var value by setting.state()
     var open by remember { mutableStateOf(false) }
+    LaunchedEffect(enabled) { if (!enabled) open = false }
     Tile(enabled, onClick = { open = true }) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Labels(title, "#%08X".format(value), Modifier.weight(1f))
@@ -450,12 +476,12 @@ fun colorRow(
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape))
         }
     }
-    if (open && usePicker) {
+    if (open && enabled && usePicker) {
         ColorPickerDialog(value, onDismiss = { open = false }) {
             value = it
             open = false
         }
-    } else if (open) {
+    } else if (open && enabled) {
         LockStylesBottomSheet(onDismissRequest = { open = false },
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             var hex by remember { mutableStateOf("%08X".format(value)) }
@@ -464,19 +490,15 @@ fun colorRow(
                 verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Text(title, style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold)
-                SWATCHES.chunked(6).forEach { line ->
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                SWATCHES.chunked(4).forEach { line ->
+                    Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.SpaceEvenly) {
                         line.forEach { c ->
-                            Box(Modifier.size(44.dp).clip(CircleShape).background(Color(c))
-                                .border(if (c == value) 3.dp else 1.dp,
-                                    if (c == value) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                                .clickable { value = c; hex = "%08X".format(c) })
+                            ColorSwatch(c, c == value, onClick = { value = c; hex = "%08X".format(c) })
                         }
                     }
                 }
                 Surface(shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)) {
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("#", style = MaterialTheme.typography.titleLarge,
@@ -509,7 +531,7 @@ fun footer(text: String): @Composable (RowShape) -> Unit = {
         Icon(Icons.Rounded.Info, null, tint = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.size(18.dp).padding(top = 2.dp))
         Spacer(Modifier.width(8.dp))
-        Text(text, style = MaterialTheme.typography.bodySmall,
+        Text(text, style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

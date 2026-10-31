@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="gallery_title">Lock screens</string>
+    <string name="gallery_browse_title">Make it yours</string>
+    <string name="gallery_browse_summary">Find a wallpaper. Create your lock screen.</string>
+    <string name="gallery_add_wallpaper">Add wallpaper</string>
+    <string name="gallery_saved_summary">Swipe to explore. Tap a lock screen to use it.</string>
+    <string name="gallery_empty_title">Your next lock screen starts here</string>
+    <string name="gallery_empty_summary">Choose a wallpaper, then make the clock and details your own.</string>
+    <string name="gallery_active">Currently applied</string>
+    <string name="gallery_back">Back</string>
+    <string name="gallery_delete">Delete lock screen</string>
+    <string name="gallery_colour_value">Colour #%1$s</string>
+    <string name="gallery_wallpaper_option">%1$s wallpaper %2$d</string>
+    <string name="gallery_font_preset">Font style %1$d</string>
+    <string name="gallery_page_position">%1$d of %2$d</string>
     <string name="gallery_customise">Customise</string>
     <string name="gallery_add">Add</string>
     <string name="gallery_done">Done</string>

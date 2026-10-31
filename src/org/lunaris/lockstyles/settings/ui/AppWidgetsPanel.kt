@@ -8,7 +8,6 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,8 +25,6 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -37,7 +34,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,14 +47,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import org.lunaris.lockstyles.R
-import org.lunaris.lockstyles.ui.LockStylesBottomSheet
 import androidx.compose.ui.unit.dp
+import org.lunaris.lockscreenwidgets.R as WidgetR
 import org.lunaris.lockscreenwidgets.WidgetContract
 import org.lunaris.lockscreenwidgets.WidgetEntry
 import org.lunaris.lockscreenwidgets.WidgetSizes
-import org.lunaris.lockscreenwidgets.R as WidgetR
+import org.lunaris.lockstyles.R
+import org.lunaris.lockstyles.settings.ui.components.ModernSettingSwitch
+import org.lunaris.lockstyles.ui.ExpressiveButton
+import org.lunaris.lockstyles.ui.ExpressiveLoadingIndicator
+import org.lunaris.lockstyles.ui.LockStylesBottomSheet
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,19 +110,13 @@ private fun AppWidgetsPanel(onAdd: () -> Unit, onConfigure: (Int) -> Unit) {
     val selected = entries.firstOrNull { it.id == selectedId } ?: entries.firstOrNull()
     LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-                Row(Modifier.toggleable(value = state.enabled, enabled = state.connected,
-                    role = Role.Switch, onValueChange = { state.change("enable", it.toString()) })
-                    .padding(16.dp), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.app_widget_show), style = MaterialTheme.typography.titleMedium)
-                        Text(stringResource(WidgetR.string.app_widgets_summary),
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Switch(checked = state.enabled, enabled = state.connected, onCheckedChange = null)
-                }
-            }
+            ModernSettingSwitch(
+                title = stringResource(R.string.app_widget_show),
+                subtitle = stringResource(WidgetR.string.app_widgets_summary),
+                checked = state.enabled,
+                enabled = state.connected,
+                onCheckedChange = { state.change("enable", it.toString()) },
+            )
         }
         state.error?.let { failure ->
             item {
@@ -133,13 +125,11 @@ private fun AppWidgetsPanel(onAdd: () -> Unit, onConfigure: (Int) -> Unit) {
             }
         }
         item {
-            Button(onClick = onAdd, enabled = state.connected, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Rounded.Add, null)
-                Text(stringResource(WidgetR.string.app_widgets_add), Modifier.padding(start = 8.dp))
-            }
+            ExpressiveButton(stringResource(WidgetR.string.app_widgets_add), onClick = onAdd,
+                enabled = state.connected, modifier = Modifier.fillMaxWidth(), icon = Icons.Rounded.Add)
         }
         if (!state.connected && state.error == null) {
-            item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { CircularProgressIndicator() } }
+            item { Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { ExpressiveLoadingIndicator() } }
         }
         if (entries.isEmpty() && state.connected) {
             item { Text(stringResource(WidgetR.string.app_widgets_empty), color = MaterialTheme.colorScheme.onSurfaceVariant) }

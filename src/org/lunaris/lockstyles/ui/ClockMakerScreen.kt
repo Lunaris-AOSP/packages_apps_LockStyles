@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package org.lunaris.lockstyles.ui
 
 import android.content.Context
@@ -24,6 +26,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -31,10 +35,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -51,26 +51,41 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Redo
+import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.Save
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.UploadFile
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -79,14 +94,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Fullscreen
-import androidx.compose.material.icons.rounded.FullscreenExit
-import androidx.compose.material.icons.rounded.Redo
-import androidx.compose.material.icons.rounded.Save
-import androidx.compose.material.icons.rounded.Undo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -97,34 +104,41 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposePath
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontSynthesis
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import java.util.Locale
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.lunaris.clockmaker.ClockDesign
-import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.clockmaker.ClockDesignPositioning
 import org.lunaris.clockmaker.ClockElement
 import org.lunaris.clockmaker.ClockElementKind
 import org.lunaris.clockmaker.ClockFonts
+import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.clockmaker.ClockImageFit
 import org.lunaris.clockmaker.ClockImageShapes
 import org.lunaris.lockstyles.ClockImageStore
@@ -133,8 +147,6 @@ import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.R
-import kotlin.math.roundToInt
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -253,64 +265,58 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
         imageImporter.launch(arrayOf("image/*"))
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)
+    val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val layoutSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>()
+    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
         .statusBarsPadding().navigationBarsPadding()) {
-        Surface(
-            color = MaterialTheme.colorScheme.surfaceContainerLow,
-            tonalElevation = 1.dp,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = { cancel() }) {
-                    Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
+        Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+            Column {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    IconButton(onClick = { cancel() }) {
+                        Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.clock_maker_title),
+                            style = MaterialTheme.typography.titleLarge)
+                        Text(design.name.trim().ifEmpty { stringResource(R.string.clock_maker_new) },
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                    ExpressiveButton(stringResource(R.string.clock_maker_save),
+                        enabled = design.elements.isNotEmpty() && !importing && !importingImage,
+                        icon = Icons.Rounded.Save, onClick = {
+                            val saved = design.copy(name = design.name.trim().ifEmpty { "Custom clock" })
+                            store.save(clock.copy(design = saved))
+                            library = store.designs
+                            finished = true
+                            store.clearDraft(draftKey)
+                            onSave(clock.copy(design = saved))
+                        })
                 }
-                Column(Modifier.weight(1f).padding(horizontal = 4.dp)) {
-                    Text(
-                        stringResource(R.string.clock_maker_title),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(
-                        design.name.trim().ifEmpty { stringResource(R.string.clock_maker_new) },
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                    )
-                }
-                IconButton(onClick = { fullScreenEditor = !fullScreenEditor }) {
-                    Icon(
-                        if (fullScreenEditor) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    ExpressiveIconButton(Icons.AutoMirrored.Rounded.Undo,
+                        stringResource(R.string.clock_maker_undo), enabled = undo.isNotEmpty(), onClick = {
+                            redo = redo + design
+                            design = undo.last()
+                            undo = undo.dropLast(1)
+                        })
+                    ExpressiveIconButton(Icons.AutoMirrored.Rounded.Redo,
+                        stringResource(R.string.clock_maker_redo), enabled = redo.isNotEmpty(), onClick = {
+                            undo = undo + design
+                            design = redo.last()
+                            redo = redo.dropLast(1)
+                        })
+                    Spacer(Modifier.weight(1f))
+                    ExpressiveIconButton(if (fullScreenEditor) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                         stringResource(if (fullScreenEditor) R.string.clock_maker_editor_split
                             else R.string.clock_maker_editor_fullscreen),
-                    )
-                }
-                IconButton(enabled = undo.isNotEmpty(), onClick = {
-                    redo = redo + design
-                    design = undo.last()
-                    undo = undo.dropLast(1)
-                }) {
-                    Icon(Icons.Rounded.Undo, stringResource(R.string.clock_maker_undo))
-                }
-                IconButton(enabled = redo.isNotEmpty(), onClick = {
-                    undo = undo + design
-                    design = redo.last()
-                    redo = redo.dropLast(1)
-                }) {
-                    Icon(Icons.Rounded.Redo, stringResource(R.string.clock_maker_redo))
-                }
-                FilledTonalButton(enabled = design.elements.isNotEmpty() && !importing && !importingImage, onClick = {
-                    val saved = design.copy(name = design.name.trim().ifEmpty { "Custom clock" })
-                    store.save(clock.copy(design = saved))
-                    library = store.designs
-                    finished = true
-                    store.clearDraft(draftKey)
-                    onSave(clock.copy(design = saved))
-                }) {
-                    Icon(Icons.Rounded.Save, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.clock_maker_save))
+                        onClick = { fullScreenEditor = !fullScreenEditor })
                 }
             }
         }
@@ -374,7 +380,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(1f),
                         )
-                        FilledTonalButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS && !importingImage,
+                        FilledTonalButton(shapes = ButtonDefaults.shapes(), enabled = design.elements.size < ClockDesign.MAX_ELEMENTS && !importingImage,
                             onClick = { dialog = "add" }) {
                             Icon(Icons.Rounded.Add, null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(6.dp))
@@ -416,24 +422,19 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                             )
                         }
                     } else {
-                        Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            val tabs = if (selected.kind == ClockElementKind.IMAGE) listOf(
-                                R.string.clock_maker_content, R.string.clock_maker_size_position,
-                                R.string.clock_maker_shape, R.string.clock_maker_effects) else listOf(
-                                R.string.clock_maker_content, R.string.clock_maker_style,
-                                R.string.gallery_clock_colour, R.string.clock_maker_effects)
-                            tabs.forEachIndexed { index, label ->
-                                FilterChip(tab == index, { tab = index }, label = { Text(stringResource(label)) })
-                            }
-                        }
+                        val tabs = if (selected.kind == ClockElementKind.IMAGE) listOf(
+                            R.string.clock_maker_content, R.string.clock_maker_size_position,
+                            R.string.clock_maker_shape, R.string.clock_maker_effects) else listOf(
+                            R.string.clock_maker_content, R.string.clock_maker_style,
+                            R.string.gallery_clock_colour, R.string.clock_maker_effects)
+                        ExpressiveChoices(tabs.map { stringResource(it) }, tab, onSelect = { tab = it })
                         Column(Modifier.padding(bottom = 20.dp)
-                            .animateContentSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            .animateContentSize(layoutSpatial), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                             AnimatedContent(
                                 targetState = tab to selected.id,
                                 transitionSpec = {
-                                    (fadeIn(tween(180)) + scaleIn(tween(180), initialScale = 0.98f)) togetherWith
-                                        (fadeOut(tween(120)) + scaleOut(tween(120), targetScale = 0.98f))
+                                    (fadeIn(effects) + scaleIn(spatial, initialScale = 0.98f)) togetherWith
+                                        (fadeOut(effects) + scaleOut(spatial, targetScale = 0.98f))
                                 },
                                 label = "clock_maker_controls",
                             ) { (selectedTab, _) ->
@@ -441,7 +442,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                     when (selectedTab) {
                                         0 -> {
                                             if (selected.kind == ClockElementKind.IMAGE) {
-                                                FilledTonalButton(enabled = allowImport && !importingImage,
+                                                FilledTonalButton(shapes = ButtonDefaults.shapes(), enabled = allowImport && !importingImage,
                                                     onClick = { chooseImage(selected.id) }, modifier = Modifier.padding(horizontal = 20.dp)) {
                                                     Text(stringResource(if (importingImage) R.string.clock_maker_importing else R.string.clock_maker_replace_image))
                                                 }
@@ -542,8 +543,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                                 TuningSwitch(stringResource(R.string.gallery_clock_colour_gradient), selected.gradient) { edit(selected.copy(gradient = it, glass = if (it) false else selected.glass)) }
                                                 AnimatedVisibility(
                                                     visible = selected.gradient,
-                                                    enter = fadeIn(tween(180)) + expandVertically(),
-                                                    exit = fadeOut(tween(140)) + shrinkVertically(),
+                                                    enter = fadeIn(effects) + expandVertically(layoutSpatial),
+                                                    exit = fadeOut(effects) + shrinkVertically(layoutSpatial),
                                                 ) {
                                                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                                         Text(stringResource(R.string.gallery_clock_gradient_start), Modifier.padding(horizontal = 20.dp))
@@ -558,8 +559,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                             TuningSwitch(stringResource(R.string.gallery_clock_shadow), selected.shadow) { edit(selected.copy(shadow = it)) }
                                             AnimatedVisibility(
                                                 visible = selected.shadow,
-                                                enter = fadeIn(tween(180)) + expandVertically(),
-                                                exit = fadeOut(tween(140)) + shrinkVertically(),
+                                                enter = fadeIn(effects) + expandVertically(layoutSpatial),
+                                                exit = fadeOut(effects) + shrinkVertically(layoutSpatial),
                                             ) {
                                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                                     ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.shadowColor, wallpaper, allowImport) { edit(selected.copy(shadowColor = it ?: selected.shadowColor)) }
@@ -603,7 +604,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                 }
                 val renderedSheetOffset by animateFloatAsState(
                     targetValue = if (rawSheetOffset.isNaN()) travelPx else rawSheetOffset,
-                    animationSpec = if (sheetDragging) snap() else spring(),
+                    animationSpec = if (sheetDragging) snap() else spatial,
                     label = "clock_maker_sheet_offset",
                 )
                 val dragState = rememberDraggableState { delta ->
@@ -715,42 +716,70 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                 .filter { it.first.contains(search, ignoreCase = true) ||
                     it.second.contains(search, ignoreCase = true) }
         }
-        AlertDialog(onDismissRequest = { dialog = null }, title = { Text(stringResource(R.string.clock_maker_font)) },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(search, { search = it }, singleLine = true,
-                    label = { Text(stringResource(R.string.clock_maker_search_fonts)) }, modifier = Modifier.fillMaxWidth())
-                TextButton(enabled = allowImport && !importing, onClick = {
-                    fontTarget = selectedId
-                    importer.launch(arrayOf("*/*"))
-                }) { Text(stringResource(if (importing) R.string.clock_maker_importing else R.string.clock_maker_import_font)) }
-                LazyColumn(Modifier.heightIn(max = 400.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (choices.isEmpty()) {
-                        item {
-                            Text(
-                                stringResource(if (search.isBlank()) R.string.clock_maker_fonts_empty
-                                    else R.string.clock_maker_fonts_no_match),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                            )
+        LockStylesBottomSheet(onDismissRequest = { dialog = null }) {
+            LazyColumn(
+                Modifier.fillMaxWidth().heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.85f).dp)
+                    .imePadding().navigationBarsPadding().selectableGroup(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = androidx.compose.foundation.layout.PaddingValues(start = 20.dp, end = 20.dp, bottom = 24.dp),
+            ) {
+                item {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.clock_maker_font), style = MaterialTheme.typography.headlineSmall,
+                            modifier = Modifier.weight(1f))
+                        IconButton(onClick = { dialog = null }) {
+                            Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
                         }
-                    } else {
-                        items(choices, key = { it.first }) { (family, name) ->
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val selected = design.elements.firstOrNull { it.id == selectedId }?.font == family
-                                FontOption(family, name, Modifier.weight(1f).clip(MaterialTheme.shapes.large)
-                                    .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent).clickable {
+                    }
+                }
+                item {
+                    OutlinedTextField(search, { search = it }, singleLine = true,
+                        label = { Text(stringResource(R.string.clock_maker_search_fonts)) },
+                        leadingIcon = { Icon(Icons.Rounded.Search, null) }, shape = MaterialTheme.shapes.extraLarge,
+                        modifier = Modifier.fillMaxWidth())
+                }
+                item {
+                    ExpressiveButton(stringResource(if (importing) R.string.clock_maker_importing else R.string.clock_maker_import_font),
+                        enabled = allowImport && !importing, primary = false, icon = Icons.Rounded.UploadFile,
+                        modifier = Modifier.fillMaxWidth(), onClick = {
+                            fontTarget = selectedId
+                            importer.launch(arrayOf("*/*"))
+                        })
+                }
+                if (choices.isEmpty()) {
+                    item {
+                        Text(stringResource(if (search.isBlank()) R.string.clock_maker_fonts_empty
+                            else R.string.clock_maker_fonts_no_match),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.fillMaxWidth().padding(16.dp))
+                    }
+                } else {
+                    items(choices, key = { it.first }) { (family, name) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            val isSelected = design.elements.firstOrNull { it.id == selectedId }?.font == family
+                            Box(Modifier.weight(1f).clip(MaterialTheme.shapes.large)
+                                .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer
+                                    else MaterialTheme.colorScheme.surfaceContainerHigh)
+                                .selectable(isSelected, role = Role.RadioButton, onClick = {
                                     design.elements.firstOrNull { it.id == selectedId }?.let { edit(it.copy(font = family)) }
                                     dialog = null
-                                })
-                                fonts.firstOrNull { it.family == family }?.let { font ->
-                                    TextButton(onClick = { removeFont = font }) { Text(stringResource(R.string.clock_maker_remove)) }
+                                })) {
+                                FontOption(family, name, isSelected, Modifier.fillMaxWidth().padding(end = 28.dp))
+                                if (isSelected) SelectionBadge(Modifier.align(Alignment.TopEnd).padding(12.dp))
+                            }
+                            fonts.firstOrNull { it.family == family }?.let { font ->
+                                IconButton(onClick = { removeFont = font }) {
+                                    Icon(Icons.Rounded.Delete, stringResource(R.string.clock_maker_remove_font),
+                                        tint = MaterialTheme.colorScheme.error)
                                 }
                             }
                         }
                     }
                 }
-            } }, confirmButton = {})
+            }
+        }
     }
+
     removeFont?.let { font ->
         AlertDialog(onDismissRequest = { removeFont = null }, title = { Text(stringResource(R.string.clock_maker_remove_font)) },
             text = { Text(stringResource(R.string.clock_maker_remove_font_summary)) },
@@ -858,9 +887,10 @@ private fun ShapePicker(shape: String, onChange: (String) -> Unit) {
         items(ClockImageShapes.ids, key = { it }) { id ->
             val isSelected = id == shape
             val tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-            Surface(onClick = { onChange(id) }, shape = MaterialTheme.shapes.large,
+            Surface(shape = MaterialTheme.shapes.large,
                 color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.semantics { selected = isSelected }) {
+                modifier = Modifier.clip(MaterialTheme.shapes.large)
+                    .selectable(isSelected, role = Role.RadioButton, onClick = { onChange(id) })) {
                 Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.size(40.dp).drawWithCache {
@@ -876,14 +906,17 @@ private fun ShapePicker(shape: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-private fun FontOption(family: String, name: String, modifier: Modifier) {
+private fun FontOption(family: String, name: String, selected: Boolean, modifier: Modifier) {
     val context = LocalContext.current
     val face by produceState(Typeface.DEFAULT, context.userId, family) {
         value = withContext(Dispatchers.IO) { ClockFonts.load(context, context.userId, family) }
     }
-    Column(modifier.padding(8.dp)) {
-        Text(name, style = MaterialTheme.typography.labelMedium)
-        Text(stringResource(R.string.clock_maker_font_sample), fontFamily = FontFamily(face), style = MaterialTheme.typography.headlineSmall)
+    val color = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+    Column(modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(name, color = color, style = MaterialTheme.typography.labelLarge)
+        Text(stringResource(R.string.clock_maker_font_sample), color = color,
+            fontFamily = FontFamily(face), style = MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.Normal, fontSynthesis = FontSynthesis.None))
     }
 }
 

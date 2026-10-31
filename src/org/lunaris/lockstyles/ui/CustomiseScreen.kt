@@ -1,28 +1,14 @@
 package org.lunaris.lockstyles.ui
 
-import androidx.compose.ui.layout.onSizeChanged
-
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.tween
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
-import androidx.compose.foundation.gestures.snapping.SnapPosition
-import androidx.compose.foundation.gestures.animateScrollBy
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.Spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
+import androidx.compose.foundation.gestures.snapping.SnapPosition
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +17,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,40 +27,37 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Bolt
-import androidx.compose.material.icons.rounded.Schedule
-import androidx.compose.material.icons.rounded.Layers
-import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.AccountCircle
-import org.lunaris.lockstyles.settings.ui.DepthPage
-import org.lunaris.lockstyles.settings.ui.WidgetsPage
-import org.lunaris.lockstyles.settings.ui.AppWidgetsBottomSheet
-import org.lunaris.lockstyles.settings.ui.SettingsPage
-import org.lunaris.lockstyles.settings.ui.AodAvatarSettings
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import org.lunaris.lockstyles.settings.ui.components.squishable
-import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material3.Surface
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -81,26 +65,47 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import kotlin.math.abs
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryRenderer
@@ -110,18 +115,16 @@ import org.lunaris.lockstyles.GalleryWallpaper.Shuffle
 import org.lunaris.lockstyles.GalleryWeather
 import org.lunaris.lockstyles.HomeStyle
 import org.lunaris.lockstyles.LockScreen
-import org.lunaris.lockstyles.Shortcuts
 import org.lunaris.lockstyles.R
-import org.lunaris.clockmaker.ClockDesign
-import org.lunaris.clockmaker.ClockGlass
-import kotlin.math.roundToInt
-import kotlinx.coroutines.Dispatchers
-import kotlin.math.abs
-import kotlinx.coroutines.flow.distinctUntilChanged
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.rememberUpdatedState
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import org.lunaris.lockstyles.Shortcuts
+import org.lunaris.lockstyles.settings.ui.AodAvatarSettings
+import org.lunaris.lockstyles.settings.ui.AppWidgetsBottomSheet
+import org.lunaris.lockstyles.settings.ui.ClockFontPicker
+import org.lunaris.lockstyles.settings.ui.DepthPage
+import org.lunaris.lockstyles.settings.ui.SettingsPage
+import org.lunaris.lockstyles.settings.ui.WidgetsPage
+import org.lunaris.lockstyles.settings.ui.components.ModernSettingSwitch
+import org.lunaris.lockstyles.settings.ui.pickTile
 
 private val CLOCK_COLOURS = listOf(null, 0xFFFFFFFF.toInt(), 0xFFFFD60A.toInt(),
     0xFFFF9F0A.toInt(), 0xFFFF6482.toInt(), 0xFFBF5AF2.toInt(), 0xFF64D2FF.toInt(),
@@ -129,7 +132,7 @@ private val CLOCK_COLOURS = listOf(null, 0xFFFFFFFF.toInt(), 0xFFFFD60A.toInt(),
 private val ACCENT: Color
     @Composable get() = MaterialTheme.colorScheme.primary
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CustomiseScreen(
     initial: LockScreen,
@@ -142,6 +145,7 @@ fun CustomiseScreen(
     onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
 ) {
     val context = LocalContext.current
+    val editClockLabel = stringResource(R.string.gallery_clock)
     // Unlock effects are no longer configurable. Clear the legacy value when an
     // existing lock screen is opened so it cannot be carried forward on save.
     var wallpaper by remember { mutableStateOf(initial.wallpaper.copy(effect = 0)) }
@@ -167,15 +171,19 @@ fun CustomiseScreen(
     }
     // The preview is already on screen from the switcher; only the controls fade in.
     val appear = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { appear.animateTo(1f, tween(320, delayMillis = 60)) }
+    val appearSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    LaunchedEffect(Unit) { appear.animateTo(1f, appearSpec) }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
+        val controlsHeight = maxHeight * 0.45f
         LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
         val onLight = rememberTopLight(wallpaper)
         if (clock.face > 0) {
             CustomClockLayer(clock, tuning = tuning, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
             // The clock area stays tappable, as iOS lets you tap the clock to edit it.
-            Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f).clickable { sheet = "clock" })
+            Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f)
+                .semantics { contentDescription = editClockLabel }
+                .clickable(onClickLabel = editClockLabel) { sheet = "clock" })
         } else BoxWithConstraints(Modifier.fillMaxSize()) {
             // Same proportions as the switcher's cards, so zooming in lines up.
             val screenHeight = maxHeight
@@ -193,7 +201,7 @@ fun CustomiseScreen(
                         .border(1.dp, Color(0x66FFFFFF).copy(alpha = 0.4f * appear.value),
                             RoundedCornerShape(16.dp))
                         .background(Color(0x14FFFFFF).copy(alpha = 0.08f * appear.value))
-                        .clickable { sheet = "clock" }
+                        .clickable(onClickLabel = editClockLabel) { sheet = "clock" }
                         .padding(horizontal = 16.dp),
                 ) {
                     ClockText(clock, screenHeight * if (clock.small) 0.06f else 0.24f,
@@ -204,8 +212,10 @@ fun CustomiseScreen(
 
         AppWidgetWallpaperLayer(clockBottom)
 
+        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
+            .background(MaterialTheme.colorScheme.surface))
         Row(
-            Modifier.statusBarsPadding().fillMaxWidth().padding(horizontal = 20.dp,
+            Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp,
                 vertical = 12.dp).alpha(appear.value),
         ) {
             Pill(stringResource(android.R.string.cancel), primary = false, onCancel)
@@ -223,15 +233,20 @@ fun CustomiseScreen(
 
         Column(
             Modifier.align(Alignment.BottomCenter).fillMaxWidth().alpha(appear.value)
+                .heightIn(max = controlsHeight)
                 .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.94f))
-                .navigationBarsPadding().padding(bottom = 16.dp, top = 20.dp),
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .navigationBarsPadding().verticalScroll(rememberScrollState())
+                .padding(bottom = 16.dp, top = 20.dp),
         ) {
+            Text(stringResource(wallpaperLabel(wallpaper)),
+                style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp))
             KindControls(wallpaper) { wallpaper = it }
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                     .padding(top = 16.dp, start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 RoundAction(Icons.Rounded.Schedule, stringResource(R.string.gallery_clock)) {
                     sheet = "clock"
@@ -298,75 +313,35 @@ fun CustomiseScreen(
 
 @Composable
 private fun Pill(text: String, primary: Boolean, onClick: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(50),
-        color = if (primary) colors.primary else colors.surfaceContainerHigh,
-        modifier = Modifier.squishable(),
-    ) {
-        Text(text, color = if (primary) colors.onPrimary else colors.onSurface,
-            style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 22.dp, vertical = 10.dp))
-    }
+    ExpressiveButton(text, onClick, primary = primary,
+        icon = if (primary) Icons.Rounded.Check else null)
 }
 
 @Composable
 private fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(onClick = onClick)) {
-        Box(Modifier.size(56.dp).squishable().clip(CircleShape)
-            .background(MaterialTheme.colorScheme.secondaryContainer),
-            contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.size(24.dp))
+    Surface(onClick = onClick, shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.width(104.dp)) {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Icon(icon, null, Modifier.size(24.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center,
+                minLines = 2)
         }
-        Text(label, color = MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(top = 6.dp))
     }
 }
 
 @Composable
 private fun Chips(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        labels.forEachIndexed { i, label ->
-            val on = i == selected
-            val colors = MaterialTheme.colorScheme
-            Box(
-                Modifier.squishable().clip(RoundedCornerShape(50))
-                    .background(if (on) colors.primary else colors.surfaceContainerHighest)
-                    .clickable { onSelect(i) }.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) {
-                Text(label, color = if (on) colors.onPrimary else colors.onSurfaceVariant,
-                    style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Medium)
-            }
-        }
-    }
+    ExpressiveChoices(labels, selected, onSelect = onSelect)
 }
 
 @Composable
 private fun Swatches(colors: List<Int?>, selected: Int?, onSelect: (Int?) -> Unit) {
-    Row(
-        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        colors.forEach { c ->
-            val on = c == selected
-            Box(
-                Modifier.size(38.dp).clip(CircleShape)
-                    .border(if (on) 3.dp else 1.dp, if (on) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outlineVariant, CircleShape)
-                    .padding(if (on) 5.dp else 0.dp).clip(CircleShape)
-                    .background(if (c == null) Brush.sweepGradient(listOf(Color.Red,
-                        Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta,
-                        Color.Red)) else SolidColor(Color(c)))
-                    .clickable { onSelect(c) },
-            )
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup()
+        .padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        colors.forEach { color ->
+            ColorSwatch(color, color == selected, onClick = { onSelect(color) })
         }
     }
 }
@@ -382,23 +357,13 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
                     stringResource(R.string.gallery_filter_wash)), wallpaper.variant) {
                     onChange(wallpaper.copy(variant = it))
                 }
-                Surface(shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerHighest,
-                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()) {
-                    Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f).padding(end = 12.dp)) {
-                            Text(stringResource(R.string.gallery_depth),
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.onSurface)
-                            Text(stringResource(R.string.gallery_depth_summary),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        ThumbSwitch(wallpaper.depth) { onChange(wallpaper.copy(depth = it)) }
-                    }
-                }
+                ModernSettingSwitch(
+                    title = stringResource(R.string.gallery_depth),
+                    subtitle = stringResource(R.string.gallery_depth_summary),
+                    checked = wallpaper.depth,
+                    onCheckedChange = { onChange(wallpaper.copy(depth = it)) },
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
             Kind.SHUFFLE -> Chips(listOf(stringResource(R.string.gallery_shuffle_tap),
                 stringResource(R.string.gallery_shuffle_lock),
@@ -488,6 +453,7 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
  * wheel, whichever is in the middle is the chosen one, so the preview follows the scroll;
  * tapping one brings it to the middle. The edges fade to show there's more.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun VariantStrip(
     wallpaper: GalleryWallpaper,
@@ -498,6 +464,7 @@ private fun VariantStrip(
     val state = rememberLazyListState(
         initialFirstVisibleItemIndex = variants.indexOf(wallpaper.variant).coerceAtLeast(0))
     val fling = rememberSnapFlingBehavior(state, SnapPosition.Center)
+    val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val current by rememberUpdatedState(wallpaper)
     // Set when the scroll picked the variant, so the strip doesn't then scroll to it again.
     val pickedByScroll = remember { booleanArrayOf(false) }
@@ -530,7 +497,7 @@ private fun VariantStrip(
             // Centre it: move by how far its middle is from the viewport's.
             val middle = (info.viewportStartOffset + info.viewportEndOffset) / 2
             state.animateScrollBy((item.offset + item.size / 2 - middle).toFloat(),
-                spring(stiffness = Spring.StiffnessMediumLow))
+                spatial)
         }
     }
     BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -553,9 +520,10 @@ private fun VariantStrip(
         ) {
             items(variants, key = { it }) { i ->
                 val on = i == wallpaper.variant
+                val label = stringResource(R.string.gallery_wallpaper_option,
+                    stringResource(wallpaperLabel(wallpaper)), i + 1)
                 val scale by animateFloatAsState(if (on) 1.12f else 0.94f,
-                    spring(dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMediumLow), label = "variant")
+                    spatial, label = "variant")
                 Box(
                     Modifier.width(VARIANT_WIDTH).aspectRatio(0.5f)
                         .graphicsLayer { scaleX = scale; scaleY = scale }
@@ -563,14 +531,16 @@ private fun VariantStrip(
                         .border(if (on) 2.dp else 1.dp,
                             if (on) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(12.dp))
                         .alpha(if (on) 1f else 0.75f)
-                        .clickable {
+                        .semantics { contentDescription = label }
+                        .selectable(on, role = Role.RadioButton, onClick = {
                             if (!on) {
                                 haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                 onChange(wallpaper.copy(variant = i))
                             }
-                        },
+                        }),
                 ) {
                     WallpaperImage(wallpaper.copy(variant = i), Modifier.fillMaxSize())
+                    if (on) SelectionBadge(Modifier.align(Alignment.BottomCenter).padding(bottom = 4.dp))
                 }
             }
         }
@@ -591,6 +561,7 @@ internal fun ClockSheet(
     showStyles: Boolean = true,
 ) {
     val context = LocalContext.current
+    val onLight = rememberTopLight(wallpaper)
     val styles by produceState(emptyList<String>()) {
         value = withContext(Dispatchers.IO) { CustomClocks.names(context) }
     }
@@ -600,16 +571,12 @@ internal fun ClockSheet(
         .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (onMaker != null) {
-            FilledTonalButton(
-                onClick = onMaker,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            ) {
-                Text(stringResource(R.string.clock_maker_title), fontWeight = FontWeight.SemiBold)
-            }
+            ExpressiveButton(stringResource(R.string.clock_maker_title), onMaker,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), icon = Icons.Rounded.Edit)
         }
         if (showStyles && styles.size > 1) {
             Text(stringResource(R.string.gallery_clock_style), color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 20.dp))
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
@@ -618,22 +585,19 @@ internal fun ClockSheet(
                 itemsIndexed(styles) { face, name ->
                     val on = clock.face == face
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.width(104.dp)
-                            .clickable { onChange(clock.copy(face = face)) }) {
+                        modifier = Modifier.width(120.dp).clip(MaterialTheme.shapes.large)
+                            .selectable(on, role = Role.RadioButton, onClick = { onChange(clock.copy(face = face)) })) {
                         Box(
                             Modifier.fillMaxWidth().height(96.dp)
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
-                                .border(if (on) 2.dp else 0.dp,
-                                    if (on) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                    RoundedCornerShape(14.dp))
-                                .padding(6.dp),
+                                .pickTile(on),
                             contentAlignment = Alignment.Center,
                         ) {
+                            WallpaperImage(wallpaper, Modifier.fillMaxSize().padding(3.dp).clip(MaterialTheme.shapes.large))
                             LockClock(clock.copy(face = face, small = face == 0, tuning = tuning),
-                                if (face == 0) 30.dp else 84.dp, 92.dp, fixedTime = face == 0)
+                                if (face == 0) 30.dp else 84.dp, 92.dp, fixedTime = face == 0, onLight = onLight)
+                            if (on) SelectionBadge(Modifier.align(Alignment.TopEnd).padding(8.dp))
                         }
-                        Text(name, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, maxLines = 1,
+                        Text(name, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium, maxLines = 2,
                             modifier = Modifier.padding(top = 4.dp))
                     }
                 }
@@ -641,7 +605,7 @@ internal fun ClockSheet(
         }
         if (clock.face == 0) {
             Text(stringResource(R.string.gallery_clock_font), color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 20.dp))
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
@@ -650,33 +614,33 @@ internal fun ClockSheet(
             ) {
                 CLOCK_PRESETS.indices.forEach { i ->
                     val on = (clock.preset ?: 3) == i
+                    val label = stringResource(R.string.gallery_font_preset, i + 1)
                     Box(
-                        Modifier.size(width = 64.dp, height = 72.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(if (on) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHighest)
-                            .border(if (on) 2.dp else 0.dp,
-                                if (on) MaterialTheme.colorScheme.primary else Color.Transparent,
-                                RoundedCornerShape(14.dp))
-                            .clickable { onChange(clock.copy(preset = i)) },
+                        Modifier.size(width = 72.dp, height = 80.dp).pickTile(on)
+                            .selectable(on, role = Role.RadioButton, onClick = { onChange(clock.copy(preset = i)) })
+                            .semantics { contentDescription = label },
                         contentAlignment = Alignment.Center,
                     ) {
-                        ClockText(ClockStyle(preset = i, rounded = clock.rounded, small = true),
+                        ClockText(ClockStyle(preset = i, rounded = clock.rounded, small = true,
+                            color = MaterialTheme.colorScheme.onSurface.toArgb()),
                             30.dp, fixedTime = true)
+                        if (on) SelectionBadge(Modifier.align(Alignment.TopEnd).padding(4.dp))
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.gallery_clock_rounded), color = MaterialTheme.colorScheme.onSurface,
-                    fontSize = 16.sp, modifier = Modifier.weight(1f))
-                Switch(clock.rounded, { onChange(clock.copy(rounded = it)) },
-                    colors = switchColors())
+            TuningSwitch(stringResource(R.string.gallery_clock_rounded), clock.rounded) {
+                onChange(clock.copy(rounded = it))
+            }
+        }
+        if (clock.face in 1..44) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                ClockFontPicker()
             }
         }
         // Some custom styles keep their own colours on the lock screen.
         if (clock.face == 0 || CustomClocks.isColourable(clock.face)) {
             Text(stringResource(R.string.gallery_clock_colour), color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 20.dp))
             if (clock.face > 0) {
                 val mode = when {
@@ -734,7 +698,7 @@ internal fun ClockSheet(
                 }
             }
             Text(stringResource(R.string.gallery_clock_adjust), color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.padding(horizontal = 20.dp))
             TuningSlider(stringResource(R.string.gallery_clock_size), tuning.scale, 50..150, "%",
                 CustomClocks.Tuning().scale) {
@@ -831,25 +795,12 @@ internal fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: Galle
 }
 
 @Composable
-private fun switchColors() = SwitchDefaults.colors()
-
-/** A switch with a check or a cross in its thumb, as the settings use. */
-@Composable
-private fun ThumbSwitch(checked: Boolean, onChange: (Boolean) -> Unit) {
-    Switch(checked, onChange, thumbContent = {
-        Crossfade(checked, animationSpec = tween(160), label = "tuning_switch_icon") { isChecked ->
-            Icon(if (isChecked) Icons.Rounded.Check else Icons.Rounded.Close, null,
-                modifier = Modifier.size(16.dp))
-        }
-    })
-}
-
-@Composable
 private fun SheetLabel(text: String) {
-    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
+    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
         modifier = Modifier.padding(horizontal = 20.dp))
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun TuningSlider(
     label: String,
@@ -859,72 +810,40 @@ internal fun TuningSlider(
     defaultValue: Int,
     onChange: (Int) -> Unit,
 ) {
-    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                label,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f),
-            )
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primaryContainer,
-            ) {
-                Crossfade("$value$unit", animationSpec = tween(120), label = "tuning_value") { text ->
-                    Text(
-                        text,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                    )
+    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+        Column(Modifier.padding(16.dp)) {
+            Text(label, color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
+                    Crossfade("$value$unit", animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+                        label = "tuning_value") { text ->
+                        Text(text, color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                    }
+                }
+                Spacer(Modifier.weight(1f))
+                TextButton(enabled = value != defaultValue, onClick = { onChange(defaultValue) }) {
+                    Text(stringResource(R.string.gallery_clock_reset))
                 }
             }
-            TextButton(enabled = value != defaultValue, onClick = { onChange(defaultValue) }) {
-                Text(stringResource(R.string.gallery_clock_reset))
-            }
+            Slider(value = value.coerceIn(range).toFloat(), onValueChange = { onChange(it.roundToInt()) },
+                valueRange = range.first.toFloat()..range.last.toFloat(),
+                modifier = Modifier.semantics {
+                    contentDescription = label
+                    stateDescription = "$value$unit"
+                },
+                colors = SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest))
         }
-        Slider(
-            value = value.coerceIn(range).toFloat(),
-            onValueChange = { onChange(it.roundToInt()) },
-            valueRange = range.first.toFloat()..range.last.toFloat(),
-            modifier = Modifier.padding(horizontal = 4.dp),
-            colors = SliderDefaults.colors(
-                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest),
-        )
     }
 }
 
 @Composable
 internal fun TuningSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    val containerColor by animateColorAsState(
-        if (checked) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.42f)
-        else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.72f),
-        animationSpec = tween(180),
-        label = "tuning_switch_surface",
-    )
-    Surface(
-        onClick = { onChange(!checked) },
-        shape = MaterialTheme.shapes.large,
-        color = containerColor,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp).squishable(),
-    ) {
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                label,
-                color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.weight(1f).padding(start = 8.dp),
-            )
-            ThumbSwitch(checked, onChange)
-        }
-    }
+    ModernSettingSwitch(title = label, subtitle = "", checked = checked, onCheckedChange = onChange,
+        modifier = Modifier.padding(horizontal = 16.dp))
 }
 
 @Composable
@@ -946,7 +865,7 @@ private fun ShortcutsSheet(shortcuts: Shortcuts) {
         slots.forEachIndexed { index, slot ->
             Text(stringResource(if (index == 0) R.string.gallery_shortcut_left
                 else R.string.gallery_shortcut_right),
-                color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = 20.dp))
             val chosen = selections.firstOrNull { it.slotId == slot.id }?.affordanceId
             val options = listOf(null to stringResource(R.string.gallery_shortcut_none)) +
@@ -983,19 +902,21 @@ private fun HomeDialog(
     Dialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .verticalScroll(rememberScrollState())
                 .padding(20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(stringResource(R.string.gallery_home_title), color = MaterialTheme.colorScheme.onSurface,
-                fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge)
             Text(stringResource(R.string.gallery_home_summary), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 14.sp, textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 listOf(HomeStyle.PAIR, HomeStyle.BLUR, HomeStyle.COLOUR, HomeStyle.GRADIENT)
                     .forEach { style ->
                     Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.width(62.dp).clickable { onPick(style) }) {
+                        modifier = Modifier.width(88.dp).clip(MaterialTheme.shapes.medium).clickable { onPick(style) }) {
                         val shape = RoundedCornerShape(12.dp)
                         val base = Color(dominant ?: 0xFF444444.toInt())
                         Box(Modifier.fillMaxWidth().aspectRatio(0.46f).clip(shape)
@@ -1020,7 +941,7 @@ private fun HomeDialog(
                             HomeStyle.COLOUR -> R.string.gallery_colour
                             HomeStyle.GRADIENT -> R.string.gallery_home_gradient
                             HomeStyle.KEEP -> R.string.gallery_home_skip
-                        }), color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp,
+                        }), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.padding(top = 6.dp))
                     }
                 }

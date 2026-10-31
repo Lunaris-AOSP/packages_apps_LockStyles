@@ -2,38 +2,31 @@ package org.lunaris.lockstyles.ui
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.EmojiEmotions
 import androidx.compose.material.icons.rounded.FilterVintage
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PhotoLibrary
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material3.*
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,29 +38,28 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWallpaper.Kind
 import org.lunaris.lockstyles.GalleryWeather
 import org.lunaris.lockstyles.R
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 
 private val TILE_CLOCK = ClockStyle(preset = 5)
 
 private data class Tile(val wallpaper: GalleryWallpaper?, val label: String? = null,
         val onClick: (() -> Unit)? = null, val icon: ImageVector? = null)
 
-/** The full-screen wallpaper gallery, in the order and style of iOS's. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun GalleryScreen(
     featured: List<Pair<String, Long>>,
@@ -91,15 +83,39 @@ fun GalleryScreen(
     }
     fun month(ms: Long) = DateFormat.format("MMMM yyyy", ms).toString()
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.surface,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.gallery_add_wallpaper)) },
+                navigationIcon = {
+                    IconButton(onClick = onCancel) {
+                        Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface),
+            )
+        },
+    ) { padding ->
         LazyColumn(
-            Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(
-                top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 72.dp,
-                bottom = 48.dp),
+            Modifier.fillMaxSize().padding(padding),
+            contentPadding = PaddingValues(bottom = 32.dp),
         ) {
             item {
-                LazyRow(contentPadding = PaddingValues(horizontal = 14.dp)) {
+                Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.gallery_browse_title),
+                        style = MaterialTheme.typography.displaySmall,
+                        color = MaterialTheme.colorScheme.onSurface)
+                    Text(stringResource(R.string.gallery_browse_summary),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            item {
+                LazyRow(contentPadding = PaddingValues(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (allowPhotoPicking) {
                         item {
                             SourceButton(stringResource(R.string.gallery_photos),
@@ -123,7 +139,7 @@ fun GalleryScreen(
                     item {
                         SourceButton(stringResource(R.string.gallery_colour),
                             GalleryWallpaper(Kind.COLOUR, 0, listOf(GalleryRenderer.COLOURS[1])),
-                            null) {
+                            Icons.Rounded.Palette) {
                             onPick(GalleryWallpaper(Kind.COLOUR, 0,
                                 listOf(GalleryRenderer.COLOURS[1])))
                         }
@@ -159,7 +175,7 @@ fun GalleryScreen(
                     tiles += Tile(null, stringResource(R.string.gallery_allow_photos),
                         onRequestPhotoAccess, Icons.Rounded.Lock)
                 }
-                Section(stringResource(R.string.gallery_featured), null, false, tiles,
+                Section(stringResource(R.string.gallery_featured), null, tiles,
                     weather, onPick)
             }
 
@@ -168,7 +184,7 @@ fun GalleryScreen(
                     onPickShuffle, Icons.Rounded.Add))
                 featuredShuffle?.let { tiles += Tile(it, stringResource(R.string.gallery_featured)) }
                 Section(stringResource(R.string.gallery_photo_shuffle),
-                    stringResource(R.string.gallery_photo_shuffle_summary), false, tiles, weather,
+                    stringResource(R.string.gallery_photo_shuffle_summary), tiles, weather,
                     onPick)
             }
 
@@ -177,14 +193,14 @@ fun GalleryScreen(
                     Tile(GalleryWallpaper(Kind.PAPER, it))
                 }
                 Section(stringResource(R.string.gallery_wallwidgy),
-                    stringResource(R.string.gallery_wallwidgy_credit), true, tiles, weather,
+                    stringResource(R.string.gallery_wallwidgy_credit), tiles, weather,
                     onPick)
             }
 
             if (GalleryRenderer.PAPERS.size > GalleryRenderer.PAPER_COLLECTIONS) item {
                 val tiles = (GalleryRenderer.PAPER_COLLECTIONS until GalleryRenderer.PAPERS.size)
                     .map { Tile(GalleryWallpaper(Kind.PAPER, it)) }
-                Section(stringResource(R.string.gallery_lunaris), null, true, tiles, weather,
+                Section(stringResource(R.string.gallery_lunaris), null, tiles, weather,
                     onPick)
             }
 
@@ -203,20 +219,20 @@ fun GalleryScreen(
                     GalleryWallpaper(Kind.COLOUR, GalleryWallpaper.COLOUR_DEEP,
                         listOf(GalleryRenderer.COLOURS[6])),
                 ).map { Tile(it) }
-                Section(stringResource(R.string.gallery_colour), null, true, tiles, weather,
+                Section(stringResource(R.string.gallery_colour), null, tiles, weather,
                     onPick)
             }
 
             item {
                 Section(stringResource(R.string.gallery_petals), null,
-                    false, (0 until GalleryRenderer.PETAL_VARIANTS).map {
+                    (0 until GalleryRenderer.PETAL_VARIANTS).map {
                         Tile(GalleryWallpaper(Kind.PETALS, it))
                     }, weather, onPick)
             }
 
             item {
                 Section(stringResource(R.string.gallery_emoji),
-                    stringResource(R.string.gallery_emoji_summary), true,
+                    stringResource(R.string.gallery_emoji_summary),
                     EMOJI_PRESETS.map { Tile(it) }, weather, onPick)
             }
             item {
@@ -231,21 +247,12 @@ fun GalleryScreen(
                 }
                 if (tiles.isNotEmpty()) {
                     Section(stringResource(R.string.gallery_kaleidoscope),
-                        stringResource(R.string.gallery_kaleidoscope_summary), true, tiles,
+                        stringResource(R.string.gallery_kaleidoscope_summary), tiles,
                         weather, onPick)
                 }
             }
         }
 
-        Box(
-            Modifier.statusBarsPadding().padding(start = 20.dp, top = 12.dp)
-                .clip(RoundedCornerShape(22.dp)).background(Color(0xCC2C2C2E))
-                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(22.dp))
-                .clickable(onClick = onCancel).padding(horizontal = 20.dp, vertical = 10.dp),
-        ) {
-            Text(stringResource(android.R.string.cancel), color = Color.White, fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold)
-        }
     }
 }
 
@@ -266,68 +273,63 @@ val EMOJI_PRESETS = listOf(
 private fun Section(
     title: String,
     summary: String?,
-    check: Boolean,
     tiles: List<Tile>,
     weather: GalleryWeather.Snapshot?,
     onPick: (GalleryWallpaper) -> Unit,
 ) {
-    Column(Modifier.padding(top = 28.dp)) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically) {
-            Text(title, color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f))
-            if (check) {
-                Box(Modifier.size(30.dp).border(2.dp, Color(0x99FFFFFF), CircleShape),
-                    contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Check, null, tint = Color(0xCCFFFFFF),
-                        modifier = Modifier.size(18.dp))
-                }
+    Column(Modifier.padding(top = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.headlineSmall)
+            if (summary != null) {
+                Text(summary, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium)
             }
-        }
-        if (summary != null) {
-            Text(summary, color = Color(0xCCFFFFFF), fontSize = 16.sp,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp))
         }
         LazyRow(
             contentPadding = PaddingValues(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.padding(top = 12.dp),
         ) {
-            items(tiles) { tile ->
-                Column(horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.width(120.dp)) {
+            itemsIndexed(tiles) { index, tile ->
+                val label = tile.label ?: stringResource(R.string.gallery_wallpaper_option, title, index + 1)
+                Card(
+                    onClick = { tile.onClick?.invoke() ?: tile.wallpaper?.let(onPick) },
+                    shape = MaterialTheme.shapes.extraLarge,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+                    modifier = Modifier.width(156.dp).semantics(mergeDescendants = true) {
+                        contentDescription = label
+                    },
+                ) {
                     if (tile.wallpaper != null) {
                         LockScreenCard(
                             wallpaper = tile.wallpaper,
                             clock = TILE_CLOCK,
                             weather = weather,
-                            modifier = Modifier.fillMaxWidth().aspectRatio(0.46f),
-                            onClick = { tile.onClick?.invoke() ?: onPick(tile.wallpaper) },
+                            corner = 28.dp,
+                            modifier = Modifier.padding(6.dp).fillMaxWidth().aspectRatio(0.5f),
                         )
                     } else {
                         Box(
-                            Modifier.fillMaxWidth().aspectRatio(0.46f)
-                                .clip(RoundedCornerShape(24.dp)).background(Color(0xFF1C1C1E))
-                                .border(1.dp, Color(0x33FFFFFF), RoundedCornerShape(24.dp))
-                                .clickable { tile.onClick?.invoke() },
+                            Modifier.padding(6.dp).fillMaxWidth().aspectRatio(0.5f)
+                                .clip(MaterialTheme.shapes.large)
+                                .background(MaterialTheme.colorScheme.secondaryContainer),
                             contentAlignment = Alignment.Center,
                         ) {
-                            tile.icon?.let {
-                                Icon(it, null, tint = Color.White, modifier = Modifier.size(32.dp))
-                            }
+                            Icon(tile.icon ?: Icons.Rounded.Add, null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(40.dp))
                         }
                     }
-                    if (tile.label != null) {
-                        Row(Modifier.padding(top = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            // A wallpaper tile's icon marks what it is beside its label.
-                            if (tile.wallpaper != null && tile.icon != null) {
-                                Icon(tile.icon, null, tint = Color.White,
-                                    modifier = Modifier.padding(end = 4.dp).size(16.dp))
-                            }
-                            Text(tile.label, color = Color.White, fontSize = 14.sp,
-                                textAlign = TextAlign.Center, maxLines = 2)
+                    Row(Modifier.padding(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (tile.wallpaper != null && tile.icon != null) {
+                            Icon(tile.icon, null, tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(18.dp))
                         }
+                        Text(tile.label ?: title, color = MaterialTheme.colorScheme.onSurface,
+                            style = MaterialTheme.typography.labelLarge, maxLines = 2,
+                            overflow = TextOverflow.Ellipsis)
                     }
                 }
             }

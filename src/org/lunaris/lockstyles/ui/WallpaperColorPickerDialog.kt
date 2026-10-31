@@ -21,10 +21,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -52,12 +50,12 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.R
-import kotlin.math.roundToInt
 
 @Composable
 fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Unit,
@@ -114,7 +112,7 @@ fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Uni
                 val image = bitmap
                 if (loading) {
                     Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                        ExpressiveLoadingIndicator()
                     }
                 } else if (image != null) {
                     ImageColorSampler(image) { selected = it }
@@ -125,16 +123,15 @@ fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Uni
                         color = MaterialTheme.colorScheme.error)
                 }
                 selected?.let { color ->
-                    Box(Modifier.fillMaxWidth().height(36.dp)
-                        .background(Color(color), RoundedCornerShape(12.dp)))
+                    Box(Modifier.fillMaxWidth().height(48.dp)
+                        .background(Color(color), MaterialTheme.shapes.large))
                     Text("#%08X".format(color), style = MaterialTheme.typography.labelLarge)
                 }
             }
         },
         confirmButton = {
-            TextButton(enabled = !loading && selected != null, onClick = {
-                selected?.let(onColorSelected)
-            }) { Text(stringResource(R.string.apply_change)) }
+            ExpressiveButton(stringResource(R.string.apply_change), enabled = !loading && selected != null,
+                onClick = { selected?.let(onColorSelected) })
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }

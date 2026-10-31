@@ -15,60 +15,66 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.RestartAlt
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Visibility
-import androidx.compose.material.icons.rounded.MoreHoriz
-import androidx.compose.material.icons.rounded.Favorite
-import androidx.compose.material.icons.rounded.Gesture
 import androidx.compose.material.icons.rounded.Dashboard
-import androidx.compose.material.icons.rounded.WbSunny
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.Gesture
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Layers
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.RestartAlt
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material.icons.rounded.Widgets
-import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
-import org.lunaris.lockstyles.R
-import org.lunaris.lockstyles.settings.Keys
-import org.lunaris.lockstyles.settings.DepthWallpaper
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.lunaris.lockstyles.R
+import org.lunaris.lockstyles.settings.DepthWallpaper
+import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.Lunaris
 import org.lunaris.lockstyles.settings.LunarisImages
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.ModernConfirmDialog
+import org.lunaris.lockstyles.ui.ExpressiveButton
 import org.lunaris.lockstyles.ui.LockScreenGalleryActivity
 
 /** The pages of the lock screen settings, as Singularity's fragments were. */
@@ -157,6 +163,20 @@ private fun MainPage(open: (Page) -> Unit, back: () -> Unit) {
     val vibrator = remember { Lunaris.hasVibrator(context) }
 
     SettingsPage(s(R.string.lock_screen_title), back) {
+        item {
+            Surface(shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.primaryContainer) {
+                Column(Modifier.fillMaxWidth().padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Icon(Icons.Rounded.Wallpaper, null, Modifier.size(40.dp))
+                    Text(s(R.string.gallery_browse_title), style = MaterialTheme.typography.headlineMedium)
+                    Text(s(R.string.gallery_browse_summary), style = MaterialTheme.typography.bodyLarge)
+                    ExpressiveButton(s(R.string.gallery_title), onClick = {
+                        context.startActivity(Intent(context, LockScreenGalleryActivity::class.java))
+                    }, modifier = Modifier.fillMaxWidth(), icon = Icons.Rounded.Wallpaper)
+                }
+            }
+        }
         group(s(R.string.qs_clock_title), Icons.Rounded.Schedule, listOf(
             navRow(s(R.string.ls_clock_title), s(R.string.ls_clock_summary),
                 Icons.Rounded.Schedule) { open(Page.CLOCK) },

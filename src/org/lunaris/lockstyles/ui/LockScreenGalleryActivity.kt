@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
+
 package org.lunaris.lockstyles.ui
 
 import android.Manifest
@@ -23,17 +25,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -53,6 +53,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryApplier
@@ -64,14 +72,6 @@ import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.Shortcuts
 import org.lunaris.lockstyles.StockClock
 import org.lunaris.lockstyles.settings.ui.LockStylesTheme
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 
 /**
  * iOS-style lock screens: a switcher of saved lock screens, a gallery to add new ones and a
@@ -125,15 +125,14 @@ class LockScreenGalleryActivity : ComponentActivity() {
         }
         setContent {
             if (initializing) {
-                LockStylesTheme(dark = true) { GalleryProgress(R.string.gallery_loading) }
+                LockStylesTheme { GalleryProgress(R.string.gallery_loading) }
                 return@setContent
             }
             val request = launchRequest
             // A new singleTask intent must discard the previous editor immediately. In
             // particular, do not animate an old photo-backed editor into a locked entry.
             key(request.generation) {
-                // Over wallpapers, so always the dark side of the expressive theme.
-                LockStylesTheme(dark = true) {
+                LockStylesTheme {
                     var screen by remember {
                         val current = store.lockScreens.firstOrNull { it.id == store.currentId }
                         mutableStateOf<Screen>(
@@ -246,6 +245,9 @@ class LockScreenGalleryActivity : ComponentActivity() {
                     }
                 }
 
+                val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
+                val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+                val scale = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
                 AnimatedContent(
                     targetState = screen,
                     transitionSpec = {
@@ -257,14 +259,14 @@ class LockScreenGalleryActivity : ComponentActivity() {
                                 from is Screen.Customise && to is Screen.Switcher ->
                                 EnterTransition.None togetherWith ExitTransition.None
                             to == Screen.Gallery ->
-                                (slideInVertically(tween(420)) { it / 3 } +
-                                    fadeIn(tween(300))) togetherWith fadeOut(tween(250))
+                                (slideInVertically(spatial) { it / 3 } +
+                                    fadeIn(effects)) togetherWith fadeOut(effects)
                             from == Screen.Gallery && to is Screen.Switcher ->
-                                fadeIn(tween(250)) togetherWith
-                                    (slideOutVertically(tween(380)) { it / 3 } +
-                                        fadeOut(tween(250)))
-                            else -> (fadeIn(tween(300)) + scaleIn(tween(350),
-                                initialScale = 0.94f)) togetherWith fadeOut(tween(200))
+                                fadeIn(effects) togetherWith
+                                    (slideOutVertically(spatial) { it / 3 } +
+                                        fadeOut(effects))
+                            else -> (fadeIn(effects) + scaleIn(scale,
+                                initialScale = 0.94f)) togetherWith fadeOut(effects)
                         }
                     },
                     label = "screen",
@@ -581,10 +583,10 @@ class LockScreenGalleryActivity : ComponentActivity() {
 private fun GalleryProgress(message: Int) {
     Dialog(onDismissRequest = {}, properties = DialogProperties(
         dismissOnBackPress = false, dismissOnClickOutside = false)) {
-        Surface(shape = MaterialTheme.shapes.extraLarge) {
+        Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
             Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                CircularProgressIndicator()
+                ExpressiveLoadingIndicator()
                 Text(stringResource(message), style = MaterialTheme.typography.bodyLarge)
             }
         }

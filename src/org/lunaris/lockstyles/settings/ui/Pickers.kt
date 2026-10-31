@@ -14,13 +14,9 @@ import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -28,46 +24,44 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Fingerprint
+import androidx.compose.material.icons.rounded.RestartAlt
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import org.lunaris.lockstyles.settings.ui.components.ModernSettingsCard
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material.icons.rounded.TextFields
-import androidx.compose.material.icons.rounded.Fingerprint
-import androidx.compose.material.icons.Icons
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.LockSetting
 import org.lunaris.lockstyles.settings.Lunaris
 import org.lunaris.lockstyles.settings.state
-
-
+import org.lunaris.lockstyles.settings.ui.components.ModernConfirmDialog
+import org.lunaris.lockstyles.settings.ui.components.ModernSettingsCard
+import org.lunaris.lockstyles.ui.ExpressiveButton
 
 private const val FONT_CATEGORY = "android.theme.customization.lockscreen_clock_font"
 
@@ -75,9 +69,10 @@ private const val FONT_CATEGORY = "android.theme.customization.lockscreen_clock_
 @Composable
 fun ClockFontPicker() {
     val context = LocalContext.current
-    val askRestart = LocalAskRestart.current
+    val assetsSeq = LocalConfiguration.current.assetsSeq
+    var askRestart by rememberSaveable { mutableStateOf(false) }
     var version by remember { mutableStateOf(0) }
-    val fonts by produceState(emptyList<Pair<String, Typeface?>>(), version) {
+    val fonts by produceState(emptyList<Pair<String, Typeface?>>(), version, assetsSeq) {
         value = withContext(Dispatchers.IO) {
             listOf("android" to fontOf(context, "android")) +
                 Lunaris.overlays(context, FONT_CATEGORY).map {
@@ -85,7 +80,7 @@ fun ClockFontPicker() {
                 }
         }
     }
-    val applied by produceState("android", version) {
+    val applied by produceState("android", version, assetsSeq) {
         value = withContext(Dispatchers.IO) {
             Lunaris.overlays(context, FONT_CATEGORY).firstOrNull { it.isEnabled }?.packageName
                 ?: "android"
@@ -98,14 +93,12 @@ fun ClockFontPicker() {
         itemsIndexed(fonts) { _, (pkg, typeface) ->
             val on = pkg == applied
             Column(horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(88.dp).clickable {
-                    if (on) return@clickable
-                    // Same order as Singularity: switch the old one off, then the new one on.
-                    Lunaris.setOverlay(context, FONT_CATEGORY, applied, applied)
-                    if (pkg != "android") Lunaris.setOverlay(context, FONT_CATEGORY, pkg, "android")
+                modifier = Modifier.width(104.dp).clip(MaterialTheme.shapes.large).selectable(on, role = Role.RadioButton, onClick = {
+                    if (on) return@selectable
+                    Lunaris.setOverlay(context, FONT_CATEGORY, pkg, "android")
                     version++
-                    askRestart()
-                }) {
+                    askRestart = true
+                })) {
                 Box(
                     Modifier.size(88.dp).pickTile(on),
                     contentAlignment = Alignment.Center,
@@ -114,12 +107,21 @@ fun ClockFontPicker() {
                         fontFamily = typeface?.let { FontFamily(it) })
                 }
                 Text(if (pkg == "android") stringResource(R.string.clock_font_default)
-                    else labelOf(context, pkg), color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp,
-                    maxLines = 1, modifier = Modifier.padding(top = 6.dp))
+                    else labelOf(context, pkg), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium,
+                    maxLines = 2, modifier = Modifier.padding(top = 6.dp))
             }
         }
     }
 }
+    if (askRestart) {
+        ModernConfirmDialog(
+            title = stringResource(R.string.systemui_restart_title),
+            message = stringResource(R.string.systemui_restart_message),
+            icon = Icons.Rounded.RestartAlt,
+            onConfirm = { askRestart = false; Lunaris.restartSystemUI(context) },
+            onDismiss = { askRestart = false },
+        )
+    }
 }
 
 private fun fontOf(context: Context, pkg: String): Typeface? = runCatching {
@@ -186,17 +188,16 @@ fun WidgetSlots(enabled: Boolean) {
             })
         }
     })
-    Button(
+    ExpressiveButton(
+        label = stringResource(R.string.apply_change),
         onClick = {
             Keys.WIDGETS_MAIN.write(context, slots.subList(0, 2).joinToString(","))
             Keys.WIDGETS_EXTRAS.write(context, slots.subList(2, 6).joinToString(","))
         },
         enabled = changed,
-        colors = ButtonDefaults.buttonColors(containerColor = Accent,
-            contentColor = MaterialTheme.colorScheme.onPrimary),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)
             .height(52.dp),
-    ) { Text(stringResource(R.string.apply_change), fontSize = 16.sp) }
+    )
 }
 
 /** The drawables Lunaris ships for the under-display fingerprint sensor. */
@@ -239,9 +240,10 @@ fun UdfpsResourcePicker(title: String, pack: UdfpsPacks, setting: LockSetting<In
         itemsIndexed(items) { _, item ->
             val on = item.index == selected
             Column(horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(88.dp).clickable(enabled = enabled) {
-                    selected = item.index
-                }) {
+                modifier = Modifier.width(104.dp).clip(MaterialTheme.shapes.large)
+                    .selectable(on, enabled = enabled, role = Role.RadioButton, onClick = {
+                        selected = item.index
+                    })) {
                 Box(
                     Modifier.size(88.dp).pickTile(on),
                     contentAlignment = Alignment.Center,
@@ -257,7 +259,7 @@ fun UdfpsResourcePicker(title: String, pack: UdfpsPacks, setting: LockSetting<In
                     bitmap?.let { Image(it.asImageBitmap(), item.title, Modifier.size(64.dp)) }
                 }
                 item.title?.let {
-                    Text(it, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, maxLines = 1,
+                    Text(it, color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium, maxLines = 2,
                         modifier = Modifier.padding(top = 6.dp))
                 }
             }
