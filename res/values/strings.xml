@@ -4,7 +4,7 @@
      SPDX-License-Identifier: Apache-2.0
 -->
 <resources>
-    <string name="app_name" translatable="false">Lock Styles</string>
+    <string name="app_name" translatable="false">Knock Lock</string>
     <string name="lock_settings">Lock screen settings</string>
     <string name="apply_change">Apply</string>
     <string name="gallery_applied">Lock screen applied</string>
