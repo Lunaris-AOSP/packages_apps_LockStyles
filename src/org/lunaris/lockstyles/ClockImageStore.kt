@@ -23,6 +23,7 @@ import android.net.Uri
 import android.provider.Settings
 import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.clockmaker.ClockImages
+import org.lunaris.clockmaker.ClockLottie
 import java.io.File
 import java.util.UUID
 
@@ -38,9 +39,10 @@ class ClockImageStore(private val context: Context) {
     fun importImage(uri: Uri, keepIds: Set<String> = emptySet()): ImportedImage {
         check(directory.isDirectory || directory.mkdirs())
         pruneUnused(keepIds)
-        val id = "${UUID.randomUUID()}.img"
+        val name = UUID.randomUUID().toString()
+        var id = "$name.img"
         val pending = File(directory, "$id.pending")
-        val target = file(id)!!
+        var target = file(id)!!
         try {
             val used = directory.listFiles()?.sumOf { it.length() } ?: 0L
             resolver.openInputStream(uri)!!.use { input ->
@@ -59,12 +61,20 @@ class ClockImageStore(private val context: Context) {
             }
             var width = 0
             var height = 0
-            val decoded = ImageDecoder.decodeDrawable(ImageDecoder.createSource(pending)) { decoder, info, _ ->
-                ClockImages.configureDecoder(decoder, info)
-                width = info.size.width
-                height = info.size.height
+            try {
+                val decoded = ImageDecoder.decodeDrawable(ImageDecoder.createSource(pending)) { decoder, info, _ ->
+                    ClockImages.configureDecoder(decoder, info)
+                    width = info.size.width
+                    height = info.size.height
+                }
+                if (decoded is AnimatedImageDrawable) decoded.stop()
+            } catch (e: ImageDecoder.DecodeException) {
+                val composition = pending.inputStream().use(ClockLottie::read)
+                width = composition.bounds.width()
+                height = composition.bounds.height()
+                id = "$name.json"
+                target = file(id)!!
             }
-            if (decoded is AnimatedImageDrawable) decoded.stop()
             check(pending.renameTo(target))
             return ImportedImage(id, width, height)
         } catch (e: Exception) {

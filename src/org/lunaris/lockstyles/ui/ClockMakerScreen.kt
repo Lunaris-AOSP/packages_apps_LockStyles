@@ -262,7 +262,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     fun chooseImage(target: String?) {
         imageTarget = target
         imageDesign = design.id
-        imageImporter.launch(arrayOf("image/*"))
+        imageImporter.launch(arrayOf("image/*", "application/json", "text/json", "text/plain", "application/octet-stream"))
     }
 
     val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()

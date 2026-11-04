@@ -45,11 +45,11 @@
     <string name="clock_maker_remove_font_summary">Elements using this font will fall back to the system typeface, including saved designs.</string>
     <string name="clock_maker_font_error">Could not update fonts</string>
     <string name="clock_maker_font_error_summary">Choose a valid TTF or OTF font up to 10 MB. You can keep up to 32 imported fonts.</string>
-    <string name="clock_maker_image">Image or GIF</string>
-    <string name="clock_maker_replace_image">Replace image or GIF</string>
-    <string name="clock_maker_image_summary">Images are saved with your clock. GIFs pause on the always-on display. New images start behind the other elements.</string>
-    <string name="clock_maker_image_error">Could not import image</string>
-    <string name="clock_maker_image_error_summary">Choose a supported image or GIF up to 20 MB and 64 megapixels. Clock images can use up to 128 MB of storage.</string>
+    <string name="clock_maker_image">Image, GIF or Lottie</string>
+    <string name="clock_maker_replace_image">Replace image, GIF or Lottie</string>
+    <string name="clock_maker_image_summary">Import an image, GIF or Lottie JSON animation. Files are saved with your clock. Animations pause on the always-on display. New elements start behind the others.</string>
+    <string name="clock_maker_image_error">Could not import image or animation</string>
+    <string name="clock_maker_image_error_summary">Choose an image, GIF or Lottie JSON file up to 20 MB. Images are limited to 64 megapixels. Lottie images must be embedded in the JSON. Clock media can use up to 128 MB of storage.</string>
     <string name="clock_maker_size_position">Size &amp; position</string>
     <string name="clock_maker_shape">Shape &amp; border</string>
     <string name="clock_maker_lock_aspect">Lock aspect ratio</string>
@@ -61,7 +61,7 @@
     <string name="clock_maker_aod_outline">Outline on AOD</string>
     <string name="clock_maker_aod_outline_animate">Animate outline transition</string>
     <string name="clock_maker_aod_outline_width">Outline thickness</string>
-    <string name="clock_maker_preview_aod_paused">AOD preview · animated images paused</string>
+    <string name="clock_maker_preview_aod_paused">AOD preview · animations paused</string>
     <string name="clock_maker_drag_editor">Drag to resize the clock editor</string>
     <string name="clock_maker_editor_fullscreen">Use full-screen preview with draggable editor</string>
     <string name="clock_maker_editor_split">Use split preview and editor</string>
