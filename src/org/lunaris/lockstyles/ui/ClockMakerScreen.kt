@@ -139,8 +139,10 @@ import org.lunaris.clockmaker.ClockElement
 import org.lunaris.clockmaker.ClockElementKind
 import org.lunaris.clockmaker.ClockFonts
 import org.lunaris.clockmaker.ClockGlass
+import org.lunaris.clockmaker.ClockHourFormat
 import org.lunaris.clockmaker.ClockImageFit
 import org.lunaris.clockmaker.ClockImageShapes
+import org.lunaris.clockmaker.ClockTimePart
 import org.lunaris.lockstyles.ClockImageStore
 import org.lunaris.lockstyles.ClockMakerStore
 import org.lunaris.lockstyles.ClockStyle
@@ -407,7 +409,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         design.elements.forEach { element ->
                             FilterChip(selected = selectedId == element.id, onClick = { selectedId = element.id },
-                                label = { Text(elementLabel(element.kind)) })
+                                label = { Text(elementLabel(element)) })
                         }
                     }
                     Row(
@@ -704,6 +706,13 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     if (dialog == "add") {
         AlertDialog(onDismissRequest = { dialog = null }, title = { Text(stringResource(R.string.clock_maker_add)) },
             text = { Column {
+                TextButton(enabled = design.elements.size + 5 <= ClockDesign.MAX_ELEMENTS, onClick = {
+                    val digits = ClockElement.createTimeDigits()
+                    change(design.copy(elements = design.elements + digits))
+                    selectedId = digits.first().id
+                    tab = 0
+                    dialog = null
+                }) { Text(stringResource(R.string.clock_maker_separate_digits)) }
                 ClockElementKind.entries.forEach { kind ->
                     TextButton(enabled = kind != ClockElementKind.IMAGE || (allowImport && !importingImage), onClick = {
                         if (kind == ClockElementKind.IMAGE) {
@@ -860,6 +869,40 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
 
 @Composable
 private fun ElementContent(element: ClockElement, onChange: (ClockElement) -> Unit) {
+    if (element.kind == ClockElementKind.TIME) {
+        Text(stringResource(R.string.clock_maker_time_part), Modifier.padding(horizontal = 20.dp),
+            style = MaterialTheme.typography.titleSmall)
+        val partRows = listOf(listOf(ClockTimePart.FULL)) + ClockTimePart.entries.drop(1).chunked(2)
+        partRows.forEach { parts ->
+            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                parts.forEach { part ->
+                    FilterChip(element.timePart == part, { onChange(element.copy(timePart = part)) },
+                        label = { Text(timePartLabel(part)) })
+                }
+            }
+        }
+        Text(stringResource(R.string.clock_maker_time_part_summary), Modifier.padding(horizontal = 20.dp),
+            style = MaterialTheme.typography.bodySmall)
+        if (element.timePart != ClockTimePart.FULL) {
+            if (element.timePart.isHour) {
+                Text(stringResource(R.string.clock_maker_hour_format), Modifier.padding(horizontal = 20.dp),
+                    style = MaterialTheme.typography.titleSmall)
+                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ClockHourFormat.entries.forEach { format ->
+                        FilterChip(element.hourFormat == format, { onChange(element.copy(hourFormat = format)) },
+                            label = { Text(stringResource(when (format) {
+                                ClockHourFormat.SYSTEM -> R.string.clock_maker_automatic
+                                ClockHourFormat.H12 -> R.string.clock_maker_hour_12
+                                ClockHourFormat.H24 -> R.string.clock_maker_hour_24
+                            })) })
+                    }
+                }
+            }
+            return
+        }
+    }
     if (element.kind == ClockElementKind.QUICKLOOK) {
         val context = LocalContext.current
         val settings = remember { android.content.Intent("com.android.axion.quicklook.SETTINGS")
@@ -1005,6 +1048,23 @@ private fun bundledFontChoices(context: Context): List<Pair<String, String>> {
         .distinctBy { it.first.lowercase(Locale.ROOT) }
         .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.second })
 }
+
+@Composable
+private fun elementLabel(element: ClockElement): String =
+    if (element.kind == ClockElementKind.TIME && element.timePart != ClockTimePart.FULL) {
+        timePartLabel(element.timePart)
+    } else elementLabel(element.kind)
+
+@Composable
+private fun timePartLabel(part: ClockTimePart): String = stringResource(when (part) {
+    ClockTimePart.FULL -> R.string.clock_maker_full_time
+    ClockTimePart.HOUR_TENS -> R.string.clock_maker_hour_tens
+    ClockTimePart.HOUR_ONES -> R.string.clock_maker_hour_ones
+    ClockTimePart.MINUTE_TENS -> R.string.clock_maker_minute_tens
+    ClockTimePart.MINUTE_ONES -> R.string.clock_maker_minute_ones
+    ClockTimePart.SECOND_TENS -> R.string.clock_maker_second_tens
+    ClockTimePart.SECOND_ONES -> R.string.clock_maker_second_ones
+})
 
 @Composable
 private fun elementLabel(kind: ClockElementKind): String = stringResource(when (kind) {
