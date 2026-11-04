@@ -156,6 +156,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     val store = remember { ClockMakerStore(context) }
     val imageStore = remember { ClockImageStore(context) }
     val restored = remember(draftKey, initial) { store.draft(draftKey) ?: initial }
+    var baseClock by remember(draftKey, initial) { mutableStateOf(restored) }
     var design by remember(draftKey, initial) { mutableStateOf(restored.design ?: ClockDesign()) }
     var tuning by remember(draftKey, initial) { mutableStateOf(restored.tuning ?: CustomClocks.Tuning.load(context)) }
     var color by remember(draftKey, initial) { mutableStateOf(restored.color) }
@@ -183,13 +184,23 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     var fullScreenEditor by rememberSaveable(draftKey) { mutableStateOf(false) }
     var positioning by remember(draftKey) { mutableStateOf<ClockDesignPositioning?>(null) }
     val scope = rememberCoroutineScope()
-    val clock = initial.copy(face = ClockDesign.STYLE, design = design, tuning = tuning, color = color)
+    val clock = baseClock.copy(face = ClockDesign.STYLE, design = design, tuning = tuning, color = color)
     val latestClock by rememberUpdatedState(clock)
     fun change(value: ClockDesign, record: Boolean = true) {
         if (value == design) return
         if (record) undo = (undo + design).takeLast(50)
         redo = emptyList()
         design = value
+    }
+    fun openDesign(value: ClockStyle) {
+        baseClock = value
+        design = requireNotNull(value.design)
+        tuning = value.tuning ?: tuning
+        color = value.color
+        undo = emptyList()
+        redo = emptyList()
+        selectedId = design.elements.firstOrNull()?.id
+        dialog = null
     }
     LaunchedEffect(design.id, design.elements.map { it.id }) {
         if (selectedId != null && design.elements.none { it.id == selectedId }) {
@@ -313,6 +324,11 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                             redo = redo.dropLast(1)
                         })
                     Spacer(Modifier.weight(1f))
+                    ClockArchiveActions(clock, store, allowImport && !importing && !importingImage) { imported ->
+                        openDesign(imported)
+                        fonts = store.fonts
+                        library = store.designs
+                    }
                     ExpressiveIconButton(if (fullScreenEditor) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                         stringResource(if (fullScreenEditor) R.string.clock_maker_editor_split
                             else R.string.clock_maker_editor_fullscreen),
@@ -687,10 +703,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
         AlertDialog(onDismissRequest = { dialog = null }, title = { Text(stringResource(R.string.clock_maker_designs)) },
             text = { Column(Modifier.verticalScroll(rememberScrollState())) {
                 TextButton(onClick = {
-                    val fresh = ClockDesign()
-                    change(fresh)
-                    selectedId = fresh.elements.firstOrNull()?.id
-                    dialog = null
+                    openDesign(clock.copy(design = ClockDesign()))
                 }) {
                     Text(stringResource(R.string.clock_maker_new))
                 }
@@ -705,11 +718,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                     val savedDesign = saved.design ?: return@forEach
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(savedDesign.name, Modifier.weight(1f).clickable {
-                            change(savedDesign)
-                            tuning = saved.tuning ?: tuning
-                            color = saved.color
-                            selectedId = savedDesign.elements.firstOrNull()?.id
-                            dialog = null
+                            openDesign(saved)
                         }.padding(12.dp))
                         TextButton(onClick = { store.deleteDesign(savedDesign.id); library = store.designs }) {
                             Text(stringResource(R.string.clock_maker_remove))

@@ -36,6 +36,23 @@ class ClockImageStore(private val context: Context) {
 
     fun file(id: String): File? = if (ClockImages.validId(id)) File(directory, id) else null
 
+    internal fun prepareArchive(files: List<File>) {
+        check(directory.isDirectory || directory.mkdirs())
+        val used = directory.listFiles()?.sumOf { it.length() } ?: 0L
+        require(used + files.sumOf { it.length() } <= ClockImages.MAX_STORAGE_BYTES)
+        files.forEach { file ->
+            require(file.length() in 1..ClockImages.MAX_FILE_BYTES.toLong())
+            if (file.extension == "json") {
+                file.inputStream().use(ClockLottie::read)
+            } else {
+                val decoded = ImageDecoder.decodeDrawable(ImageDecoder.createSource(file)) { decoder, info, _ ->
+                    ClockImages.configureDecoder(decoder, info)
+                }
+                if (decoded is AnimatedImageDrawable) decoded.stop()
+            }
+        }
+    }
+
     fun importImage(uri: Uri, keepIds: Set<String> = emptySet()): ImportedImage {
         check(directory.isDirectory || directory.mkdirs())
         pruneUnused(keepIds)

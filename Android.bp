@@ -20,6 +20,7 @@ android_app {
         "LunarisClockMaker",
         "LunarisLockscreenWidgets",
         "androidx.activity_activity-compose",
+        "androidx.core_core",
         "androidx.compose.foundation_foundation",
         "androidx.compose.material3_material3",
         "androidx.compose.material_material-icons-extended",

@@ -34,6 +34,16 @@
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
         <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="org.lunaris.lockstyles.clockexports"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/clock_export_paths" />
+        </provider>
+
+        <provider
             android:name=".ClockImageProvider"
             android:authorities="org.lunaris.lockstyles.clockimages"
             android:directBootAware="true"

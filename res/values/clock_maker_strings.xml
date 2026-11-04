@@ -112,4 +112,17 @@
     <string name="clock_text_glass">Glass text</string>
     <string name="clock_glass_intensity">Blur intensity</string>
     <string name="clock_glass_lift">White lift</string>
+    <string name="clock_maker_transfer">Import, export and share</string>
+    <string name="clock_maker_import_clock">Import clock</string>
+    <string name="clock_maker_export_clock">Export clock</string>
+    <string name="clock_maker_share_clock">Share clock</string>
+    <string name="clock_maker_transferring">Preparing clock…</string>
+    <string name="clock_maker_clock_imported">Clock added to saved designs</string>
+    <string name="clock_maker_clock_exported">Clock exported with its images and fonts</string>
+    <string name="clock_maker_clock_import_error">Could not import clock</string>
+    <string name="clock_maker_clock_import_error_summary">Choose a complete Clock Maker package. It must include all images and fonts and use a supported version. Check that there is enough free storage and room in the font library (32 fonts).</string>
+    <string name="clock_maker_clock_export_error">Could not export clock</string>
+    <string name="clock_maker_clock_export_error_summary">Check that the clock’s images and fonts are still available and that there is enough free storage, then try again.</string>
+    <string name="clock_maker_clock_share_error">Could not share clock</string>
+    <string name="clock_maker_clock_share_error_summary">Check that the clock’s images and fonts are still available and that an app is available to share files, then try again.</string>
 </resources>
