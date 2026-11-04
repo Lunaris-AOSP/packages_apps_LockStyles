@@ -58,7 +58,12 @@
     <string name="clock_maker_crop">Crop to fill</string>
     <string name="clock_maker_fit">Fit inside</string>
     <string name="clock_maker_preview_aod">Preview AOD</string>
+    <string name="clock_maker_lockscreen_outline">Outline on lockscreen</string>
     <string name="clock_maker_aod_outline">Outline on AOD</string>
+    <string name="clock_maker_text_stroke">Text stroke</string>
+    <string name="clock_maker_text_stroke_summary">Adds a colored border to filled text on the lockscreen and AOD. Outline mode takes priority on each screen.</string>
+    <string name="clock_maker_text_stroke_width">Stroke width</string>
+    <string name="clock_maker_text_stroke_colour">Stroke color</string>
     <string name="clock_maker_aod_outline_animate">Animate outline transition</string>
     <string name="clock_maker_aod_outline_width">Outline thickness</string>
     <string name="clock_maker_preview_aod_paused">AOD preview · animations paused</string>

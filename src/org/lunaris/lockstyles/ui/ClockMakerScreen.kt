@@ -573,16 +573,44 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                         }
                                         3 -> {
                                             if (selected.supportsAodOutline) {
+                                                TuningSwitch(stringResource(R.string.clock_maker_lockscreen_outline), selected.lockscreenOutline) {
+                                                    edit(selected.copy(lockscreenOutline = it))
+                                                }
+                                                if (selected.lockscreenOutline) {
+                                                    TuningSlider(stringResource(R.string.clock_maker_aod_outline_width),
+                                                        selected.lockscreenOutlineWidth, 1..6, "", 2) {
+                                                        edit(selected.copy(lockscreenOutlineWidth = it))
+                                                    }
+                                                }
                                                 TuningSwitch(stringResource(R.string.clock_maker_aod_outline), selected.aodOutline) {
                                                     edit(selected.copy(aodOutline = it))
                                                 }
                                                 if (selected.aodOutline) {
-                                                    TuningSwitch(stringResource(R.string.clock_maker_aod_outline_animate), selected.animateAodOutline) {
-                                                        edit(selected.copy(animateAodOutline = it))
-                                                    }
                                                     TuningSlider(stringResource(R.string.clock_maker_aod_outline_width),
                                                         selected.aodOutlineWidth, 1..6, "", 2) {
                                                         edit(selected.copy(aodOutlineWidth = it))
+                                                    }
+                                                }
+                                                if (selected.lockscreenOutline || selected.aodOutline) {
+                                                    TuningSwitch(stringResource(R.string.clock_maker_aod_outline_animate), selected.animateAodOutline) {
+                                                        edit(selected.copy(animateAodOutline = it))
+                                                    }
+                                                }
+                                                TuningSwitch(stringResource(R.string.clock_maker_text_stroke), selected.textStroke) {
+                                                    edit(selected.copy(textStroke = it))
+                                                }
+                                                if (selected.textStroke) {
+                                                    Text(stringResource(R.string.clock_maker_text_stroke_summary),
+                                                        Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.bodySmall,
+                                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    TuningSlider(stringResource(R.string.clock_maker_text_stroke_width),
+                                                        selected.textStrokeWidth, 1..12, "", 2) {
+                                                        edit(selected.copy(textStrokeWidth = it))
+                                                    }
+                                                    Text(stringResource(R.string.clock_maker_text_stroke_colour), Modifier.padding(horizontal = 20.dp),
+                                                        style = MaterialTheme.typography.titleSmall)
+                                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.textStrokeColor, wallpaper, allowImport) {
+                                                        edit(selected.copy(textStrokeColor = it ?: selected.textStrokeColor))
                                                     }
                                                 }
                                             }
