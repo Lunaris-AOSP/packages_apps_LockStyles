@@ -556,6 +556,20 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                             }
                                         }
                                         3 -> {
+                                            if (selected.supportsAodOutline) {
+                                                TuningSwitch(stringResource(R.string.clock_maker_aod_outline), selected.aodOutline) {
+                                                    edit(selected.copy(aodOutline = it))
+                                                }
+                                                if (selected.aodOutline) {
+                                                    TuningSwitch(stringResource(R.string.clock_maker_aod_outline_animate), selected.animateAodOutline) {
+                                                        edit(selected.copy(animateAodOutline = it))
+                                                    }
+                                                    TuningSlider(stringResource(R.string.clock_maker_aod_outline_width),
+                                                        selected.aodOutlineWidth, 1..6, "", 2) {
+                                                        edit(selected.copy(aodOutlineWidth = it))
+                                                    }
+                                                }
+                                            }
                                             TuningSwitch(stringResource(R.string.gallery_clock_shadow), selected.shadow) { edit(selected.copy(shadow = it)) }
                                             AnimatedVisibility(
                                                 visible = selected.shadow,

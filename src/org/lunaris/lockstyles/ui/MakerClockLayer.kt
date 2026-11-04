@@ -16,6 +16,7 @@
 
 package org.lunaris.lockstyles.ui
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Color
 import android.graphics.Matrix
@@ -52,7 +53,6 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
     AndroidView(factory = { MakerPreview(it) }, modifier = modifier.fillMaxSize(), update = {
         it.clock.setGlassPreview(glass, it.stage)
         it.thumbnail = thumbnail
-        it.dozing = dozing
         it.tuning = tuning
         it.clock.selectedId = selectedId
         it.clock.selectionColor = selectionColor
@@ -69,7 +69,8 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
             color = if (tuning.accent) context.getColor(android.R.color.system_accent1_100) else style.color ?: Color.WHITE,
             gradient = tuning.gradient, gradientStart = tuning.gradientStart, gradientEnd = tuning.gradientEnd,
             gradientAnchor = tuning.gradientAnchorY, gradientRadius = tuning.gradientRadius,
-            weather = tuning.weather, dozing = dozing))
+            weather = tuning.weather, dozing = dozing, aodAnimation = tuning.aodAnimation))
+        it.setPreviewDozing(dozing)
         it.requestLayout()
     })
 }
@@ -78,12 +79,44 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     val clock = ClockDesignView(context)
     var tuning = CustomClocks.Tuning()
     var thumbnail = false
-    var dozing = false
+    private var dozing = false
+    private var aodProgress = 0f
+    private var aodAnimator: ValueAnimator? = null
     var onMove: ((String, Float, Float) -> Unit)? = null
     var onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null
     var onBottomChanged: ((Float) -> Unit)? = null
     private var positioning: ClockDesignPositioning? = null
     private var frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE)
+
+    fun setPreviewDozing(value: Boolean) {
+        if (dozing == value) return
+        dozing = value
+        aodAnimator?.cancel()
+        aodAnimator = null
+        val target = if (value) 1f else 0f
+        if (!isAttachedToWindow || thumbnail || !tuning.aodAnimation) {
+            aodProgress = target
+            clock.setAodProgress(target)
+            return
+        }
+        aodAnimator = ValueAnimator.ofFloat(aodProgress, target).apply {
+            duration = 500L
+            addUpdateListener {
+                aodProgress = it.animatedValue as Float
+                clock.setAodProgress(aodProgress)
+            }
+            start()
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        aodAnimator?.cancel()
+        aodAnimator = null
+        aodProgress = if (dozing) 1f else 0f
+        clock.setAodProgress(aodProgress)
+        super.onDetachedFromWindow()
+    }
+
     val stage = object : ViewGroup(context) {
         init {
             clipChildren = false
