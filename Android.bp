@@ -19,6 +19,7 @@ android_app {
     static_libs: [
         "LunarisClockMaker",
         "LunarisLockscreenWidgets",
+        "LunarisExtraInfoWidgets",
         "androidx.activity_activity-compose",
         "androidx.core_core",
         "androidx.compose.foundation_foundation",

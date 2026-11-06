@@ -312,6 +312,7 @@ private fun ClockPage(open: (Page) -> Unit, back: () -> Unit) {
 fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false, onAppWidgets: (() -> Unit)? = null) {
     val s = strings()
     val info by Keys.INFO_WIDGETS.state()
+    val extraInfo by Keys.EXTRA_INFO_WIDGETS.state()
     val widgets by Keys.WIDGETS.state()
     var appWidgetsOpen by remember { mutableStateOf(false) }
     SettingsPage(s(R.string.lockscreen_widgets_title), back, inSheet) {
@@ -322,18 +323,29 @@ fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false, onAppWidgets: (() ->
             },
         ))
         group(null, listOf(
+            switchRow(s(R.string.extra_info_title), s(R.string.extra_info_summary), Keys.EXTRA_INFO_WIDGETS),
+        ))
+        if (!extraInfo) group(null, listOf(
             switchRow(s(R.string.lockscreen_display_widgets_title),
                 s(R.string.lockscreen_display_widgets_summary), Keys.INFO_WIDGETS),
         ))
         item {
             WidgetColorGroup(options(R.array.lockscreen_custom_clock_color_mode_entries,
-                R.array.lockscreen_custom_clock_color_mode_values), info)
+                R.array.lockscreen_custom_clock_color_mode_values), info || extraInfo)
+        }
+        if (extraInfo) {
+            group(null, listOf(
+                switchRow(s(R.string.extra_info_blur), s(R.string.extra_info_blur_summary), Keys.EXTRA_INFO_BLUR),
+                sliderRow(s(R.string.lockscreen_widgets_transparency_title), null,
+                    Keys.WIDGETS_TRANSPARENCY, 0..100, unit = "%"),
+            ))
+            item { ExtraInfoWidgetsPanel() }
         }
         group(null, listOf(
             switchRow(s(R.string.lockscreen_widgets_enabled_title),
                 s(R.string.lockscreen_widgets_enabled_summary), Keys.WIDGETS),
         ))
-        item { DeviceInfoPreview() }
+        if (!extraInfo) item { DeviceInfoPreview() }
         item { WidgetSlots(widgets) }
     }
     if (appWidgetsOpen) AppWidgetsBottomSheet(onDismiss = { appWidgetsOpen = false })

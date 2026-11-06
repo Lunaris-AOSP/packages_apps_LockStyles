@@ -210,7 +210,7 @@ fun CustomiseScreen(
             }
         }
 
-        AppWidgetWallpaperLayer(clockBottom)
+        AppWidgetWallpaperLayer(ExtraInfoWallpaperLayer(clockBottom, wallpaper))
 
         Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
             .background(MaterialTheme.colorScheme.surface))

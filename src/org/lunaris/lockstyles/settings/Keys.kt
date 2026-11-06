@@ -54,6 +54,9 @@ object Keys {
 
     // Widgets
     val INFO_WIDGETS = Bool(SYSTEM, "lockscreen_info_widgets_enabled", false)
+    val EXTRA_INFO_WIDGETS = Bool(SYSTEM, org.lunaris.extrainfowidgets.ExtraInfoLayout.ENABLED, false)
+    val EXTRA_INFO_LAYOUT = Text(SYSTEM, org.lunaris.extrainfowidgets.ExtraInfoLayout.LAYOUT, null)
+    val EXTRA_INFO_BLUR = Bool(SYSTEM, org.lunaris.extrainfowidgets.ExtraInfoLayout.BLUR, false)
     val WIDGETS_COLOR_MODE = Text(SYSTEM, "lockscreen_widgets_color_mode", "default")
     val WIDGETS_CUSTOM_COLOR = Num(SYSTEM, "lockscreen_widgets_custom_color", -1)
     val WIDGETS = Bool(SYSTEM, "lockscreen_widgets_enabled", false)

@@ -1,0 +1,18 @@
+<resources>
+    <string name="extra_info_title">Extra info widgets</string>
+    <string name="extra_info_summary">Choose ClockMorph designs for two rows. Replaces the device info widgets while enabled.</string>
+    <string name="extra_info_blur">Blur widget backgrounds</string>
+    <string name="extra_info_blur_summary">Soften the wallpaper behind widget cards</string>
+    <string name="extra_info_preview">Widget preview · sample data</string>
+    <string name="extra_info_empty">Choose widgets for either row to get started</string>
+    <string name="extra_info_capacity">Slots per row</string>
+    <string name="extra_info_slots">%1$d slots</string>
+    <string name="extra_info_layout_hint">Small widgets use one slot, wide widgets use two, and inline widgets fill a row. Remove a widget before reducing a full row from five slots to four.</string>
+    <string name="extra_info_row">Row %1$d · %2$d/%3$d slots</string>
+    <string name="extra_info_choose">Choose widgets</string>
+    <string name="extra_info_move_before">Move earlier in row</string>
+    <string name="extra_info_move_after">Move later in row</string>
+    <string name="extra_info_remove">Remove %1$s</string>
+    <string name="extra_info_picker_hint">Tap a design to add it to this row. Tap a selected design to remove it. Designs that do not fit are dimmed.</string>
+    <string name="extra_info_selected">Selected in row %1$d</string>
+</resources>

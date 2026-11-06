@@ -364,7 +364,7 @@ fun LockScreenCard(
                 ClockText(clock, clockHeight, fixedTime = fixedTime, onLight = onLight)
             }
         }
-        AppWidgetWallpaperLayer(clockBottom)
+        AppWidgetWallpaperLayer(ExtraInfoWallpaperLayer(clockBottom, wallpaper))
     }
 }
 
