@@ -287,7 +287,8 @@ fun CustomClockLayer(
     BoxWithConstraints(modifier.fillMaxSize()) {
         val bitmap = preview ?: return@BoxWithConstraints
         val shadowPadding = (bitmap.width - frame.width) / 2
-        val k = constraints.maxWidth / context.resources.displayMetrics.widthPixels.toFloat()
+        val metrics = context.resources.displayMetrics
+        val k = constraints.maxWidth / metrics.widthPixels.toFloat()
         val density = LocalDensity.current
         Image(
             bitmap.asImageBitmap(), null,
@@ -305,8 +306,10 @@ fun CustomClockLayer(
                     rotationX = currentTuning.tiltX.toFloat()
                     rotationY = currentTuning.tiltY.toFloat()
                     rotationZ = currentTuning.rotation.toFloat()
+                    // View.setCameraDistance divides by densityDpi; Compose passes directly
+                    // to RenderNode. Match SystemUI's conversion before shrinking the preview.
                     cameraDistance = maxOf(maxOf(frame.width, bitmap.height - shadowPadding * 2) * 4f,
-                        1280f * context.resources.displayMetrics.density) * k
+                        1280f * metrics.density) / metrics.densityDpi * k
                 }.onGloballyPositioned { onBottomChanged?.invoke(it.boundsInParent().bottom) },
             contentScale = ContentScale.FillBounds,
         )
