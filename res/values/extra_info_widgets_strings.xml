@@ -1,6 +1,6 @@
 <resources>
     <string name="extra_info_title">Extra info widgets</string>
-    <string name="extra_info_summary">Choose ClockMorph designs for two rows. Replaces the device info widgets while enabled.</string>
+    <string name="extra_info_summary">Choose ClockMorph designs in rows or place up to five anywhere on the lock screen. Replaces the device info widgets while enabled.</string>
     <string name="extra_info_blur">Blur widget backgrounds</string>
     <string name="extra_info_blur_summary">Soften the wallpaper behind widget cards</string>
     <string name="extra_info_preview">Widget preview · sample data</string>
@@ -15,4 +15,20 @@
     <string name="extra_info_remove">Remove %1$s</string>
     <string name="extra_info_picker_hint">Tap a design to add it to this row. Tap a selected design to remove it. Designs that do not fit are dimmed.</string>
     <string name="extra_info_selected">Selected in row %1$d</string>
+    <string name="extra_info_mode">Placement</string>
+    <string name="extra_info_mode_rows">Two rows</string>
+    <string name="extra_info_mode_independent">Independent</string>
+    <string name="extra_info_independent_hint">Place up to five widgets anywhere, including over the clock. The clock, notifications and other elements keep their positions. Your two-row layout is saved separately.</string>
+    <string name="extra_info_edit_positions">Edit widget positions</string>
+    <string name="extra_info_editor_title">Arrange widgets</string>
+    <string name="extra_info_editor_hint">Drag a widget to move it. Select one below to adjust its position or remove it. Preview uses sample data.</string>
+    <string name="extra_info_widget_count">%1$d / %2$d widgets</string>
+    <string name="extra_info_add_widget">Add widget</string>
+    <string name="extra_info_limit">5 widgets maximum</string>
+    <string name="extra_info_save">Save</string>
+    <string name="extra_info_horizontal">Horizontal</string>
+    <string name="extra_info_vertical">Vertical</string>
+    <string name="extra_info_front">Bring to front</string>
+    <string name="extra_info_select_hint">Add a widget, then drag it anywhere on the preview.</string>
+    <string name="extra_info_picker_independent_hint">Choose a design to add to the preview. Up to five widgets can be placed independently.</string>
 </resources>

@@ -53,6 +53,7 @@ import org.lunaris.extrainfowidgets.ExtraInfoLayout
 import org.lunaris.extrainfowidgets.InfoAppearance
 import org.lunaris.extrainfowidgets.InfoData
 import org.lunaris.extrainfowidgets.InfoWidget
+import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
@@ -94,7 +95,7 @@ fun ExtraInfoPreview(
 }
 
 @Composable
-private fun DesignPreview(widget: InfoWidget, appearance: InfoAppearance, modifier: Modifier) {
+internal fun DesignPreview(widget: InfoWidget, appearance: InfoAppearance, modifier: Modifier) {
     AndroidView(
         factory = { ExtraInfoDesignPreviewHost(it, widget) },
         modifier = modifier,
@@ -106,7 +107,28 @@ private fun DesignPreview(widget: InfoWidget, appearance: InfoAppearance, modifi
 }
 
 @Composable
-fun ExtraInfoWidgetsPanel() {
+fun ExtraInfoWidgetsPanel(preview: LockScreen? = null) {
+    var independent by Keys.EXTRA_INFO_INDEPENDENT.state()
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(stringResource(R.string.extra_info_mode), style = MaterialTheme.typography.titleSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = !independent,
+                onClick = { independent = false },
+                label = { Text(stringResource(R.string.extra_info_mode_rows)) },
+            )
+            FilterChip(
+                selected = independent,
+                onClick = { independent = true },
+                label = { Text(stringResource(R.string.extra_info_mode_independent)) },
+            )
+        }
+        if (independent) IndependentInfoPanel(preview) else ExtraInfoRowsPanel()
+    }
+}
+
+@Composable
+private fun ExtraInfoRowsPanel() {
     val context = LocalContext.current
     val catalog = remember(context) { ExtraInfoCatalog.load(context) }
     var raw by Keys.EXTRA_INFO_LAYOUT.state()

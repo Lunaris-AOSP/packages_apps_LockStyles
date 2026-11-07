@@ -75,6 +75,7 @@ import org.lunaris.lockstyles.settings.LunarisImages
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.ModernConfirmDialog
 import org.lunaris.lockstyles.ui.ExpressiveButton
+import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.ui.LockScreenGalleryActivity
 
 /** The pages of the lock screen settings, as Singularity's fragments were. */
@@ -309,7 +310,8 @@ private fun ClockPage(open: (Page) -> Unit, back: () -> Unit) {
 }
 
 @Composable
-fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false, onAppWidgets: (() -> Unit)? = null) {
+fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false, preview: LockScreen? = null,
+        onAppWidgets: (() -> Unit)? = null) {
     val s = strings()
     val info by Keys.INFO_WIDGETS.state()
     val extraInfo by Keys.EXTRA_INFO_WIDGETS.state()
@@ -339,7 +341,7 @@ fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false, onAppWidgets: (() ->
                 sliderRow(s(R.string.lockscreen_widgets_transparency_title), null,
                     Keys.WIDGETS_TRANSPARENCY, 0..100, unit = "%"),
             ))
-            item { ExtraInfoWidgetsPanel() }
+            item { ExtraInfoWidgetsPanel(preview) }
         }
         group(null, listOf(
             switchRow(s(R.string.lockscreen_widgets_enabled_title),

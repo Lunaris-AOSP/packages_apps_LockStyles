@@ -211,6 +211,7 @@ fun CustomiseScreen(
         }
 
         AppWidgetWallpaperLayer(ExtraInfoWallpaperLayer(clockBottom, wallpaper))
+        IndependentInfoWallpaperLayer(wallpaper)
 
         Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
             .background(MaterialTheme.colorScheme.surface))
@@ -289,7 +290,9 @@ fun CustomiseScreen(
         LockStylesBottomSheet(onDismissRequest = { sheet = null },
             containerColor = MaterialTheme.colorScheme.surfaceContainer) {
             if (sheet == "widgets") {
-                WidgetsPage(back = { sheet = null }, inSheet = true, onAppWidgets = { sheet = "app_widgets" })
+                WidgetsPage(back = { sheet = null }, inSheet = true,
+                    preview = initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning)),
+                    onAppWidgets = { sheet = "app_widgets" })
             } else {
                 SettingsPage(stringResource(R.string.aod_avatar_title), { sheet = null }, inSheet = true) {
                     item { AodAvatarSettings(allowPhotoPicking = allowPhotoPicking) }

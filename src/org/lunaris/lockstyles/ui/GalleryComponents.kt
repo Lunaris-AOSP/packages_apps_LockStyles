@@ -331,6 +331,7 @@ fun LockScreenCard(
     fixedTime: Boolean = true,
     corner: Dp = 24.dp,
     weather: GalleryWeather.Snapshot? = null,
+    showExtraInfo: Boolean = true,
     onClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(corner.coerceAtLeast(0.dp))
@@ -364,7 +365,8 @@ fun LockScreenCard(
                 ClockText(clock, clockHeight, fixedTime = fixedTime, onLight = onLight)
             }
         }
-        AppWidgetWallpaperLayer(ExtraInfoWallpaperLayer(clockBottom, wallpaper))
+        AppWidgetWallpaperLayer(if (showExtraInfo) ExtraInfoWallpaperLayer(clockBottom, wallpaper) else clockBottom)
+        if (showExtraInfo) IndependentInfoWallpaperLayer(wallpaper)
     }
 }
 

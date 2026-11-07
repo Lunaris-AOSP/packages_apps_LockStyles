@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.view.View
 import android.widget.FrameLayout
+import org.lunaris.extrainfowidgets.ExtraInfoFreeformView
 import org.lunaris.extrainfowidgets.ExtraInfoGridView
 import org.lunaris.extrainfowidgets.InfoWidget
 import org.lunaris.extrainfowidgets.InfoWidgetView
@@ -95,5 +96,25 @@ internal class ExtraInfoDesignPreviewHost(context: Context, design: InfoWidget) 
         addView(source, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(widget, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         widget.setBlurSource(source)
+    }
+}
+
+internal class ExtraInfoFreeformPreviewHost(context: Context) : FrameLayout(context) {
+    val widgets = ExtraInfoFreeformView(context)
+    private val source = ExtraInfoBackdrop(context)
+    var wallpaper: Bitmap?
+        get() = source.wallpaper
+        set(value) {
+            if (source.wallpaper !== value) {
+                source.wallpaper = value
+                widgets.blurSource = source
+            }
+        }
+
+    init {
+        source.visibility = INVISIBLE
+        addView(source, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(widgets, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        widgets.blurSource = source
     }
 }

@@ -22,18 +22,21 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.lunaris.extrainfowidgets.ExtraInfoCatalog
+import org.lunaris.extrainfowidgets.ExtraInfoFreeformLayout
 import org.lunaris.extrainfowidgets.ExtraInfoLayout
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.ExtraInfoPreview
+import org.lunaris.lockstyles.settings.ui.IndependentInfoPreview
 
 @Composable
 internal fun ExtraInfoWallpaperLayer(clockBottom: Float?, wallpaper: GalleryWallpaper): Float? {
     val enabled by Keys.EXTRA_INFO_WIDGETS.state()
     val raw by Keys.EXTRA_INFO_LAYOUT.state()
-    if (!enabled || clockBottom == null) return clockBottom
+    val independent by Keys.EXTRA_INFO_INDEPENDENT.state()
+    if (!enabled || independent || clockBottom == null) return clockBottom
     val context = LocalContext.current
     val catalog = remember(context) { ExtraInfoCatalog.load(context) }
     val layout = remember(raw, catalog) { ExtraInfoLayout.parse(raw, catalog) }
@@ -69,4 +72,20 @@ internal fun ExtraInfoWallpaperLayer(clockBottom: Float?, wallpaper: GalleryWall
         )
     }
     return clockBottom + extent
+}
+
+@Composable
+internal fun IndependentInfoWallpaperLayer(wallpaper: GalleryWallpaper) {
+    val enabled by Keys.EXTRA_INFO_WIDGETS.state()
+    val independent by Keys.EXTRA_INFO_INDEPENDENT.state()
+    if (!enabled || !independent) return
+    val context = LocalContext.current
+    val catalog = remember(context) { ExtraInfoCatalog.load(context) }
+    val rows by Keys.EXTRA_INFO_LAYOUT.state()
+    val raw by Keys.EXTRA_INFO_FREEFORM.state()
+    val layout =
+        remember(raw, rows, catalog) {
+            ExtraInfoFreeformLayout.parse(raw, catalog, ExtraInfoLayout.parse(rows, catalog))
+        }
+    IndependentInfoPreview(layout, wallpaper, Modifier.fillMaxSize())
 }
