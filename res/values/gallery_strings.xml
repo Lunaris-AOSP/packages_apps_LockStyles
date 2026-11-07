@@ -4,6 +4,8 @@
     <string name="gallery_browse_title">Make it yours</string>
     <string name="gallery_browse_summary">Find a wallpaper. Create your lock screen.</string>
     <string name="gallery_add_wallpaper">Add wallpaper</string>
+    <string name="gallery_change_wallpaper">Change wallpaper</string>
+    <string name="gallery_change_wallpaper_summary">Choose a new wallpaper for this lock screen.</string>
     <string name="gallery_saved_summary">Swipe to explore. Tap a lock screen to use it.</string>
     <string name="gallery_empty_title">Your next lock screen starts here</string>
     <string name="gallery_empty_summary">Choose a wallpaper, then make the clock and details your own.</string>

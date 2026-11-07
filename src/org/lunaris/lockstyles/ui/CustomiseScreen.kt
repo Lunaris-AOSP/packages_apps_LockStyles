@@ -142,6 +142,7 @@ fun CustomiseScreen(
     allowPhotoPicking: Boolean = true,
     shortcuts: Shortcuts,
     onCancel: () -> Unit,
+    onChangeWallpaper: ((GalleryWallpaper) -> Unit) -> Unit,
     onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
 ) {
     val context = LocalContext.current
@@ -240,9 +241,22 @@ fun CustomiseScreen(
                 .navigationBarsPadding().verticalScroll(rememberScrollState())
                 .padding(bottom = 16.dp, top = 20.dp),
         ) {
-            Text(stringResource(wallpaperLabel(wallpaper)),
-                style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 12.dp))
+            Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 12.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(wallpaperLabel(wallpaper)),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
+                TextButton(onClick = {
+                    onChangeWallpaper { selected ->
+                        // Replacing photos keeps the filter, depth and shuffle settings.
+                        wallpaper = if (selected.kind == wallpaper.kind && selected.photos.isNotEmpty()) {
+                            wallpaper.copy(photos = selected.photos)
+                        } else selected.copy(effect = 0)
+                    }
+                }) {
+                    Text(stringResource(R.string.gallery_change_wallpaper))
+                }
+            }
             KindControls(wallpaper) { wallpaper = it }
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())

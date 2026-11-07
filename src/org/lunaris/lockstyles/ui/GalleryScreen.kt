@@ -71,6 +71,7 @@ fun GalleryScreen(
     onPickPhoto: () -> Unit,
     onPickShuffle: () -> Unit,
     onPickKaleidoscope: () -> Unit,
+    isReplacing: Boolean = false,
 ) {
     val context = LocalContext.current
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
@@ -87,7 +88,8 @@ fun GalleryScreen(
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.gallery_add_wallpaper)) },
+                title = { Text(stringResource(if (isReplacing) R.string.gallery_change_wallpaper
+                    else R.string.gallery_add_wallpaper)) },
                 navigationIcon = {
                     IconButton(onClick = onCancel) {
                         Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
@@ -108,7 +110,8 @@ fun GalleryScreen(
                     Text(stringResource(R.string.gallery_browse_title),
                         style = MaterialTheme.typography.displaySmall,
                         color = MaterialTheme.colorScheme.onSurface)
-                    Text(stringResource(R.string.gallery_browse_summary),
+                    Text(stringResource(if (isReplacing) R.string.gallery_change_wallpaper_summary
+                        else R.string.gallery_browse_summary),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -150,7 +153,7 @@ fun GalleryScreen(
                                 Icons.Rounded.FilterVintage, onPickKaleidoscope)
                         }
                     }
-                    item {
+                    if (!isReplacing) item {
                         SourceButton(stringResource(R.string.gallery_live), null, Icons.Rounded.AutoAwesome) {
                             runCatching {
                                 context.startActivity(android.content.Intent(
