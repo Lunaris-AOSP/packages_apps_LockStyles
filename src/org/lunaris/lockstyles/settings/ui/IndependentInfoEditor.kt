@@ -48,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.lunaris.extrainfowidgets.ExtraInfoCatalog
@@ -355,10 +356,19 @@ private fun PositionControls(
         layout.widgets
             .firstOrNull { it.id == selected }
             ?.let { position ->
-                PositionSlider(stringResource(R.string.extra_info_horizontal), position.x) {
+                WidgetSlider(
+                    stringResource(R.string.extra_info_size),
+                    position.scale,
+                    valueRange =
+                        ExtraInfoFreeformLayout.MIN_SCALE..ExtraInfoFreeformLayout.MAX_SCALE,
+                    steps = 29,
+                ) {
+                    onEdit(layout.resize(position.id, it))
+                }
+                WidgetSlider(stringResource(R.string.extra_info_horizontal), position.x) {
                     onEdit(layout.move(position.id, it, position.y))
                 }
-                PositionSlider(stringResource(R.string.extra_info_vertical), position.y) {
+                WidgetSlider(stringResource(R.string.extra_info_vertical), position.y) {
                     onEdit(layout.move(position.id, position.x, it))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -388,12 +398,24 @@ private fun PositionControls(
 }
 
 @Composable
-private fun PositionSlider(label: String, value: Float, onChange: (Float) -> Unit) {
+private fun WidgetSlider(
+    label: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    steps: Int = 0,
+    onChange: (Float) -> Unit,
+) {
     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         Text(label, Modifier.width(88.dp), style = MaterialTheme.typography.labelMedium)
-        Slider(value, onChange, Modifier.weight(1f).semantics { contentDescription = label })
+        Slider(
+            value,
+            onChange,
+            Modifier.weight(1f).semantics { contentDescription = label },
+            valueRange = valueRange,
+            steps = steps,
+        )
         Text(
-            "${(value * 100).toInt()}%",
+            "${(value * 100).roundToInt()}%",
             Modifier.width(40.dp),
             style = MaterialTheme.typography.labelSmall,
         )

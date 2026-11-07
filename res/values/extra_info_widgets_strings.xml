@@ -19,13 +19,14 @@
     <string name="extra_info_mode_rows">Two rows</string>
     <string name="extra_info_mode_independent">Independent</string>
     <string name="extra_info_independent_hint">Place up to five widgets anywhere, including over the clock. The clock, notifications and other elements keep their positions. Your two-row layout is saved separately.</string>
-    <string name="extra_info_edit_positions">Edit widget positions</string>
+    <string name="extra_info_edit_positions">Edit widget positions and sizes</string>
     <string name="extra_info_editor_title">Arrange widgets</string>
-    <string name="extra_info_editor_hint">Drag a widget to move it. Select one below to adjust its position or remove it. Preview uses sample data.</string>
+    <string name="extra_info_editor_hint">Drag a widget to move it. Select one below to adjust its size or position, or remove it. Preview uses sample data.</string>
     <string name="extra_info_widget_count">%1$d / %2$d widgets</string>
     <string name="extra_info_add_widget">Add widget</string>
     <string name="extra_info_limit">5 widgets maximum</string>
     <string name="extra_info_save">Save</string>
+    <string name="extra_info_size">Size</string>
     <string name="extra_info_horizontal">Horizontal</string>
     <string name="extra_info_vertical">Vertical</string>
     <string name="extra_info_front">Bring to front</string>
