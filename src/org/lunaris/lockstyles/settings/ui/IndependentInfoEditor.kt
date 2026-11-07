@@ -40,6 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -77,6 +78,10 @@ internal fun IndependentInfoPreview(
     onEdit: ((ExtraInfoFreeformLayout) -> Unit)? = null,
 ) {
     val context = LocalContext.current
+    val screenWidth =
+        remember(context, LocalConfiguration.current) {
+            GalleryApplier.screenSize(context).first.coerceAtLeast(1)
+        }
     val appearance = extraInfoAppearance()
     BoxWithConstraints(modifier) {
         val width = constraints.maxWidth
@@ -101,8 +106,7 @@ internal fun IndependentInfoPreview(
                 it.widgets.selection = layout
                 it.widgets.data = InfoData.SAMPLE
                 it.widgets.appearance = appearance
-                it.widgets.previewScale =
-                    width / context.resources.displayMetrics.widthPixels.toFloat()
+                it.widgets.previewScale = width / screenWidth.toFloat()
                 it.widgets.editable = onEdit != null
                 it.widgets.selectedId = selected
                 it.widgets.onSelected = onSelected
@@ -176,7 +180,8 @@ private fun PositionPreview(
     onEdit: ((ExtraInfoFreeformLayout) -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val screen = remember(context) { GalleryApplier.screenSize(context) }
+    val screen =
+        remember(context, LocalConfiguration.current) { GalleryApplier.screenSize(context) }
     val aspect = screen.first.toFloat() / screen.second.coerceAtLeast(1)
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val width = minOf(maxWidth, maxHeight * aspect)
