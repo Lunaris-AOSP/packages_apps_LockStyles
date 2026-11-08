@@ -117,6 +117,7 @@ import org.lunaris.lockstyles.HomeStyle
 import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.Shortcuts
+import org.lunaris.lockstyles.settings.ExtraInfoSettingsProvider
 import org.lunaris.lockstyles.settings.ui.AodAvatarSettings
 import org.lunaris.lockstyles.settings.ui.AppWidgetsBottomSheet
 import org.lunaris.lockstyles.settings.ui.ClockFontPicker
@@ -140,6 +141,28 @@ fun CustomiseScreen(
     isCurrent: Boolean = false,
     openClock: Boolean = false,
     allowPhotoPicking: Boolean = true,
+    shortcuts: Shortcuts,
+    onCancel: () -> Unit,
+    onChangeWallpaper: ((GalleryWallpaper) -> Unit) -> Unit,
+    onDone: (LockScreen, CustomClocks.Tuning) -> Unit,
+) {
+    var extraInfo by remember(initial.id) { mutableStateOf(initial.extraInfo) }
+    ExtraInfoSettingsProvider(extraInfo, onChange = { extraInfo = it }) {
+        CustomiseContent(initial, isNew, isCurrent, openClock, allowPhotoPicking, shortcuts,
+            onCancel, onChangeWallpaper, onDone = { screen, tuning ->
+                onDone(screen.copy(extraInfo = extraInfo), tuning)
+            })
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun CustomiseContent(
+    initial: LockScreen,
+    isNew: Boolean,
+    isCurrent: Boolean,
+    openClock: Boolean,
+    allowPhotoPicking: Boolean,
     shortcuts: Shortcuts,
     onCancel: () -> Unit,
     onChangeWallpaper: ((GalleryWallpaper) -> Unit) -> Unit,

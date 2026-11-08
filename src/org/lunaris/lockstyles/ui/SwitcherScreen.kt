@@ -256,6 +256,7 @@ fun SwitcherScreen(
                         LockScreenCard(
                             wallpaper = lockScreen.wallpaper,
                             clock = lockScreen.clock,
+                            extraInfo = lockScreen.extraInfo,
                             live = isCurrent,
                             fixedTime = false,
                             corner = 36.dp,
@@ -366,6 +367,7 @@ fun SwitcherScreen(
             LockScreenCard(
                 wallpaper = moving.wallpaper,
                 clock = moving.clock,
+                extraInfo = moving.extraInfo,
                 live = true,
                 fixedTime = false,
                 corner = 36.dp * (1 - t).coerceIn(0f, 1f),

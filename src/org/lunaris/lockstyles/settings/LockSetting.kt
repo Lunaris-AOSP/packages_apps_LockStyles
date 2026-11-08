@@ -17,6 +17,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import org.lunaris.lockstyles.GalleryStore
 
 /** Which settings table a key lives in. */
 enum class Table { SYSTEM, SECURE }
@@ -27,22 +28,25 @@ enum class Table { SYSTEM, SECURE }
  */
 sealed class LockSetting<T>(val table: Table, val key: String, val default: T) {
 
-    abstract fun read(context: Context): T
-    abstract fun write(context: Context, value: T)
+    internal abstract fun decode(value: String?): T
+    internal abstract fun encode(value: T): String?
+
+    fun read(context: Context): T = decode(getString(context))
+    fun write(context: Context, value: T) = putString(context, encode(value))
 
     fun uri(): Uri = when (table) {
         Table.SYSTEM -> Settings.System.getUriFor(key)
         Table.SECURE -> Settings.Secure.getUriFor(key)
     }
 
-    protected fun getString(context: Context): String? = runCatching {
+    internal fun getString(context: Context): String? = runCatching {
         when (table) {
             Table.SYSTEM -> Settings.System.getString(context.contentResolver, key)
             Table.SECURE -> Settings.Secure.getString(context.contentResolver, key)
         }
     }.getOrNull()
 
-    protected fun putString(context: Context, value: String?) {
+    internal fun putString(context: Context, value: String?) {
         when (table) {
             Table.SYSTEM -> Settings.System.putString(context.contentResolver, key, value)
             Table.SECURE -> Settings.Secure.putString(context.contentResolver, key, value)
@@ -51,27 +55,29 @@ sealed class LockSetting<T>(val table: Table, val key: String, val default: T) {
 
     class Bool(table: Table, key: String, default: Boolean) :
         LockSetting<Boolean>(table, key, default) {
-        override fun read(context: Context) =
-            getString(context)?.toIntOrNull()?.let { it != 0 } ?: default
-        override fun write(context: Context, value: Boolean) =
-            putString(context, if (value) "1" else "0")
+        override fun decode(value: String?) = value?.toIntOrNull()?.let { it != 0 } ?: default
+        override fun encode(value: Boolean) = if (value) "1" else "0"
     }
 
     class Num(table: Table, key: String, default: Int) : LockSetting<Int>(table, key, default) {
-        override fun read(context: Context) = getString(context)?.toIntOrNull() ?: default
-        override fun write(context: Context, value: Int) = putString(context, value.toString())
+        override fun decode(value: String?) = value?.toIntOrNull() ?: default
+        override fun encode(value: Int) = value.toString()
     }
 
     class Text(table: Table, key: String, default: String?) :
         LockSetting<String?>(table, key, default) {
-        override fun read(context: Context) = getString(context) ?: default
-        override fun write(context: Context, value: String?) = putString(context, value)
+        override fun decode(value: String?) = value ?: default
+        override fun encode(value: String?) = value
     }
 }
 
 /** The setting as Compose state, following changes made anywhere else too. */
 @Composable
 fun <T> LockSetting<T>.state(): MutableState<T> {
+    val profile = LocalExtraInfoSettings.current
+    if (profile != null && ExtraInfoSettings.contains(this)) {
+        return remember(this, profile) { profile.state(this) }
+    }
     val context = LocalContext.current
     val state = remember(key) {
         object : MutableState<T> {
@@ -81,6 +87,9 @@ fun <T> LockSetting<T>.state(): MutableState<T> {
                 set(v) {
                     inner.value = v
                     write(context, v)
+                    if (ExtraInfoSettings.contains(this@state)) {
+                        GalleryStore.get(context).saveCurrentExtraInfo()
+                    }
                 }
             override fun component1() = value
             override fun component2(): (T) -> Unit = { value = it }

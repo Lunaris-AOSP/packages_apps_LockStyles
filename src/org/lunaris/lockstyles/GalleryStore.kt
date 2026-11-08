@@ -12,6 +12,7 @@ import java.util.UUID
 import kotlin.math.max
 import org.json.JSONArray
 import org.json.JSONObject
+import org.lunaris.lockstyles.settings.ExtraInfoSettings
 
 /** Saved lock screens, added wallpaper packs and what the live wallpaper should draw. */
 class GalleryStore private constructor(private val context: Context) {
@@ -25,7 +26,29 @@ class GalleryStore private constructor(private val context: Context) {
         SharedPreferences.OnSharedPreferenceChangeListener { _, _ -> listeners.forEach { it() } }
 
     init {
+        migrateExtraInfoSettings()
         prefs.registerOnSharedPreferenceChangeListener(prefsListener)
+    }
+
+    private fun migrateExtraInfoSettings() {
+        val array = JSONArray(prefs.getString(KEY_LOCK_SCREENS, "[]"))
+        var changed = false
+        val list = List(array.length()) { index ->
+            val json = array.getJSONObject(index)
+            val screen = LockScreen.fromJson(json)
+            if (json.optJSONObject("extra_info") == null) {
+                changed = true
+                if (screen.id == currentId) screen.copy(extraInfo = ExtraInfoSettings.load(context))
+                else screen
+            } else screen
+        }
+        if (changed) write(list, currentId)
+    }
+
+    @Synchronized
+    fun saveCurrentExtraInfo() {
+        val current = lockScreens.firstOrNull { it.id == currentId } ?: return
+        save(current.copy(extraInfo = ExtraInfoSettings.load(context)))
     }
 
     fun addListener(listener: () -> Unit) {

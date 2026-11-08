@@ -71,6 +71,7 @@ import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.Shortcuts
 import org.lunaris.lockstyles.StockClock
+import org.lunaris.lockstyles.settings.ExtraInfoSettings
 import org.lunaris.lockstyles.settings.ui.LockStylesTheme
 
 /**
@@ -536,6 +537,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                         if (applied != GalleryApplier.Result.FAILED) {
                             applyClock(lockScreen.clock, tuning ?: lockScreen.clock.tuning)
                             withContext(Dispatchers.IO) {
+                                lockScreen.extraInfo.apply(this@LockScreenGalleryActivity)
                                 store.save(lockScreen, makeCurrent = true)
                                 store.pruneImportedPhotos()
                             }
@@ -617,7 +619,8 @@ class LockScreenGalleryActivity : ComponentActivity() {
             val path = store.importBitmap(bitmap) ?: return
             try {
                 store.saveInitial(LockScreen(store.newId(),
-                    GalleryWallpaper(Kind.PHOTO, photos = listOf(path))))
+                    GalleryWallpaper(Kind.PHOTO, photos = listOf(path)),
+                    extraInfo = ExtraInfoSettings.load(this)))
             } finally {
                 store.discardImportedPhotos(listOf(path))
             }

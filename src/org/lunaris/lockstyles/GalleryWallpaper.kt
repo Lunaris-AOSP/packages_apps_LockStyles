@@ -3,6 +3,7 @@ package org.lunaris.lockstyles
 import org.json.JSONArray
 import org.json.JSONObject
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.lockstyles.settings.ExtraInfoSettings
 
 /** Everything needed to draw one gallery wallpaper; kept as JSON in [GalleryStore]. */
 data class GalleryWallpaper(
@@ -104,6 +105,7 @@ data class LockScreen(
     val wallpaper: GalleryWallpaper,
     val home: HomeStyle = HomeStyle.PAIR,
     val clock: ClockStyle = ClockStyle(),
+    val extraInfo: ExtraInfoSettings = ExtraInfoSettings(),
 ) {
     fun toJson(): JSONObject =
         JSONObject()
@@ -111,6 +113,7 @@ data class LockScreen(
             .put("wallpaper", wallpaper.toJson())
             .put("home", home.name)
             .put("clock", clock.toJson())
+            .put("extra_info", extraInfo.toJson())
 
     companion object {
         fun fromJson(json: JSONObject) =
@@ -121,6 +124,8 @@ data class LockScreen(
                     runCatching { HomeStyle.valueOf(json.optString("home")) }
                         .getOrDefault(HomeStyle.PAIR),
                 clock = json.optJSONObject("clock")?.let(ClockStyle::fromJson) ?: ClockStyle(),
+                extraInfo = json.optJSONObject("extra_info")?.let(ExtraInfoSettings::fromJson)
+                    ?: ExtraInfoSettings(),
             )
     }
 }

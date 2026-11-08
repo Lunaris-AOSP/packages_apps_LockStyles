@@ -75,6 +75,8 @@ import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWeather
+import org.lunaris.lockstyles.settings.ExtraInfoSettings
+import org.lunaris.lockstyles.settings.ExtraInfoSettingsProvider
 
 /** The flex clock's weight/width presets, heaviest and narrowest first, as SystemUI has them. */
 val CLOCK_PRESETS = listOf(800f to 30f, 700f to 55f, 600f to 80f, 500f to 100f, 400f to 108f,
@@ -335,6 +337,7 @@ fun LockScreenCard(
     corner: Dp = 24.dp,
     weather: GalleryWeather.Snapshot? = null,
     showExtraInfo: Boolean = true,
+    extraInfo: ExtraInfoSettings = ExtraInfoSettings(),
     onClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(corner.coerceAtLeast(0.dp))
@@ -368,8 +371,10 @@ fun LockScreenCard(
                 ClockText(clock, clockHeight, fixedTime = fixedTime, onLight = onLight)
             }
         }
-        AppWidgetWallpaperLayer(if (showExtraInfo) ExtraInfoWallpaperLayer(clockBottom, wallpaper) else clockBottom)
-        if (showExtraInfo) IndependentInfoWallpaperLayer(wallpaper)
+        ExtraInfoSettingsProvider(extraInfo) {
+            AppWidgetWallpaperLayer(if (showExtraInfo) ExtraInfoWallpaperLayer(clockBottom, wallpaper) else clockBottom)
+            if (showExtraInfo) IndependentInfoWallpaperLayer(wallpaper)
+        }
     }
 }
 

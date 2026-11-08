@@ -86,6 +86,8 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.lunaris.lockstyles.R
+import org.lunaris.lockstyles.settings.ExtraInfoSettings
+import org.lunaris.lockstyles.settings.LocalExtraInfoSettings
 import org.lunaris.lockstyles.settings.LockSetting
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.HapticFeedbackHelper.HapticIntensity
@@ -324,10 +326,11 @@ fun sliderRow(
     enabled: Boolean = true,
 ): @Composable (RowShape) -> Unit = {
     var value by setting.state()
+    val isDraft = LocalExtraInfoSettings.current != null && ExtraInfoSettings.contains(setting)
     // Shown at once, written once it settles: every tick would restart SystemUI's observers.
     var shown by remember(value) { mutableIntStateOf(value.coerceIn(range)) }
-    LaunchedEffect(shown) {
-        if (shown == value) return@LaunchedEffect
+    LaunchedEffect(shown, isDraft) {
+        if (isDraft || shown == value) return@LaunchedEffect
         delay(300)
         value = shown
     }
@@ -336,7 +339,12 @@ fun sliderRow(
         ModernSettingSlider(
             title = title,
             value = shown,
-            onValueChange = { if (enabled) shown = (it / step).toInt() * step },
+            onValueChange = {
+                if (enabled) {
+                    shown = (it / step).toInt() * step
+                    if (isDraft) value = shown
+                }
+            },
             valueRange = range.first.toFloat()..range.last.toFloat(),
             steps = if (steps in 1..60) steps else 0,
             valueLabel = { "$it$unit" },
