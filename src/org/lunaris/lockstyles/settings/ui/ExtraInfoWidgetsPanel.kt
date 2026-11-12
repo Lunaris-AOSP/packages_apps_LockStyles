@@ -48,8 +48,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.extrainfowidgets.ExtraInfoCatalog
 import org.lunaris.extrainfowidgets.ExtraInfoLayout
+import org.lunaris.extrainfowidgets.InfoBackground
 import org.lunaris.extrainfowidgets.InfoAppearance
 import org.lunaris.extrainfowidgets.InfoData
 import org.lunaris.extrainfowidgets.InfoWidget
@@ -64,7 +66,10 @@ fun extraInfoAppearance(): InfoAppearance {
     val color by Keys.WIDGETS_CUSTOM_COLOR.state()
     val opacity by Keys.WIDGETS_TRANSPARENCY.state()
     val blur by Keys.EXTRA_INFO_BLUR.state()
-    return InfoAppearance(mode ?: "default", color, opacity, blur)
+    val background by Keys.EXTRA_INFO_BACKGROUND.state()
+    val glass by Keys.EXTRA_INFO_GLASS.state()
+    return InfoAppearance(mode ?: "default", color, opacity, blur,
+        backgroundStyle = InfoBackground.style(background), glassStyle = InfoBackground.glass(glass))
 }
 
 @Composable
@@ -73,6 +78,9 @@ fun ExtraInfoPreview(
     scale: Float = 1f,
     wallpaper: Bitmap? = null,
     wallpaperOffset: Float = 0f,
+    glassMaterial: ClockGlass? = null,
+    sampleWhenEmpty: Boolean = false,
+    showBackdrop: Boolean = false,
 ) {
     val context = LocalContext.current
     val catalog = remember(context) { ExtraInfoCatalog.load(context) }
@@ -83,11 +91,14 @@ fun ExtraInfoPreview(
         factory = { ExtraInfoPreviewHost(it) },
         modifier = modifier.fillMaxWidth(),
         update = {
+            it.showBackdrop(showBackdrop)
             it.wallpaper = wallpaper
             it.wallpaperOffset = wallpaperOffset
-            it.grid.selection = layout
+            it.grid.selection = if (sampleWhenEmpty && layout.rows.all { row -> row.isEmpty() }) ExtraInfoLayout() else layout
             it.grid.data = InfoData.SAMPLE
             it.grid.appearance = appearance
+            it.setGlassMaterial(glassMaterial)
+            it.setGlassEnabled(appearance.liquidGlass)
             it.grid.previewScale = scale
             it.refreshSource()
         },
@@ -102,6 +113,7 @@ internal fun DesignPreview(widget: InfoWidget, appearance: InfoAppearance, modif
         update = {
             it.widget.data = InfoData.SAMPLE
             it.widget.appearance = appearance
+            it.setGlassEnabled(appearance.liquidGlass)
         },
     )
 }

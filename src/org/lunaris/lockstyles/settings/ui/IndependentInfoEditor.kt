@@ -67,6 +67,7 @@ import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.ui.LockScreenCard
+import org.lunaris.lockstyles.ui.rememberClockGlass
 
 @Composable
 internal fun IndependentInfoPreview(
@@ -83,13 +84,14 @@ internal fun IndependentInfoPreview(
             GalleryApplier.screenSize(context).first.coerceAtLeast(1)
         }
     val appearance = extraInfoAppearance()
+    val glass = rememberClockGlass(wallpaper, appearance.liquidGlass, listOf(appearance.glassStyle.blurRadius))
     BoxWithConstraints(modifier) {
         val width = constraints.maxWidth
         val height = constraints.maxHeight
         val bitmap by
-            produceState<Bitmap?>(null, wallpaper, width, height, appearance.blur) {
+            produceState<Bitmap?>(null, wallpaper, width, height, appearance.axBlur) {
                 value =
-                    if (appearance.blur && width > 0 && height > 0) {
+                    if (appearance.axBlur && width > 0 && height > 0) {
                         withContext(Dispatchers.Default) {
                             runCatching {
                                     GalleryRenderer.toBitmap(context, wallpaper, width, height)
@@ -106,6 +108,8 @@ internal fun IndependentInfoPreview(
                 it.widgets.selection = layout
                 it.widgets.data = InfoData.SAMPLE
                 it.widgets.appearance = appearance
+                it.setGlassMaterial(glass)
+                it.setGlassEnabled(appearance.liquidGlass)
                 it.widgets.previewScale = width / screenWidth.toFloat()
                 it.widgets.editable = onEdit != null
                 it.widgets.selectedId = selected

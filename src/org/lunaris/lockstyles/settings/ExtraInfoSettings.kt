@@ -44,6 +44,8 @@ data class ExtraInfoSettings(private val values: Map<String, String?> = emptyMap
                 Keys.EXTRA_INFO_INDEPENDENT,
                 Keys.EXTRA_INFO_FREEFORM,
                 Keys.EXTRA_INFO_BLUR,
+                Keys.EXTRA_INFO_BACKGROUND,
+                Keys.EXTRA_INFO_GLASS,
                 Keys.WIDGETS_COLOR_MODE,
                 Keys.WIDGETS_CUSTOM_COLOR,
                 Keys.WIDGETS_TRANSPARENCY,

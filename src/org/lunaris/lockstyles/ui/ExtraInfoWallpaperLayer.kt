@@ -30,6 +30,7 @@ import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.ExtraInfoPreview
 import org.lunaris.lockstyles.settings.ui.IndependentInfoPreview
+import org.lunaris.lockstyles.settings.ui.extraInfoAppearance
 
 @Composable
 internal fun ExtraInfoWallpaperLayer(clockBottom: Float?, wallpaper: GalleryWallpaper): Float? {
@@ -42,15 +43,16 @@ internal fun ExtraInfoWallpaperLayer(clockBottom: Float?, wallpaper: GalleryWall
     val layout = remember(raw, catalog) { ExtraInfoLayout.parse(raw, catalog) }
     if (layout.rows.all { it.isEmpty() }) return clockBottom
     val density = LocalDensity.current
-    val blur by Keys.EXTRA_INFO_BLUR.state()
+    val appearance = extraInfoAppearance()
+    val glass = rememberClockGlass(wallpaper, appearance.liquidGlass, listOf(appearance.glassStyle.blurRadius))
     var extent by remember { mutableStateOf(0f) }
     BoxWithConstraints(Modifier.fillMaxSize().clipToBounds()) {
         val width = constraints.maxWidth
         val height = constraints.maxHeight
         val bitmap by
-            produceState<Bitmap?>(null, wallpaper, width, height, blur) {
+            produceState<Bitmap?>(null, wallpaper, width, height, appearance.axBlur) {
                 value =
-                    if (blur && width > 0 && height > 0)
+                    if (appearance.axBlur && width > 0 && height > 0)
                         withContext(Dispatchers.Default) {
                             runCatching {
                                     GalleryRenderer.toBitmap(context, wallpaper, width, height)
@@ -69,6 +71,7 @@ internal fun ExtraInfoWallpaperLayer(clockBottom: Float?, wallpaper: GalleryWall
             scale,
             bitmap,
             clockBottom + margin,
+            glassMaterial = glass,
         )
     }
     return clockBottom + extent

@@ -1,0 +1,7 @@
+<resources>
+    <string name="info_background_title">Info widget background</string>
+    <string name="info_background_design">Original design</string>
+    <string name="info_background_ax_blur">AX blur</string>
+    <string name="info_background_liquid_glass">Liquid Glass</string>
+    <string name="info_background_glass_help">Tune the glass on widget cards. Tint follows your widget color. These settings apply to both rows and independent widgets.</string>
+</resources>

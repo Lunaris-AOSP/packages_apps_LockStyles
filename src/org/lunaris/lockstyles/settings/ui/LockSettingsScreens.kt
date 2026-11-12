@@ -337,10 +337,10 @@ fun WidgetsPage(back: () -> Unit, inSheet: Boolean = false, preview: LockScreen?
         }
         if (extraInfo) {
             group(null, listOf(
-                switchRow(s(R.string.extra_info_blur), s(R.string.extra_info_blur_summary), Keys.EXTRA_INFO_BLUR),
                 sliderRow(s(R.string.lockscreen_widgets_transparency_title), null,
                     Keys.WIDGETS_TRANSPARENCY, 0..100, unit = "%"),
             ))
+            item { InfoWidgetBackgroundPreference() }
             item { ExtraInfoWidgetsPanel(preview) }
         }
         group(null, listOf(

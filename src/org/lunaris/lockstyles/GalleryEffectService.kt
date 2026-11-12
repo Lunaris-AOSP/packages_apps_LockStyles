@@ -86,6 +86,11 @@ class GalleryEffectService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
             store.addListener(onStoreChanged)
+            listOf(org.lunaris.extrainfowidgets.ExtraInfoLayout.ENABLED,
+                org.lunaris.extrainfowidgets.ExtraInfoLayout.BLUR,
+                org.lunaris.extrainfowidgets.InfoBackground.SETTING).forEach {
+                contentResolver.registerContentObserver(Settings.System.getUriFor(it), false, glassObserver)
+            }
             contentResolver.registerContentObserver(Settings.Secure.getUriFor(ClockGlass.ENABLED_SETTING),
                 false, glassObserver)
             contentResolver.registerContentObserver(Settings.Secure.getUriFor(ClockDesign.SETTING),

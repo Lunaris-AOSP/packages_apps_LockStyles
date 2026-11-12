@@ -16,6 +16,8 @@ import android.net.Uri
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
 import android.provider.Settings
+import org.lunaris.extrainfowidgets.ExtraInfoLayout
+import org.lunaris.extrainfowidgets.InfoBackground
 import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.clockmaker.ClockGlass
 import java.io.FileNotFoundException
@@ -86,7 +88,10 @@ class ClockGlassWallpaperProvider : ContentProvider() {
                     ?.any { it.glass && it.visible } == true
             } else style in 1..92 && style !in setOf(1, 2, 25, 26) &&
                 Settings.Secure.getInt(cr, ClockGlass.ENABLED_SETTING, 0) != 0
-            return enabled
+            val widgets = Settings.System.getInt(cr, ExtraInfoLayout.ENABLED, 0) != 0 &&
+                Settings.System.getInt(cr, ExtraInfoLayout.BLUR, 0) != 0 &&
+                InfoBackground.style(Settings.System.getString(cr, InfoBackground.SETTING)) == InfoBackground.LIQUID_GLASS
+            return enabled || widgets
         }
         fun notifyFrame(context: Context) {
             if (needsFrame(context)) context.contentResolver.notifyChange(URI, null)
