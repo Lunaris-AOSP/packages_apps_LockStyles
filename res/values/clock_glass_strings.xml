@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="clock_glass_material">Liquid glass</string>
+    <string name="clock_glass_date_material">Date liquid glass</string>
+    <string name="clock_glass_tint_help">Glass follows the wallpaper. Color opacity blends in the selected text color. Soft rim tint moves from white to wallpaper colors.</string>
+    <string name="clock_glass_blur_radius">Glass blur</string>
+    <string name="clock_glass_glyph_blur">Text edge softness</string>
+    <string name="clock_glass_tint_opacity">Color opacity</string>
+    <string name="clock_glass_contrast">Contrast boost</string>
+    <string name="clock_glass_rim_strength">Rim light strength</string>
+    <string name="clock_glass_rim_rotation">Rim light rotation</string>
+    <string name="clock_glass_soft_rim_strength">Soft rim strength</string>
+    <string name="clock_glass_soft_rim_width">Soft rim width</string>
+    <string name="clock_glass_soft_rim_tint">Soft rim tint</string>
+    <string name="clock_glass_refraction">Refraction strength</string>
+    <string name="clock_glass_refraction_width">Refraction width</string>
+    <string name="clock_glass_chromatic">Chromatic aberration</string>
+    <string name="clock_glass_shadow">Glass shadow strength</string>
+    <string name="clock_glass_rim_width">Rim thickness</string>
+    <string name="clock_glass_black_border">Black border</string>
+    <string name="clock_glass_black_border_strength">Black border strength</string>
+    <string name="clock_glass_separate_clock">Separate clock refraction and rim</string>
+    <string name="clock_glass_clock_refraction">Clock refraction strength</string>
+    <string name="clock_glass_clock_refraction_width">Clock refraction width</string>
+    <string name="clock_glass_clock_rim">Clock rim light</string>
+    <string name="clock_glass_separate_date">Separate date visuals</string>
+    <string name="clock_glass_separate_date_refraction">Separate date refraction and rim</string>
+    <string name="clock_glass_date_refraction">Date refraction strength</string>
+    <string name="clock_glass_date_refraction_width">Date refraction width</string>
+    <string name="clock_glass_date_rim">Date rim light</string>
+    <string name="clock_glass_reset">Reset glass visuals</string>
+</resources>

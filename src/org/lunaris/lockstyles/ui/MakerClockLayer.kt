@@ -49,7 +49,8 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
     val context = LocalContext.current
     val fallback = remember { ClockDesign() }
     val selectionColor = MaterialTheme.colorScheme.primary.toArgb()
-    val glass = rememberClockGlass(wallpaper, !dozing && style.design?.elements?.any { it.glass && it.visible } == true)
+    val glass = rememberClockGlass(wallpaper, !dozing && style.design?.elements?.any { it.glass && it.visible } == true,
+        style.design?.elements?.filter { it.glass && it.visible }?.map { it.glassStyle.blurRadius }?.distinct().orEmpty())
     AndroidView(factory = { MakerPreview(it) }, modifier = modifier.fillMaxSize(), update = {
         it.clock.setGlassPreview(glass, it.stage)
         it.thumbnail = thumbnail

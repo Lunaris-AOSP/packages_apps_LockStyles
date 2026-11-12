@@ -150,7 +150,7 @@ class GalleryEffectRenderer(private val context: Context) {
         }
     }
 
-    fun draw(progress: Float) {
+    fun draw(progress: Float, capture: ((Bitmap) -> Unit)? = null) {
         if (eglSurface == EGL14.EGL_NO_SURFACE || program == 0 || !hasTextures) return
         GLES30.glViewport(0, 0, width, height)
         GLES30.glClearColor(0f, 0f, 0f, 1f)
@@ -219,7 +219,24 @@ class GalleryEffectRenderer(private val context: Context) {
         GLES30.glVertexAttribPointer(texCoord, 2, GLES30.GL_FLOAT, false, 16, quad)
         GLES30.glEnableVertexAttribArray(texCoord)
         GLES30.glDrawArrays(GLES30.GL_TRIANGLE_STRIP, 0, 4)
+        if (capture != null) {
+            runCatching { capture(readFrame()) }
+                .onFailure { Log.w("ClockGlass", "Cannot sample effect wallpaper", it) }
+        }
         EGL14.eglSwapBuffers(display, eglSurface)
+    }
+
+    private fun readFrame(): Bitmap {
+        val bytes = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.nativeOrder())
+        GLES30.glReadPixels(0, 0, width, height, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, bytes)
+        val rgba = bytes.asIntBuffer()
+        val pixels = IntArray(width * height)
+        for (y in 0 until height) for (x in 0 until width) {
+            val color = rgba.get(y * width + x)
+            pixels[(height - y - 1) * width + x] = (color and 0xFF00FF00.toInt()) or
+                ((color and 255) shl 16) or ((color ushr 16) and 255)
+        }
+        return Bitmap.createBitmap(pixels, width, height, Bitmap.Config.ARGB_8888)
     }
 
     private fun loc(name: String) = GLES30.glGetUniformLocation(program, name)

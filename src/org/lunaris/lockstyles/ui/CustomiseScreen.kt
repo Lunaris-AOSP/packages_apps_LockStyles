@@ -105,7 +105,6 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.lunaris.clockmaker.ClockDesign
-import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryRenderer
@@ -765,10 +764,15 @@ internal fun ClockSheet(
                     onTuning(tuning.copy(textGlass = it, gradient = if (it) false else tuning.gradient))
                 }
                 if (tuning.textGlass) {
-                    TuningSlider(stringResource(R.string.clock_glass_intensity), tuning.glassIntensity,
-                        0..100, "%", 100) { onTuning(tuning.copy(glassIntensity = it)) }
-                    TuningSlider(stringResource(R.string.clock_glass_lift), tuning.glassLift,
-                        0..100, "%", ClockGlass.DEFAULT_LIFT) { onTuning(tuning.copy(glassLift = it)) }
+                    ClockGlassControls(tuning.glassStyle) { onTuning(tuning.copy(glassStyle = it)) }
+                    TuningSwitch(stringResource(R.string.clock_glass_separate_date), tuning.separateDateGlass) {
+                        onTuning(tuning.copy(separateDateGlass = it))
+                    }
+                    if (tuning.separateDateGlass) {
+                        ClockGlassControls(tuning.dateGlassStyle, date = true) {
+                            onTuning(tuning.copy(dateGlassStyle = it))
+                        }
+                    }
                 }
             }
             if (CustomClocks.supportsHyperBlur(clock.face) && !tuning.gradient) {
@@ -848,6 +852,7 @@ internal fun TuningSlider(
     range: IntRange,
     unit: String,
     defaultValue: Int,
+    displayValue: String? = null,
     onChange: (Int) -> Unit,
 ) {
     Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -857,7 +862,7 @@ internal fun TuningSlider(
                 style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
-                    Crossfade("$value$unit", animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+                    Crossfade(displayValue ?: "$value$unit", animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
                         label = "tuning_value") { text ->
                         Text(text, color = MaterialTheme.colorScheme.onPrimaryContainer,
                             style = MaterialTheme.typography.labelLarge,
@@ -873,7 +878,7 @@ internal fun TuningSlider(
                 valueRange = range.first.toFloat()..range.last.toFloat(),
                 modifier = Modifier.semantics {
                     contentDescription = label
-                    stateDescription = "$value$unit"
+                    stateDescription = displayValue ?: "$value$unit"
                 },
                 colors = SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest))
         }

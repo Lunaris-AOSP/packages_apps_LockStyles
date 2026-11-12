@@ -25,6 +25,7 @@ import kotlin.math.roundToInt
 import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.clockmaker.ClockGlassController
+import org.lunaris.clockmaker.ClockGlassStyle
 
 /**
  * The custom lock screen clock styles from Singularity. SystemUI owns the layouts that are
@@ -99,6 +100,9 @@ object CustomClocks {
         val textGlass: Boolean = false,
         val glassIntensity: Int = ClockGlass.DEFAULT_INTENSITY,
         val glassLift: Int = ClockGlass.DEFAULT_LIFT,
+        val glassStyle: ClockGlassStyle = ClockGlassStyle(),
+        val separateDateGlass: Boolean = true,
+        val dateGlassStyle: ClockGlassStyle = ClockGlassStyle.DATE_DEFAULT,
         val accent: Boolean = false,
         val gradient: Boolean = false,
         val gradientStart: Int = 0xFF00E5FF.toInt(),
@@ -124,6 +128,11 @@ object CustomClocks {
                 fun int(key: String, default: Int) =
                     runCatching { Settings.Secure.getInt(cr, key, default) }.getOrDefault(default)
                 val d = Tuning()
+                fun string(key: String) = runCatching { Settings.Secure.getString(cr, key) }.getOrNull()
+                val legacy = if (int(ClockGlass.ENABLED_SETTING, 0) != 0 &&
+                    (string(ClockGlass.INTENSITY_SETTING) != null || string(ClockGlass.LIFT_SETTING) != null))
+                    ClockGlassStyle.legacy(int(ClockGlass.INTENSITY_SETTING, d.glassIntensity),
+                        int(ClockGlass.LIFT_SETTING, d.glassLift)) else ClockGlassStyle()
                 return Tuning(
                     scale = int(KEY_SIZE, d.scale),
                     opacity = int(KEY_OPACITY, d.opacity),
@@ -140,6 +149,9 @@ object CustomClocks {
                     textGlass = int(ClockGlass.ENABLED_SETTING, 0) != 0,
                     glassIntensity = int(ClockGlass.INTENSITY_SETTING, d.glassIntensity).coerceIn(0, 100),
                     glassLift = int(ClockGlass.LIFT_SETTING, d.glassLift).coerceIn(0, 100),
+                    glassStyle = ClockGlassStyle.parse(string(ClockGlassStyle.SETTING), legacy),
+                    separateDateGlass = int(ClockGlassStyle.SEPARATE_DATE_SETTING, 1) != 0,
+                    dateGlassStyle = ClockGlassStyle.parse(string(ClockGlassStyle.DATE_SETTING), ClockGlassStyle.DATE_DEFAULT),
                     accent = runCatching { Settings.Secure.getString(cr, KEY_COLOR_MODE) }
                         .getOrNull() == COLOR_MODE_ACCENT,
                     gradient = int(KEY_GRADIENT, 0) != 0,
@@ -172,6 +184,11 @@ object CustomClocks {
                     textGlass = json.optBoolean("textGlass", d.textGlass),
                     glassIntensity = json.optInt("glassIntensity", d.glassIntensity).coerceIn(0, 100),
                     glassLift = json.optInt("glassLift", d.glassLift).coerceIn(0, 100),
+                    glassStyle = ClockGlassStyle.fromJson(json.optJSONObject("glassStyle"),
+                        if (json.optBoolean("textGlass") && (json.has("glassIntensity") || json.has("glassLift"))) ClockGlassStyle.legacy(
+                            json.optInt("glassIntensity", d.glassIntensity), json.optInt("glassLift", d.glassLift)) else ClockGlassStyle()),
+                    separateDateGlass = json.optBoolean("separateDateGlass", d.separateDateGlass),
+                    dateGlassStyle = ClockGlassStyle.fromJson(json.optJSONObject("dateGlassStyle"), ClockGlassStyle.DATE_DEFAULT),
                     accent = json.optBoolean("accent", d.accent),
                     gradient = json.optBoolean("gradient", d.gradient),
                     gradientStart = json.optInt("gradientStart", d.gradientStart),
@@ -202,6 +219,9 @@ object CustomClocks {
             .put("textGlass", textGlass)
             .put("glassIntensity", glassIntensity)
             .put("glassLift", glassLift)
+            .put("glassStyle", glassStyle.toJson())
+            .put("separateDateGlass", separateDateGlass)
+            .put("dateGlassStyle", dateGlassStyle.toJson())
             .put("accent", accent)
             .put("gradient", gradient)
             .put("gradientStart", gradientStart)
@@ -232,6 +252,9 @@ object CustomClocks {
             put(ClockGlass.ENABLED_SETTING, textGlass)
             put(ClockGlass.INTENSITY_SETTING, glassIntensity.coerceIn(0, 100))
             put(ClockGlass.LIFT_SETTING, glassLift.coerceIn(0, 100))
+            Settings.Secure.putString(cr, ClockGlassStyle.SETTING, glassStyle.toJson().toString())
+            put(ClockGlassStyle.SEPARATE_DATE_SETTING, separateDateGlass)
+            Settings.Secure.putString(cr, ClockGlassStyle.DATE_SETTING, dateGlassStyle.toJson().toString())
             put(KEY_GRADIENT, gradient)
             put(KEY_GRADIENT_START, gradientStart)
             put(KEY_GRADIENT_END, gradientEnd)
@@ -354,7 +377,8 @@ object CustomClocks {
                     fun collect(child: View) {
                         if (child is TextView) {
                             child.paint.shader = null
-                            add(child, tuning.glassIntensity, tuning.glassLift)
+                            add(child, if (tuning.separateDateGlass && ClockGlassController.isDate(child))
+                                tuning.dateGlassStyle else tuning.glassStyle)
                         }
                         if (child is ViewGroup) for (i in 0 until child.childCount) collect(child.getChildAt(i))
                     }

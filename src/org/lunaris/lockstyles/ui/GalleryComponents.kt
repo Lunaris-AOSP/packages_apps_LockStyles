@@ -28,6 +28,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -72,6 +74,8 @@ import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
+import org.lunaris.lockstyles.GalleryEffect
+import org.lunaris.lockstyles.GalleryStore
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWeather
@@ -124,20 +128,39 @@ fun WallpaperImage(
 }
 
 @Composable
-internal fun rememberClockGlass(wallpaper: GalleryWallpaper?, enabled: Boolean): ClockGlass? {
+internal fun rememberClockGlass(wallpaper: GalleryWallpaper?, enabled: Boolean,
+    blurRadii: List<Int> = listOf(16)): ClockGlass? {
     val context = LocalContext.current
     val metrics = context.resources.displayMetrics
     val width = metrics.widthPixels
     val height = metrics.heightPixels
-    val background by produceState<ClockGlass?>(null, wallpaper, enabled, width, height) {
-        value = null
-        if (enabled && wallpaper != null) {
-            value = withContext(Dispatchers.Default) {
+    val frames by ClockGlassPreviewFrames.frames.collectAsState()
+    val effectFrame = frames[wallpaper]
+    DisposableEffect(wallpaper, enabled) {
+        if (enabled && wallpaper != null && wallpaper.effect != 0) ClockGlassPreviewFrames.register(wallpaper)
+        onDispose {
+            if (enabled && wallpaper != null && wallpaper.effect != 0) ClockGlassPreviewFrames.unregister(wallpaper)
+        }
+    }
+    val background by produceState<ClockGlass?>(null, wallpaper, enabled, width, height, blurRadii, effectFrame) {
+        if (!enabled || wallpaper == null) {
+            value = null
+            return@produceState
+        }
+        val moving = wallpaper.kind in setOf(GalleryWallpaper.Kind.BUBBLES, GalleryWallpaper.Kind.SHUFFLE,
+            GalleryWallpaper.Kind.ASTRONOMY, GalleryWallpaper.Kind.WAVES, GalleryWallpaper.Kind.WEATHER)
+        do {
+            val result = withContext(Dispatchers.Default) {
                 runCatching {
-                    ClockGlass.prepare(GalleryRenderer.toBitmap(context, wallpaper, width, height))
+                    val bitmap = if (wallpaper.effect != 0) effectFrame ?: return@runCatching null
+                        else GalleryRenderer.toBitmap(context, wallpaper, width, height,
+                            shuffleIndex = GalleryStore.get(context).shuffleIndex)
+                    ClockGlass.prepare(bitmap, blurRadii.toIntArray(), width, height)
                 }.getOrNull()
             }
-        }
+            if (result != null) value = result
+            if (moving) kotlinx.coroutines.delay(1000L)
+        } while (moving)
     }
     return background
 }
@@ -150,6 +173,12 @@ fun LiveWallpaper(
     weather: GalleryWeather.Snapshot? = null,
     shuffleIndex: Int = 0,
 ) {
+    val effect = GalleryEffect.of(wallpaper.effect)
+    val photo = wallpaper.photos.firstOrNull()
+    if (effect != GalleryEffect.NONE && photo != null) {
+        EffectPreview(photo, effect, modifier, wallpaper)
+        return
+    }
     if (!wallpaper.kind.live || wallpaper.kind == GalleryWallpaper.Kind.SHUFFLE ||
             wallpaper.kind == GalleryWallpaper.Kind.ASTRONOMY) {
         val shown = if (wallpaper.kind == GalleryWallpaper.Kind.SHUFFLE) {
@@ -280,7 +309,8 @@ fun CustomClockLayer(
         currentTuning.accent -> context.getColor(android.R.color.system_accent1_100)
         else -> style.color
     }
-    val glass = rememberClockGlass(wallpaper, currentTuning.textGlass && CustomClocks.supportsTextGlass(style.face))
+    val glass = rememberClockGlass(wallpaper, currentTuning.textGlass && CustomClocks.supportsTextGlass(style.face),
+        listOf(currentTuning.glassStyle.blurRadius, currentTuning.dateGlassStyle.blurRadius).distinct())
     val assetsSeq = LocalConfiguration.current.assetsSeq
     val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning, glass, assetsSeq) {
         value = CustomClocks.preview(context, style.face, frame.width, color, tuning = currentTuning,

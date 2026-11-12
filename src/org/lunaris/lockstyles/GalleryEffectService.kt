@@ -1,5 +1,6 @@
 package org.lunaris.lockstyles
 
+import android.app.WallpaperManager
 import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -13,6 +14,8 @@ import android.provider.Settings
 import android.service.wallpaper.WallpaperService
 import android.view.SurfaceHolder
 import android.view.animation.PathInterpolator
+import org.lunaris.clockmaker.ClockGlass
+import org.lunaris.clockmaker.ClockDesign
 
 /**
  * The photo effects' live wallpaper: the locked look on the lock screen, animating into the
@@ -28,6 +31,7 @@ class GalleryEffectService : WallpaperService() {
         private val renderer = GalleryEffectRenderer(this@GalleryEffectService)
         private val store = GalleryStore.get(this@GalleryEffectService)
         private val keyguard = getSystemService(KeyguardManager::class.java)!!
+        private var scene: GalleryWallpaper? = null
         private var effect = GalleryEffect.NONE
         private var progress = 0f
         private var animationStart = 0L
@@ -35,14 +39,18 @@ class GalleryEffectService : WallpaperService() {
         private var visible = false
         private val ease = PathInterpolator(0.2f, 0f, 0f, 1f)
 
-        private val onStoreChanged: () -> Unit = { handler.post { loadScene(); draw() } }
+        private val onStoreChanged: () -> Unit = { handler.post { loadScene(); draw(forceGlass = true) } }
 
         // The depth wallpaper's subject arrives after we do, and changes with the photo.
         private val subjectObserver = object : ContentObserver(handler) {
             override fun onChange(selfChange: Boolean) {
                 loadScene()
-                draw()
+                draw(forceGlass = true)
             }
+        }
+
+        private val glassObserver = object : ContentObserver(handler) {
+            override fun onChange(selfChange: Boolean) { draw(forceGlass = true) }
         }
 
         private val frame = object : Runnable {
@@ -51,7 +59,7 @@ class GalleryEffectService : WallpaperService() {
                     effect.durationMs).coerceIn(0f, 1f)
                 progress = effect.locked + (effect.unlocked - effect.locked) *
                     ease.getInterpolation(t)
-                draw()
+                draw(forceGlass = t >= 1f)
                 if (t < 1f) handler.postDelayed(this, 8) else animating = false
             }
         }
@@ -78,6 +86,12 @@ class GalleryEffectService : WallpaperService() {
         override fun onCreate(surfaceHolder: SurfaceHolder) {
             super.onCreate(surfaceHolder)
             store.addListener(onStoreChanged)
+            contentResolver.registerContentObserver(Settings.Secure.getUriFor(ClockGlass.ENABLED_SETTING),
+                false, glassObserver)
+            contentResolver.registerContentObserver(Settings.Secure.getUriFor(ClockDesign.SETTING),
+                false, glassObserver)
+            contentResolver.registerContentObserver(Settings.Secure.getUriFor("lock_screen_custom_clock_style"),
+                false, glassObserver)
             contentResolver.registerContentObserver(
                 Settings.System.getUriFor(GalleryApplier.DEPTH_SUBJECT), false, subjectObserver)
             contentResolver.registerContentObserver(
@@ -91,6 +105,7 @@ class GalleryEffectService : WallpaperService() {
         override fun onDestroy() {
             store.removeListener(onStoreChanged)
             contentResolver.unregisterContentObserver(subjectObserver)
+            contentResolver.unregisterContentObserver(glassObserver)
             unregisterReceiver(screenReceiver)
             handler.removeCallbacksAndMessages(null)
             handler.post {
@@ -107,7 +122,7 @@ class GalleryEffectService : WallpaperService() {
                 loadScene()
                 progress = if (keyguard.isKeyguardLocked && !isPreview) effect.locked
                 else effect.unlocked
-                draw()
+                draw(forceGlass = true)
             }
         }
 
@@ -128,13 +143,15 @@ class GalleryEffectService : WallpaperService() {
                 } else if (!animating && progress != effect.unlocked) {
                     unlock()
                 } else {
-                    draw()
+                    draw(forceGlass = true)
                 }
             }
         }
 
         private fun loadScene() {
-            val wallpaper = store.liveWallpaper(true) ?: return
+            val lock = wallpaperFlags and WallpaperManager.FLAG_LOCK != 0
+            val wallpaper = store.liveWallpaper(lock) ?: store.liveWallpaper(!lock) ?: return
+            scene = wallpaper
             effect = GalleryEffect.of(wallpaper.effect)
             val subject = if (wallpaper.depth &&
                     Settings.System.getInt(contentResolver, "depth_wallpaper_enabled", 0) != 0) {
@@ -147,7 +164,7 @@ class GalleryEffectService : WallpaperService() {
             handler.removeCallbacks(frame)
             animating = false
             progress = effect.locked
-            draw()
+            draw(forceGlass = true)
         }
 
         private fun unlock() {
@@ -158,7 +175,15 @@ class GalleryEffectService : WallpaperService() {
             handler.post(frame)
         }
 
-        private fun draw() = renderer.draw(progress)
+        private fun draw(forceGlass: Boolean = false) {
+            val wallpaper = scene
+            val capture = visible && !isPreview && wallpaper != null &&
+                ClockGlassWallpaperProvider.needsFrame(this@GalleryEffectService, forceGlass)
+            renderer.draw(progress, if (capture) { frame ->
+                ClockGlassWallpaperProvider.publishEffectFrame(this@GalleryEffectService,
+                    requireNotNull(wallpaper), displayContext?.display?.displayId ?: 0, wallpaperFlags, frame)
+            } else null)
+        }
     }
 
     companion object {

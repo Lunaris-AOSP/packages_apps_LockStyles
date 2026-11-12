@@ -138,7 +138,6 @@ import org.lunaris.clockmaker.ClockDesignPositioning
 import org.lunaris.clockmaker.ClockElement
 import org.lunaris.clockmaker.ClockElementKind
 import org.lunaris.clockmaker.ClockFonts
-import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.clockmaker.ClockHourFormat
 import org.lunaris.clockmaker.ClockImageFit
 import org.lunaris.clockmaker.ClockImageShapes
@@ -552,10 +551,10 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                                     edit(selected.copy(glass = it, gradient = if (it) false else selected.gradient))
                                                 }
                                                 if (selected.glass) {
-                                                    TuningSlider(stringResource(R.string.clock_glass_intensity), selected.blurIntensity,
-                                                        0..100, "%", 100) { edit(selected.copy(blurIntensity = it)) }
-                                                    TuningSlider(stringResource(R.string.clock_glass_lift), selected.blurLift,
-                                                        0..100, "%", ClockGlass.DEFAULT_LIFT) { edit(selected.copy(blurLift = it)) }
+                                                    ClockGlassControls(selected.glassStyle,
+                                                        date = selected.kind == ClockElementKind.DATE) {
+                                                        edit(selected.copy(glassStyle = it))
+                                                    }
                                                 }
                                                 TuningSlider(stringResource(R.string.gallery_clock_opacity), selected.opacity, 0..100, "%", 100) { edit(selected.copy(opacity = it)) }
                                                 TuningSwitch(stringResource(R.string.gallery_clock_colour_gradient), selected.gradient) { edit(selected.copy(gradient = it, glass = if (it) false else selected.glass)) }

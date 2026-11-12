@@ -130,6 +130,7 @@ class GalleryWallpaperService : WallpaperService() {
             } finally {
                 holder.unlockCanvasAndPost(canvas)
             }
+            ClockGlassWallpaperProvider.notifyFrame(this@GalleryWallpaperService)
             if (!visible) return
             val delay = when {
                 // The bubbles drift slowly enough for 15 fps.
