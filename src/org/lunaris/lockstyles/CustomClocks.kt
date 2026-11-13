@@ -5,8 +5,10 @@ import android.graphics.Bitmap
 import android.graphics.BlurMaskFilter
 import android.graphics.Canvas
 import android.graphics.Color
+import android.graphics.HardwareRenderer
 import android.graphics.LinearGradient
 import android.graphics.Paint
+import android.graphics.RenderNode
 import android.graphics.Shader
 import android.provider.Settings
 import android.util.AttributeSet
@@ -387,20 +389,49 @@ object CustomClocks {
                 }
             } else null
             val padding = shadowPadding(context, tuning)
-            Bitmap.createBitmap(view.measuredWidth + padding * 2,
-                view.measuredHeight + padding * 2, Bitmap.Config.ARGB_8888)
-                .let {
-                    val canvas = Canvas(it)
-                    canvas.translate(padding.toFloat(), padding.toFloat())
-                    view.draw(canvas)
-                    glass?.clear()
-                    val preview = addShadow(it, context, tuning)
-                    if (trim) trimmed(preview) else preview
-                }
+            val bitmap = drawPreview(view, padding, glass)
+            val preview = addShadow(bitmap, context, tuning)
+            (if (trim) trimmed(preview) else preview)
                 ?.also { previews.put(key, it) }
         } catch (e: Exception) {
             Log.w(TAG, "Could not draw clock style $style", e)
             null
+        }
+    }
+
+    private fun drawPreview(view: View, padding: Int, glass: ClockGlassController?): Bitmap {
+        val width = view.measuredWidth + padding * 2
+        val height = view.measuredHeight + padding * 2
+        if (glass != null) {
+            // The glyph shader can disappear on a software Canvas after hiding the text.
+            // Render it on the GPU, then copy back for shadow extraction and tile cropping.
+            val node = RenderNode("ClockGlassPreview")
+            try {
+                node.setPosition(0, 0, width, height)
+                val canvas = node.beginRecording(width, height)
+                try {
+                    canvas.translate(padding.toFloat(), padding.toFloat())
+                    view.draw(canvas)
+                } finally {
+                    node.endRecording()
+                }
+                val hardware = checkNotNull(HardwareRenderer.createHardwareBitmap(node, width, height))
+                try {
+                    return checkNotNull(hardware.copy(Bitmap.Config.ARGB_8888, false))
+                } finally {
+                    hardware.recycle()
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Could not render glass preview; drawing plain text", e)
+            } finally {
+                node.discardDisplayList()
+                glass.clear()
+            }
+        }
+        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+            val canvas = Canvas(it)
+            canvas.translate(padding.toFloat(), padding.toFloat())
+            view.draw(canvas)
         }
     }
 
