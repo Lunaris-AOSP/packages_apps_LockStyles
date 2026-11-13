@@ -17,7 +17,7 @@ import android.util.Log
 class Shortcuts(private val context: Context) {
 
     data class Slot(val id: String)
-    data class Affordance(val id: String, val name: String, val isEnabled: Boolean)
+    data class Affordance(val id: String, val name: String, val iconResourceId: Int, val isEnabled: Boolean)
     data class Selection(val slotId: String, val affordanceId: String)
 
     private val resolver get() = context.contentResolver
@@ -26,7 +26,7 @@ class Shortcuts(private val context: Context) {
 
     fun affordances(): List<Affordance> =
         query(AFFORDANCES) {
-            Affordance(it.string("id"), it.string("name"), it.int("is_enabled") != 0)
+            Affordance(it.string("id"), it.string("name"), it.int("icon"), it.int("is_enabled") != 0)
         }
 
     fun selections(): List<Selection> =

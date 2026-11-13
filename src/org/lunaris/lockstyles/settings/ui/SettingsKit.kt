@@ -42,8 +42,6 @@ import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -93,7 +91,9 @@ import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.HapticFeedbackHelper.HapticIntensity
 import org.lunaris.lockstyles.settings.ui.components.ModernSettingSlider
 import org.lunaris.lockstyles.settings.ui.components.ModernSettingSwitch
-import org.lunaris.lockstyles.settings.ui.components.ModernSettingsCard
+import org.lunaris.lockstyles.settings.ui.components.SettingsSectionHeader
+import org.lunaris.lockstyles.ui.cardContainer
+import org.lunaris.lockstyles.ui.innerContainer
 import org.lunaris.lockstyles.settings.ui.components.rememberHapticFeedback
 import org.lunaris.lockstyles.settings.ui.components.squishable
 import org.lunaris.lockstyles.ui.ColorPickerDialog
@@ -124,7 +124,7 @@ val Accent: Color
 fun Modifier.pickTile(on: Boolean): Modifier {
     val shape = MaterialTheme.shapes.large
     val colors = MaterialTheme.colorScheme
-    val container by animateColorAsState(if (on) colors.primaryContainer else colors.surfaceContainerHigh,
+    val container by animateColorAsState(if (on) colors.primary.copy(alpha = 0.2f) else innerContainer(),
         MaterialTheme.motionScheme.fastEffectsSpec(), label = "selection_surface")
     return clip(shape)
         .background(container)
@@ -139,11 +139,9 @@ fun SettingsPage(title: String, onBack: () -> Unit, inSheet: Boolean = false,
     if (inSheet) {
         LazyColumn(
             Modifier.fillMaxWidth().heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.75f).dp),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            item { Text(title, style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface) }
             content()
             item { Spacer(Modifier.navigationBarsPadding()) }
         }
@@ -174,8 +172,8 @@ fun SettingsPage(title: String, onBack: () -> Unit, inSheet: Boolean = false,
     ) { padding ->
         LazyColumn(
             Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             content()
             item { Spacer(Modifier.navigationBarsPadding()) }
@@ -206,24 +204,11 @@ fun Group(
 ) {
     if (rows.isEmpty()) return
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
-    val body: @Composable () -> Unit = {
-        Column(Modifier.animateContentSize(spatial),
-            verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            rows.forEachIndexed { i, row ->
-                row(RowShape(first = i == 0, last = i == rows.lastIndex))
-            }
-        }
-    }
-    if (title != null) {
-        ModernSettingsCard(title = title, icon = icon) { body() }
-    } else {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        ) {
-            Box(Modifier.padding(16.dp)) { body() }
+    Column(Modifier.fillMaxWidth().animateContentSize(spatial),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        if (title != null) SettingsSectionHeader(title, icon)
+        rows.forEachIndexed { i, row ->
+            row(RowShape(first = i == 0, last = i == rows.lastIndex))
         }
     }
 }
@@ -243,7 +228,7 @@ private fun Tile(
     val interactions = remember { MutableInteractionSource() }
     Surface(
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = cardContainer(),
         modifier = Modifier.fillMaxWidth()
             .squishable(interactions, enabled = enabled && onClick != null)
             .clip(MaterialTheme.shapes.large)
@@ -256,7 +241,7 @@ private fun Tile(
             } else Modifier)
             .dimmed(enabled),
     ) {
-        Box(Modifier.heightIn(min = 56.dp).padding(16.dp),
+        Box(Modifier.heightIn(min = 56.dp).padding(20.dp),
             contentAlignment = Alignment.CenterStart) { content() }
     }
 }
@@ -279,22 +264,8 @@ fun LazyListScope.mainSwitch(title: String, setting: LockSetting<Boolean>,
         onChange: (Boolean) -> Unit = {}) {
     item {
         var on by setting.state()
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = MaterialTheme.shapes.extraLarge,
-            colors = CardDefaults.cardColors(
-                containerColor = if (on) MaterialTheme.colorScheme.primaryContainer
-                    else MaterialTheme.colorScheme.surfaceContainerLow),
-        ) {
-            Box(Modifier.padding(12.dp)) {
-                ModernSettingSwitch(
-                    title = title,
-                    subtitle = "",
-                    checked = on,
-                    onCheckedChange = { on = it; onChange(it) },
-                )
-            }
-        }
+        ModernSettingSwitch(title = title, subtitle = "", checked = on,
+            onCheckedChange = { on = it; onChange(it) })
     }
 }
 
@@ -335,7 +306,9 @@ fun sliderRow(
         value = shown
     }
     val steps = ((range.last - range.first) / step - 1).coerceAtLeast(0)
-    Column(Modifier.dimmed(enabled).padding(horizontal = 4.dp)) {
+    Surface(Modifier.fillMaxWidth().dimmed(enabled), shape = MaterialTheme.shapes.large,
+        color = cardContainer()) {
+    Column(Modifier.padding(20.dp)) {
         ModernSettingSlider(
             title = title,
             value = shown,
@@ -354,6 +327,7 @@ fun sliderRow(
             Text(summary, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
     }
 }
 
@@ -392,8 +366,9 @@ private fun <T> ChoiceRow(
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
     LaunchedEffect(enabled) { if (!enabled) expanded = false }
-    Column(Modifier.fillMaxWidth().dimmed(enabled).padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(Modifier.fillMaxWidth().dimmed(enabled), shape = MaterialTheme.shapes.large,
+        color = cardContainer()) {
+    Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface)
         Box(Modifier.fillMaxWidth()) {
@@ -406,7 +381,7 @@ private fun <T> ChoiceRow(
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth().semantics { contentDescription = title },
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                color = innerContainer(),
             ) {
                 Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically) {
@@ -438,6 +413,7 @@ private fun <T> ChoiceRow(
                 }
             }
         }
+    }
     }
 }
 
@@ -505,8 +481,7 @@ fun colorRow(
                         }
                     }
                 }
-                Surface(shape = MaterialTheme.shapes.large,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh) {
+                Surface(shape = MaterialTheme.shapes.large, color = cardContainer()) {
                     Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Text("#", style = MaterialTheme.typography.titleLarge,

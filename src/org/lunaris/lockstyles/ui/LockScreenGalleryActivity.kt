@@ -119,6 +119,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
             android.R.anim.fade_out)
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        drawBehindSystemBars()
         launchRequest = requestFor(intent, 0)
         updateWindowForEntry()
         val store = GalleryStore.get(this)
@@ -459,6 +460,16 @@ class LockScreenGalleryActivity : ComponentActivity() {
         startInClock = intent.action == ACTION_LOCK_SCREEN_CLOCK,
         generation = generation,
     )
+
+    private fun drawBehindSystemBars() {
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode =
+                android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
+        window.isStatusBarContrastEnforced = false
+        window.isNavigationBarContrastEnforced = false
+    }
 
     private fun updateWindowForEntry() {
         // Do not set this in the manifest: launcher/settings entries must remain behind keyguard.

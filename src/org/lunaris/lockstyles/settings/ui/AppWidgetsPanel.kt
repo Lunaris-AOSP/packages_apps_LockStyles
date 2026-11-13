@@ -57,6 +57,8 @@ import org.lunaris.lockstyles.settings.ui.components.ModernSettingSwitch
 import org.lunaris.lockstyles.ui.ExpressiveButton
 import org.lunaris.lockstyles.ui.ExpressiveLoadingIndicator
 import org.lunaris.lockstyles.ui.LockStylesBottomSheet
+import org.lunaris.lockstyles.ui.cardContainer
+import org.lunaris.lockstyles.ui.isDarkSurface
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,7 +75,7 @@ fun AppWidgetsBottomSheet(onDismiss: () -> Unit) {
         }
     }
     LockStylesBottomSheet(onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surfaceContainerLow) {
+        containerColor = MaterialTheme.colorScheme.surface) {
         BackHandler(enabled = picking) { picking = false }
         Column(Modifier.fillMaxWidth()
             .heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.85f).dp)) {
@@ -108,7 +110,8 @@ private fun AppWidgetsPanel(onAdd: () -> Unit, onConfigure: (Int) -> Unit) {
     val entries = state.entries
     var selectedId by rememberSaveable { mutableStateOf(-1) }
     val selected = entries.firstOrNull { it.id == selectedId } ?: entries.firstOrNull()
-    LazyColumn(contentPadding = PaddingValues(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    LazyColumn(contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)) {
         item {
             ModernSettingSwitch(
                 title = stringResource(R.string.app_widget_show),
@@ -163,8 +166,8 @@ private fun WidgetControls(entry: WidgetEntry, onConfigure: (Int) -> Unit) {
     val state = LocalAppWidgets.current
     val entries = state.entries
     val info = state.info(entry.id)
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerHigh) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Surface(shape = MaterialTheme.shapes.large, color = cardContainer(isDarkSurface())) {
+        Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(info?.loadLabel(context.packageManager) ?: stringResource(WidgetR.string.app_widgets_unavailable),
                 style = MaterialTheme.typography.titleMedium)
             if (info != null) {

@@ -15,6 +15,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -43,8 +44,11 @@ private val ExpressiveTypography = Typography().let { type ->
 fun LockStylesTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
     val context = LocalContext.current
     MaterialExpressiveTheme(
-        colorScheme = if (dark) dynamicDarkColorScheme(context)
-            else dynamicLightColorScheme(context),
+        colorScheme = if (dark) dynamicDarkColorScheme(context).copy(
+            background = Color.Black, surface = Color.Black,
+            surfaceContainerLowest = Color.Black, surfaceContainerLow = Color.Black,
+            surfaceContainer = Color(0xFF0D0D0D),
+        ) else dynamicLightColorScheme(context),
         motionScheme = MotionScheme.expressive(),
         shapes = ExpressiveShapes,
         typography = ExpressiveTypography,

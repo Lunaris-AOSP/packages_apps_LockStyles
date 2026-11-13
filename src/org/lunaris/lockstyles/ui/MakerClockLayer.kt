@@ -23,7 +23,11 @@ import android.graphics.Matrix
 import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.ViewGroup
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -45,13 +49,21 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
     thumbnail: Boolean = false, dozing: Boolean = false, selectedId: String? = null, onSelect: ((String) -> Unit)? = null,
     onMove: ((String, Float, Float) -> Unit)? = null, onDragFinished: (() -> Unit)? = null,
     onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null,
-    onBottomChanged: ((Float) -> Unit)? = null, wallpaper: GalleryWallpaper? = null) {
+    onBottomChanged: ((Float) -> Unit)? = null, wallpaper: GalleryWallpaper? = null,
+    onPinchStart: (() -> Unit)? = null, onPinch: ((Float) -> Unit)? = null,
+    onPinchEnd: (() -> Unit)? = null) {
     val context = LocalContext.current
     val fallback = remember { ClockDesign() }
     val selectionColor = MaterialTheme.colorScheme.primary.toArgb()
     val glass = rememberClockGlass(wallpaper, !dozing && style.design?.elements?.any { it.glass && it.visible } == true,
         style.design?.elements?.filter { it.glass && it.visible }?.map { it.glassStyle.blurRadius }?.distinct().orEmpty())
-    AndroidView(factory = { MakerPreview(it) }, modifier = modifier.fillMaxSize(), update = {
+    val wantGlass = !dozing && style.design?.elements?.any { it.glass && it.visible } == true
+    val hold = holdPreview(wantGlass && wallpaper != null, glass != null, wallpaper)
+    val shown by animateFloatAsState(if (hold) 0f else 1f, tween(160), label = "glass_ready")
+    AndroidView(factory = { MakerPreview(it) }, modifier = modifier.fillMaxSize().alpha(shown), update = {
+        it.onPinchStart = onPinchStart
+        it.onPinch = onPinch
+        it.onPinchEnd = onPinchEnd
         it.clock.setGlassPreview(glass, it.stage)
         it.thumbnail = thumbnail
         it.tuning = tuning
@@ -86,6 +98,12 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     var onMove: ((String, Float, Float) -> Unit)? = null
     var onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null
     var onBottomChanged: ((Float) -> Unit)? = null
+    var onPinchStart: (() -> Unit)? = null
+    var onPinch: ((Float) -> Unit)? = null
+    var onPinchEnd: (() -> Unit)? = null
+    private var pinching = false
+    private val pinch = TwoFingerPinch(context, { onPinchStart?.invoke() }, { onPinch?.invoke(it) },
+        { onPinchEnd?.invoke() })
     private var positioning: ClockDesignPositioning? = null
     private var frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE)
 
@@ -167,6 +185,24 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
         if (clock.onSelect == null) return super.dispatchTouchEvent(event)
+        if (onPinch != null) {
+            if (event.actionMasked == MotionEvent.ACTION_DOWN) pinching = false
+            if (event.pointerCount >= 2 || pinching) {
+                if (!pinching) {
+                    pinching = true
+                    val cancel = MotionEvent.obtain(event.downTime, event.eventTime, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+                    try { clock.dispatchTouchEvent(cancel) } finally { cancel.recycle() }
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
+                pinch.onTouchEvent(event)
+                if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                    pinching = false
+                    parent?.requestDisallowInterceptTouchEvent(false)
+                }
+                return true
+            }
+            pinch.onTouchEvent(event)
+        }
         val matrix = Matrix()
         clock.transformMatrixToGlobal(matrix)
         transformMatrixToLocal(matrix)

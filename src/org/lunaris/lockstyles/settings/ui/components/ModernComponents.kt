@@ -30,6 +30,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.lunaris.lockstyles.ui.ExpressiveButton
+import org.lunaris.lockstyles.ui.cardContainer
+import org.lunaris.lockstyles.ui.innerContainer
+import org.lunaris.lockstyles.ui.isDarkSurface
+import androidx.compose.ui.graphics.Color
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -42,48 +46,42 @@ fun Modifier.squishable(interactionSource: InteractionSource, enabled: Boolean =
 }
 
 @Composable
+fun SettingsSectionHeader(title: String, icon: ImageVector, modifier: Modifier = Modifier) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier) {
+        Surface(
+            modifier = Modifier.size(40.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+    }
+}
+
+@Composable
 fun ModernSettingsCard(
     title: String,
     icon: ImageVector,
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
-        modifier = modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(bottom = 16.dp)
-            ) {
-                Surface(
-                    modifier = Modifier.size(40.dp),
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-            }
-            
+    Surface(modifier = modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
+        color = cardContainer(isDarkSurface())) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            SettingsSectionHeader(title, icon, Modifier.padding(bottom = 16.dp))
             content()
         }
     }
@@ -102,32 +100,35 @@ fun ModernSettingSwitch(
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
-    val container by animateColorAsState(
-        if (checked) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
+    val dark = isDarkSurface()
+    val container by animateColorAsState(cardContainer(dark, checked),
         MaterialTheme.motionScheme.fastEffectsSpec(), label = "switch_surface")
-    val foreground = if (checked) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface
+    val onColor = MaterialTheme.colorScheme.onSurface
     Surface(shape = MaterialTheme.shapes.large, color = container,
         modifier = modifier.fillMaxWidth().clip(MaterialTheme.shapes.large)
             .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = {
                 scope.launch { haptic.performHaptic(HapticFeedbackHelper.HapticIntensity.TICK) }
                 onCheckedChange(it)
             })) {
-        Row(Modifier.heightIn(min = 72.dp).padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            if (icon != null) Icon(icon, null, Modifier.size(24.dp), tint = foreground)
+        Row(Modifier.heightIn(min = 72.dp).padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                Icon(icon, null, Modifier.size(24.dp), tint = onColor)
+                Spacer(Modifier.width(16.dp))
+            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
-                    color = foreground)
+                    color = onColor)
                 if (subtitle.isNotBlank()) {
-                    Text(subtitle, style = MaterialTheme.typography.bodyMedium,
-                        color = if (checked) foreground else MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            Spacer(Modifier.width(12.dp))
             Switch(checked = checked, onCheckedChange = null, enabled = enabled,
-                thumbContent = if (checked) {{
-                    Icon(Icons.Rounded.Check, null, Modifier.size(SwitchDefaults.IconSize))
-                }} else null)
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = if (dark) Color.White else MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = if (dark) Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.primary))
         }
     }
 }
@@ -161,18 +162,12 @@ fun ModernSettingSlider(
                 color = MaterialTheme.colorScheme.onSurface
             )
             
-            Surface(
-                shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primaryContainer
-            ) {
-                Text(
-                    text = valueLabel(value),
-                    style = MaterialTheme.typography.labelLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-            }
+            Text(
+                text = valueLabel(value),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (isDarkSurface()) Color.White else MaterialTheme.colorScheme.primary,
+            )
         }
         
         Spacer(modifier = Modifier.height(8.dp))
@@ -196,11 +191,13 @@ fun ModernSettingSlider(
                 contentDescription = title
                 stateDescription = valueLabel(value)
             },
-            colors = SliderDefaults.colors(
-                thumbColor = MaterialTheme.colorScheme.primary,
-                activeTrackColor = MaterialTheme.colorScheme.primary,
-                inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest
-            )
+            colors = isDarkSurface().let { dark ->
+                SliderDefaults.colors(
+                    thumbColor = if (dark) Color.White else MaterialTheme.colorScheme.primary,
+                    activeTrackColor = if (dark) Color.White else MaterialTheme.colorScheme.primary,
+                    inactiveTrackColor = if (dark) Color.White.copy(alpha = 0.2f)
+                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f))
+            }
         )
     }
 }
@@ -255,7 +252,7 @@ fun ModernSettingSelector(
                         expanded = true 
                     },
                     shape = MaterialTheme.shapes.small,
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh
+                    color = innerContainer()
                 ) {
                     Row(
                         modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 6.dp),

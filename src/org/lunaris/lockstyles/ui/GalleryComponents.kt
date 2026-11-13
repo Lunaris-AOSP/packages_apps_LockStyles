@@ -33,6 +33,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -127,13 +128,30 @@ fun WallpaperImage(
     }
 }
 
+internal data class GlassKey(val wallpaper: GalleryWallpaper, val radii: List<Int>, val width: Int, val height: Int)
+
+internal object ClockGlassCache {
+    private val entries = object : LinkedHashMap<GlassKey, ClockGlass>(8, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<GlassKey, ClockGlass>) = size > 4
+    }
+
+    @Synchronized fun get(key: GlassKey): ClockGlass? = entries[key]
+
+    @Synchronized fun put(key: GlassKey, glass: ClockGlass) { entries[key] = glass }
+}
+
+private val MOVING_WALLPAPERS = setOf(GalleryWallpaper.Kind.BUBBLES, GalleryWallpaper.Kind.SHUFFLE,
+    GalleryWallpaper.Kind.ASTRONOMY, GalleryWallpaper.Kind.WAVES, GalleryWallpaper.Kind.WEATHER)
+
+private const val GLASS_SOURCE_WIDTH = 540
+
 @Composable
 internal fun rememberClockGlass(wallpaper: GalleryWallpaper?, enabled: Boolean,
     blurRadii: List<Int> = listOf(16)): ClockGlass? {
     val context = LocalContext.current
     val metrics = context.resources.displayMetrics
-    val width = metrics.widthPixels
-    val height = metrics.heightPixels
+    val width = metrics.widthPixels.coerceAtLeast(1)
+    val height = metrics.heightPixels.coerceAtLeast(1)
     val frames by ClockGlassPreviewFrames.frames.collectAsState()
     val effectFrame = frames[wallpaper]
     DisposableEffect(wallpaper, enabled) {
@@ -142,27 +160,56 @@ internal fun rememberClockGlass(wallpaper: GalleryWallpaper?, enabled: Boolean,
             if (enabled && wallpaper != null && wallpaper.effect != 0) ClockGlassPreviewFrames.unregister(wallpaper)
         }
     }
-    val background by produceState<ClockGlass?>(null, wallpaper, enabled, width, height, blurRadii, effectFrame) {
-        if (!enabled || wallpaper == null) {
-            value = null
-            return@produceState
-        }
-        val moving = wallpaper.kind in setOf(GalleryWallpaper.Kind.BUBBLES, GalleryWallpaper.Kind.SHUFFLE,
-            GalleryWallpaper.Kind.ASTRONOMY, GalleryWallpaper.Kind.WAVES, GalleryWallpaper.Kind.WEATHER)
-        do {
-            val result = withContext(Dispatchers.Default) {
-                runCatching {
-                    val bitmap = if (wallpaper.effect != 0) effectFrame ?: return@runCatching null
-                        else GalleryRenderer.toBitmap(context, wallpaper, width, height,
-                            shuffleIndex = GalleryStore.get(context).shuffleIndex)
-                    ClockGlass.prepare(bitmap, blurRadii.toIntArray(), width, height)
-                }.getOrNull()
+    val moving = wallpaper != null && wallpaper.kind in MOVING_WALLPAPERS
+    val radii = blurRadii.map { it.coerceIn(0, 120) }.distinct().sorted()
+    val cacheKey = if (enabled && wallpaper != null && wallpaper.effect == 0 && !moving)
+        GlassKey(wallpaper, radii, width, height) else null
+    // A new wallpaper or material must not keep the previous request's glass.
+    return key(wallpaper, enabled, width, height, radii) {
+        val background by produceState<ClockGlass?>(cacheKey?.let { ClockGlassCache.get(it) },
+            wallpaper, enabled, width, height, blurRadii, effectFrame) {
+            if (!enabled || wallpaper == null) {
+                value = null
+                return@produceState
             }
-            if (result != null) value = result
-            if (moving) kotlinx.coroutines.delay(1000L)
-        } while (moving)
+            if (cacheKey != null) ClockGlassCache.get(cacheKey)?.let {
+                value = it
+                return@produceState
+            }
+            do {
+                val result = withContext(Dispatchers.Default) {
+                    runCatching {
+                        val bitmap = if (wallpaper.effect != 0) effectFrame ?: return@runCatching null
+                            else {
+                                val w = minOf(width, GLASS_SOURCE_WIDTH)
+                                GalleryRenderer.toBitmap(context, wallpaper, w,
+                                    (height * w.toLong() / width).toInt().coerceAtLeast(1),
+                                    shuffleIndex = GalleryStore.get(context).shuffleIndex)
+                            }
+                        ClockGlass.prepare(bitmap, radii.toIntArray(), width, height)
+                    }.getOrNull()
+                }
+                if (result != null) {
+                    value = result
+                    if (cacheKey != null) ClockGlassCache.put(cacheKey, result)
+                }
+                if (moving) kotlinx.coroutines.delay(1000L)
+            } while (moving)
+        }
+        background
     }
-    return background
+}
+
+@Composable
+internal fun holdPreview(wanted: Boolean, ready: Boolean, source: Any?): Boolean {
+    var gaveUp by remember(wanted, ready, source) { mutableStateOf(false) }
+    LaunchedEffect(wanted, ready, source) {
+        if (wanted && !ready) {
+            kotlinx.coroutines.delay(3000L)
+            gaveUp = true
+        }
+    }
+    return wanted && !ready && !gaveUp
 }
 
 /** A wallpaper drawn every frame, for kinds that move. */
@@ -309,10 +356,16 @@ fun CustomClockLayer(
         currentTuning.accent -> context.getColor(android.R.color.system_accent1_100)
         else -> style.color
     }
-    val glass = rememberClockGlass(wallpaper, currentTuning.textGlass && CustomClocks.supportsTextGlass(style.face),
+    val wantGlass = currentTuning.textGlass && CustomClocks.supportsTextGlass(style.face)
+    val glass = rememberClockGlass(wallpaper, wantGlass,
         listOf(currentTuning.glassStyle.blurRadius, currentTuning.dateGlassStyle.blurRadius).distinct())
+    val holdForGlass = holdPreview(wantGlass && wallpaper != null, glass != null, wallpaper)
     val assetsSeq = LocalConfiguration.current.assetsSeq
-    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning, glass, assetsSeq) {
+    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning, glass, holdForGlass, assetsSeq) {
+        if (holdForGlass) {
+            value = null
+            return@produceState
+        }
         value = CustomClocks.preview(context, style.face, frame.width, color, tuning = currentTuning,
             glassBackground = glass)
     }

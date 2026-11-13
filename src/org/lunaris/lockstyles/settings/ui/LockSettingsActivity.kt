@@ -25,6 +25,13 @@ class LockSettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.attributes = window.attributes.apply {
+            layoutInDisplayCutoutMode =
+                android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        }
+        window.isStatusBarContrastEnforced = false
+        window.isNavigationBarContrastEnforced = false
         start = pageOf(intent)
         setContent {
             LockStylesTheme {

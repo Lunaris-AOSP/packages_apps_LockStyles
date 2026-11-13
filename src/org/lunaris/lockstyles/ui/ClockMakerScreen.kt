@@ -26,8 +26,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.snap
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -38,9 +36,6 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
-import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -54,7 +49,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -77,6 +71,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Save
 import androidx.compose.material.icons.rounded.Search
@@ -98,7 +94,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -114,7 +109,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -125,7 +119,6 @@ import androidx.compose.ui.text.font.FontSynthesis
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -183,6 +176,9 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     var imageDesign by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
     var previewAod by remember(draftKey) { mutableStateOf(false) }
     var fullScreenEditor by rememberSaveable(draftKey) { mutableStateOf(false) }
+    var editorHidden by rememberSaveable(draftKey) { mutableStateOf(false) }
+    var pinchBase by remember(draftKey) { mutableStateOf<ClockElement?>(null) }
+    var pinchRecorded by remember(draftKey) { mutableStateOf(false) }
     var positioning by remember(draftKey) { mutableStateOf<ClockDesignPositioning?>(null) }
     val scope = rememberCoroutineScope()
     val clock = baseClock.copy(face = ClockDesign.STYLE, design = design, tuning = tuning, color = color)
@@ -219,6 +215,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
         onCancel()
     }
     BackHandler { cancel() }
+    BackHandler(enabled = fullScreenEditor) { fullScreenEditor = false }
+    ImmersiveEffect(fullScreenEditor)
     LaunchedEffect(clock) {
         delay(300)
         if (!finished) store.saveDraft(draftKey, clock)
@@ -282,7 +280,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     val layoutSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>()
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
         .statusBarsPadding().navigationBarsPadding()) {
-        Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
+        if (!fullScreenEditor) Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
             Column {
                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -330,10 +328,14 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         fonts = store.fonts
                         library = store.designs
                     }
+                    ExpressiveIconButton(if (editorHidden) Icons.Rounded.Visibility else Icons.Rounded.VisibilityOff,
+                        stringResource(if (editorHidden) R.string.clock_maker_editor_split
+                            else R.string.clock_maker_editor_fullscreen),
+                        onClick = { editorHidden = !editorHidden })
                     ExpressiveIconButton(if (fullScreenEditor) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                         stringResource(if (fullScreenEditor) R.string.clock_maker_editor_split
                             else R.string.clock_maker_editor_fullscreen),
-                        onClick = { fullScreenEditor = !fullScreenEditor })
+                        onClick = { fullScreenEditor = true })
                 }
             }
         }
@@ -370,7 +372,28 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                     if (it.id == id) it.copy(x = x, y = y) else it
                                 }), record = false)
                             }, onDragFinished = { dragging = false },
-                            onPositioningChanged = { positioning = it })
+                            onPositioningChanged = { positioning = it },
+                            onPinchStart = if (!fullScreenEditor) null else { {
+                                pinchBase = design.elements.firstOrNull { it.id == selectedId }
+                                pinchRecorded = false
+                            } },
+                            onPinch = if (!fullScreenEditor) null else { { factor ->
+                                pinchBase?.let { base ->
+                                    val scaled = if (base.kind == ClockElementKind.IMAGE) {
+                                        base.resizeImage(
+                                            width = (base.imageWidth * factor).roundToInt().coerceIn(16, 360),
+                                            height = (base.imageHeight * factor).roundToInt().coerceIn(16, 720))
+                                    } else base.copy(size = (base.size * factor).roundToInt().coerceIn(8, 200))
+                                    val next = design.copy(elements = design.elements.map {
+                                        if (it.id == scaled.id) scaled else it
+                                    })
+                                    if (next != design) {
+                                        change(next, record = !pinchRecorded)
+                                        pinchRecorded = true
+                                    }
+                                }
+                            } },
+                            onPinchEnd = if (!fullScreenEditor) null else { { pinchBase = null } })
                     }
                 }
             }
@@ -636,63 +659,44 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                     }
                 }
             }
-            if (maxWidth >= 600.dp || maxWidth > maxHeight) {
+            if (!fullScreenEditor && (maxWidth >= 600.dp || maxWidth > maxHeight)) {
                 Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    preview(Modifier.weight(0.9f).fillMaxSize())
-                    editor(Modifier.weight(1.1f).fillMaxSize(), Modifier)
+                    preview(Modifier.weight(if (editorHidden) 1f else 0.9f).fillMaxSize())
+                    AnimatedVisibility(!editorHidden, Modifier.weight(1.1f).fillMaxSize(),
+                        enter = fadeIn(effects), exit = fadeOut(effects)) {
+                        editor(Modifier.fillMaxSize(), Modifier)
+                    }
                 }
             } else if (!fullScreenEditor) {
                 Column(Modifier.fillMaxSize()) {
-                    preview(Modifier.weight(0.9f))
-                    editor(Modifier.weight(1.1f), Modifier)
+                    preview(Modifier.weight(if (editorHidden) 1f else 0.9f))
+                    AnimatedVisibility(!editorHidden, Modifier.weight(1.1f),
+                        enter = fadeIn(effects) + expandVertically(layoutSpatial),
+                        exit = fadeOut(effects) + shrinkVertically(layoutSpatial)) {
+                        editor(Modifier.fillMaxSize(), Modifier)
+                    }
                 }
             } else {
-                val sheetHeight = maxHeight * 0.86f
-                val peekHeight = minOf(sheetHeight - 24.dp,
-                    maxOf(112.dp, maxHeight * 0.28f))
-                val travel = sheetHeight - peekHeight
-                val density = LocalDensity.current
-                val travelPx = with(density) { travel.toPx() }
-                var rawSheetOffset by rememberSaveable(draftKey) {
-                    mutableFloatStateOf(Float.NaN)
-                }
-                var sheetDragging by remember(draftKey) { mutableStateOf(false) }
-                LaunchedEffect(travelPx) {
-                    rawSheetOffset = if (rawSheetOffset.isNaN()) travelPx
-                    else rawSheetOffset.coerceIn(0f, travelPx)
-                }
-                val renderedSheetOffset by animateFloatAsState(
-                    targetValue = if (rawSheetOffset.isNaN()) travelPx else rawSheetOffset,
-                    animationSpec = if (sheetDragging) snap() else spatial,
-                    label = "clock_maker_sheet_offset",
-                )
-                val dragState = rememberDraggableState { delta ->
-                    rawSheetOffset = ((if (rawSheetOffset.isNaN()) travelPx else rawSheetOffset) + delta)
-                        .coerceIn(0f, travelPx)
-                }
                 Box(Modifier.fillMaxSize()) {
                     preview(Modifier.fillMaxSize())
-                    editor(
-                        Modifier.align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(sheetHeight)
-                            .offset { IntOffset(0, renderedSheetOffset.roundToInt()) },
-                        Modifier.draggable(
-                            state = dragState,
-                            orientation = Orientation.Vertical,
-                            onDragStarted = { sheetDragging = true },
-                            onDragStopped = {
-                                sheetDragging = false
-                                val expanded = travelPx * 0.28f
-                                val lowered = travelPx * 0.78f
-                                rawSheetOffset = when {
-                                    rawSheetOffset <= expanded -> 0f
-                                    rawSheetOffset >= lowered -> travelPx
-                                    else -> travelPx * 0.5f
-                                }
-                            },
-                        ),
-                    )
+                    Row(Modifier.align(Alignment.TopEnd).padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ExpressiveIconButton(Icons.AutoMirrored.Rounded.Undo,
+                            stringResource(R.string.clock_maker_undo), enabled = undo.isNotEmpty(), onClick = {
+                                redo = redo + design
+                                design = undo.last()
+                                undo = undo.dropLast(1)
+                            })
+                        ExpressiveIconButton(Icons.AutoMirrored.Rounded.Redo,
+                            stringResource(R.string.clock_maker_redo), enabled = redo.isNotEmpty(), onClick = {
+                                undo = undo + design
+                                design = redo.last()
+                                redo = redo.dropLast(1)
+                            })
+                        ExpressiveIconButton(Icons.Rounded.FullscreenExit,
+                            stringResource(R.string.clock_maker_editor_split),
+                            onClick = { fullScreenEditor = false })
+                    }
                 }
             }
         }
@@ -882,11 +886,11 @@ private fun ElementContent(element: ClockElement, onChange: (ClockElement) -> Un
             }
         }
         Text(stringResource(R.string.clock_maker_time_part_summary), Modifier.padding(horizontal = 20.dp),
-            style = MaterialTheme.typography.bodySmall)
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (element.timePart != ClockTimePart.FULL) {
             if (element.timePart.isHour) {
                 Text(stringResource(R.string.clock_maker_hour_format), Modifier.padding(horizontal = 20.dp),
-                    style = MaterialTheme.typography.titleSmall)
+                    style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ClockHourFormat.entries.forEach { format ->

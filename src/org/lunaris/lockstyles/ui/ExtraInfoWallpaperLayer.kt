@@ -14,7 +14,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -64,8 +66,11 @@ internal fun ExtraInfoWallpaperLayer(clockBottom: Float?, wallpaper: GalleryWall
         val scale = constraints.maxWidth / context.resources.displayMetrics.widthPixels.toFloat()
         val margin = with(density) { (12.dp * scale).toPx() }
         val top = with(density) { (clockBottom + margin).toDp() }
+        val hold = holdPreview(appearance.liquidGlass || appearance.axBlur,
+            if (appearance.liquidGlass) glass != null else bitmap != null, wallpaper)
         ExtraInfoPreview(
-            Modifier.align(Alignment.TopCenter).padding(top = top).fillMaxWidth().onSizeChanged {
+            Modifier.align(Alignment.TopCenter).padding(top = top).fillMaxWidth()
+                .alpha(if (hold) 0f else 1f).onSizeChanged {
                 extent = margin + it.height.toFloat()
             },
             scale,
@@ -78,17 +83,37 @@ internal fun ExtraInfoWallpaperLayer(clockBottom: Float?, wallpaper: GalleryWall
 }
 
 @Composable
-internal fun IndependentInfoWallpaperLayer(wallpaper: GalleryWallpaper) {
+internal fun IndependentInfoWallpaperLayer(wallpaper: GalleryWallpaper, fullScreen: Boolean = false) {
     val enabled by Keys.EXTRA_INFO_WIDGETS.state()
     val independent by Keys.EXTRA_INFO_INDEPENDENT.state()
     if (!enabled || !independent) return
     val context = LocalContext.current
     val catalog = remember(context) { ExtraInfoCatalog.load(context) }
     val rows by Keys.EXTRA_INFO_LAYOUT.state()
-    val raw by Keys.EXTRA_INFO_FREEFORM.state()
+    var raw by Keys.EXTRA_INFO_FREEFORM.state()
     val layout =
         remember(raw, rows, catalog) {
             ExtraInfoFreeformLayout.parse(raw, catalog, ExtraInfoLayout.parse(rows, catalog))
         }
-    IndependentInfoPreview(layout, wallpaper, Modifier.fillMaxSize())
+    var picked by remember { mutableStateOf<String?>(null) }
+    var pinchBase by remember { mutableStateOf<Float?>(null) }
+    val latest by rememberUpdatedState(layout)
+    val selected = picked?.takeIf { id -> layout.widgets.any { it.id == id } } ?: layout.widgets.lastOrNull()?.id
+    IndependentInfoPreview(
+        layout, wallpaper, Modifier.fillMaxSize(),
+        selected = if (fullScreen) selected else null,
+        onSelected = if (fullScreen) { { id: String -> picked = id } } else null,
+        onEdit = if (fullScreen) { { edited: ExtraInfoFreeformLayout -> raw = edited.encode() } } else null,
+        onPinchStart = if (fullScreen && selected != null) {
+            { pinchBase = latest.widgets.firstOrNull { it.id == selected }?.scale }
+        } else null,
+        onPinch = if (fullScreen && selected != null) { { factor ->
+            val base = pinchBase
+            if (base != null) {
+                raw = latest.resize(selected, (base * factor).coerceIn(
+                    ExtraInfoFreeformLayout.MIN_SCALE, ExtraInfoFreeformLayout.MAX_SCALE)).encode()
+            }
+        } } else null,
+        onPinchEnd = if (fullScreen && selected != null) { { pinchBase = null } } else null,
+    )
 }

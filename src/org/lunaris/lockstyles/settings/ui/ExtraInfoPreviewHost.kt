@@ -10,6 +10,7 @@ import android.graphics.RectF
 import android.graphics.Shader
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.view.View
 import android.widget.FrameLayout
 import java.util.concurrent.Executors
@@ -215,6 +216,33 @@ internal class ExtraInfoDesignPreviewHost(context: Context, design: InfoWidget) 
 
 internal class ExtraInfoFreeformPreviewHost(context: Context) : FrameLayout(context) {
     val widgets = ExtraInfoFreeformView(context)
+    var onPinchStart: (() -> Unit)? = null
+    var onPinch: ((Float) -> Unit)? = null
+    var onPinchEnd: (() -> Unit)? = null
+    private var pinching = false
+    private val pinch = org.lunaris.lockstyles.ui.TwoFingerPinch(context, { onPinchStart?.invoke() },
+        { onPinch?.invoke(it) }, { onPinchEnd?.invoke() })
+
+    override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (onPinch == null) return super.dispatchTouchEvent(event)
+        if (event.actionMasked == MotionEvent.ACTION_DOWN) pinching = false
+        if (event.pointerCount >= 2 || pinching) {
+            if (!pinching) {
+                pinching = true
+                val cancel = MotionEvent.obtain(event.downTime, event.eventTime, MotionEvent.ACTION_CANCEL, 0f, 0f, 0)
+                try { super.dispatchTouchEvent(cancel) } finally { cancel.recycle() }
+                parent?.requestDisallowInterceptTouchEvent(true)
+            }
+            pinch.onTouchEvent(event)
+            if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                pinching = false
+                parent?.requestDisallowInterceptTouchEvent(false)
+            }
+            return true
+        }
+        pinch.onTouchEvent(event)
+        return super.dispatchTouchEvent(event)
+    }
     private val source = ExtraInfoBackdrop(context)
     var wallpaper: Bitmap?
         get() = source.wallpaper

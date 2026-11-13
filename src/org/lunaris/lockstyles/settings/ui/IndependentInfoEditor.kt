@@ -13,6 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -39,6 +42,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -63,10 +67,19 @@ import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryStore
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.LockScreen
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.material.icons.automirrored.rounded.Undo
+import androidx.compose.material.icons.automirrored.rounded.Redo
+import org.lunaris.lockstyles.ui.ExpressiveIconButton
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.ui.LockScreenCard
+import org.lunaris.lockstyles.ui.holdPreview
 import org.lunaris.lockstyles.ui.rememberClockGlass
 
 @Composable
@@ -77,6 +90,9 @@ internal fun IndependentInfoPreview(
     selected: String? = null,
     onSelected: ((String) -> Unit)? = null,
     onEdit: ((ExtraInfoFreeformLayout) -> Unit)? = null,
+    onPinchStart: (() -> Unit)? = null,
+    onPinch: ((Float) -> Unit)? = null,
+    onPinchEnd: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val screenWidth =
@@ -100,10 +116,15 @@ internal fun IndependentInfoPreview(
                         }
                     } else null
             }
+        val hold = holdPreview(appearance.liquidGlass || appearance.axBlur,
+            if (appearance.liquidGlass) glass != null else bitmap != null, wallpaper)
         AndroidView(
             factory = { ExtraInfoFreeformPreviewHost(it) },
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().alpha(if (hold) 0f else 1f),
             update = {
+                it.onPinchStart = onPinchStart
+                it.onPinch = onPinch
+                it.onPinchEnd = onPinchEnd
                 it.wallpaper = bitmap
                 it.widgets.selection = layout
                 it.widgets.data = InfoData.SAMPLE
@@ -182,6 +203,9 @@ private fun PositionPreview(
     selected: String? = null,
     onSelected: ((String) -> Unit)? = null,
     onEdit: ((ExtraInfoFreeformLayout) -> Unit)? = null,
+    onPinchStart: (() -> Unit)? = null,
+    onPinch: ((Float) -> Unit)? = null,
+    onPinchEnd: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val screen =
@@ -198,6 +222,9 @@ private fun PositionPreview(
                 selected,
                 onSelected,
                 onEdit,
+                onPinchStart,
+                onPinch,
+                onPinchEnd,
             )
         }
     }
@@ -216,17 +243,36 @@ private fun IndependentInfoEditor(
     val layout = remember(draft, catalog) { ExtraInfoFreeformLayout.parse(draft, catalog) }
     var selected by rememberSaveable { mutableStateOf(initial.widgets.lastOrNull()?.id) }
     var choosing by rememberSaveable { mutableStateOf(false) }
-    val edit: (ExtraInfoFreeformLayout) -> Unit = { draft = it.encode() }
+    var fullScreen by rememberSaveable { mutableStateOf(false) }
+    var pinchBase by remember { mutableStateOf<Float?>(null) }
+    var pinchBefore by remember { mutableStateOf<String?>(null) }
+    val latestLayout by rememberUpdatedState(layout)
+    var undo by remember { mutableStateOf(listOf<String>()) }
+    var redo by remember { mutableStateOf(listOf<String>()) }
+    var lastPush by remember { mutableStateOf(0L) }
+    val edit: (ExtraInfoFreeformLayout) -> Unit = { changed ->
+        val next = changed.encode()
+        if (next != draft) {
+            val now = android.os.SystemClock.uptimeMillis()
+            if (undo.isEmpty() || now - lastPush > 500L) undo = (undo + draft).takeLast(50)
+            lastPush = now
+            redo = emptyList()
+            draft = next
+        }
+    }
     Dialog(
-        onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = { if (fullScreen) fullScreen = false else onDismiss() },
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
+        DialogSystemBars(hidden = false)
         Surface(Modifier.fillMaxSize()) {
+            Box(Modifier.fillMaxSize()) {
             Column(
-                Modifier.fillMaxSize().padding(12.dp),
+                Modifier.fillMaxSize()
+                    .statusBarsPadding().navigationBarsPadding().padding(if (fullScreen) 0.dp else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                if (!fullScreen) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = onDismiss) {
                         Text(stringResource(android.R.string.cancel))
                     }
@@ -235,10 +281,38 @@ private fun IndependentInfoEditor(
                         Modifier.weight(1f),
                         style = MaterialTheme.typography.titleMedium,
                     )
+                    androidx.compose.material3.FilledTonalIconButton(onClick = { fullScreen = true }) {
+                        Icon(Icons.Rounded.Fullscreen, stringResource(R.string.clock_maker_editor_fullscreen))
+                    }
+                    Spacer(Modifier.width(8.dp))
                     Button(onClick = { onSave(layout) }) {
                         Text(stringResource(R.string.extra_info_save))
                     }
                 }
+                val pinchEnabled = fullScreen && selected != null
+                val pinchStart: (() -> Unit)? = if (!pinchEnabled) null else {
+                    {
+                        pinchBase = latestLayout.widgets.firstOrNull { it.id == selected }?.scale
+                        pinchBefore = draft
+                    }
+                }
+                val pinch: ((Float) -> Unit)? = if (!pinchEnabled) null else { { factor ->
+                    val base = pinchBase
+                    val id = selected
+                    if (base != null && id != null) {
+                        draft = latestLayout.resize(id, (base * factor).coerceIn(
+                            ExtraInfoFreeformLayout.MIN_SCALE, ExtraInfoFreeformLayout.MAX_SCALE)).encode()
+                    }
+                } }
+                val pinchEnd: (() -> Unit)? = if (!pinchEnabled) null else { {
+                    pinchBefore?.takeIf { it != draft }?.let {
+                        undo = (undo + it).takeLast(50)
+                        redo = emptyList()
+                        lastPush = 0L
+                    }
+                    pinchBase = null
+                    pinchBefore = null
+                } }
                 BoxWithConstraints(Modifier.weight(1f)) {
                     val controlsWidth = maxWidth * 0.5f
                     val controlsMaxHeight = maxHeight * 0.5f
@@ -265,9 +339,12 @@ private fun IndependentInfoEditor(
                                     selected,
                                     { selected = it },
                                     edit,
+                                    pinchStart,
+                                    pinch,
+                                    pinchEnd,
                                 )
                             }
-                            Column(
+                            if (!fullScreen) Column(
                                 Modifier.width(controlsWidth).verticalScroll(rememberScrollState())
                             ) {
                                 controls()
@@ -286,9 +363,12 @@ private fun IndependentInfoEditor(
                                     selected,
                                     { selected = it },
                                     edit,
+                                    pinchStart,
+                                    pinch,
+                                    pinchEnd,
                                 )
                             }
-                            Column(
+                            if (!fullScreen) Column(
                                 Modifier.heightIn(max = controlsMaxHeight)
                                     .verticalScroll(rememberScrollState())
                             ) {
@@ -297,6 +377,29 @@ private fun IndependentInfoEditor(
                         }
                     }
                 }
+            }
+            if (fullScreen) {
+                Row(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ExpressiveIconButton(Icons.AutoMirrored.Rounded.Undo,
+                        stringResource(R.string.clock_maker_undo), enabled = undo.isNotEmpty(), onClick = {
+                            redo = redo + draft
+                            draft = undo.last()
+                            undo = undo.dropLast(1)
+                            lastPush = 0L
+                        })
+                    ExpressiveIconButton(Icons.AutoMirrored.Rounded.Redo,
+                        stringResource(R.string.clock_maker_redo), enabled = redo.isNotEmpty(), onClick = {
+                            undo = undo + draft
+                            draft = redo.last()
+                            redo = redo.dropLast(1)
+                            lastPush = 0L
+                        })
+                    ExpressiveIconButton(Icons.Rounded.FullscreenExit,
+                        stringResource(R.string.clock_maker_editor_split),
+                        onClick = { fullScreen = false })
+                }
+            }
             }
         }
     }
@@ -308,6 +411,29 @@ private fun IndependentInfoEditor(
                 choosing = false
             }
         }
+    }
+}
+
+@Composable
+private fun DialogSystemBars(hidden: Boolean) {
+    val view = androidx.compose.ui.platform.LocalView.current
+    androidx.compose.runtime.DisposableEffect(view, hidden) {
+        val window = (view.parent as? androidx.compose.ui.window.DialogWindowProvider)?.window
+        val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, view) }
+        window?.let {
+            it.statusBarColor = android.graphics.Color.TRANSPARENT
+            it.navigationBarColor = android.graphics.Color.TRANSPARENT
+            it.attributes = it.attributes.apply {
+                layoutInDisplayCutoutMode =
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+            }
+        }
+        if (hidden) {
+            controller?.systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose { if (hidden) controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
     }
 }
 

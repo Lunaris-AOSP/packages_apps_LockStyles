@@ -1,6 +1,5 @@
 package org.lunaris.lockstyles.ui
 
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
@@ -17,7 +16,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,10 +25,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -49,15 +45,25 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Layers
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.Wallpaper
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.FullscreenExit
+import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.material.icons.rounded.Block
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -66,6 +72,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -90,8 +98,9 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -99,7 +108,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlin.math.abs
-import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -123,7 +131,6 @@ import org.lunaris.lockstyles.settings.ui.ClockFontPicker
 import org.lunaris.lockstyles.settings.ui.DepthPage
 import org.lunaris.lockstyles.settings.ui.SettingsPage
 import org.lunaris.lockstyles.settings.ui.WidgetsPage
-import org.lunaris.lockstyles.settings.ui.components.ModernSettingSwitch
 import org.lunaris.lockstyles.settings.ui.pickTile
 
 private val CLOCK_COLOURS = listOf(null, 0xFFFFFFFF.toInt(), 0xFFFFD60A.toInt(),
@@ -131,6 +138,8 @@ private val CLOCK_COLOURS = listOf(null, 0xFFFFFFFF.toInt(), 0xFFFFD60A.toInt(),
     0xFF30D158.toInt(), 0xFF8E8E93.toInt(), 0xFF1C1C1E.toInt())
 private val ACCENT: Color
     @Composable get() = MaterialTheme.colorScheme.primary
+
+internal val LocalCardInset = compositionLocalOf { 16.dp }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -175,7 +184,14 @@ private fun CustomiseContent(
     var clock by remember { mutableStateOf(initial.clock) }
     var tuning by remember { mutableStateOf(initial.clock.tuning ?: CustomClocks.Tuning.load(context)) }
     var showMaker by remember { mutableStateOf(false) }
-    var sheet by remember { mutableStateOf<String?>(if (openClock) "clock" else null) }
+    var panelOpen by remember { mutableStateOf(openClock) }
+    var tab by remember { mutableStateOf(if (openClock) CustomizerTab.CLOCK else CustomizerTab.WALLPAPER) }
+    var appWidgets by remember { mutableStateOf(false) }
+    var fullScreen by remember { mutableStateOf(false) }
+    fun openPanel(target: CustomizerTab) { tab = target; panelOpen = true }
+    androidx.activity.compose.BackHandler(enabled = fullScreen) { fullScreen = false }
+    androidx.activity.compose.BackHandler(enabled = panelOpen && !fullScreen) { panelOpen = false }
+    ImmersiveEffect(fullScreen)
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
     var clockBottom by remember(clock.face, clock.small) { mutableStateOf<Float?>(null) }
@@ -184,7 +200,7 @@ private fun CustomiseContent(
             initial.id, allowPhotoPicking, onCancel = { showMaker = false }, onSave = {
                 clock = it
                 tuning = it.tuning ?: tuning
-                sheet = null
+                panelOpen = false
                 showMaker = false
             })
         return
@@ -198,7 +214,6 @@ private fun CustomiseContent(
     LaunchedEffect(Unit) { appear.animateTo(1f, appearSpec) }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
-        val controlsHeight = maxHeight * 0.45f
         LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
         val onLight = rememberTopLight(wallpaper)
         if (clock.face > 0) {
@@ -206,7 +221,7 @@ private fun CustomiseContent(
             // The clock area stays tappable, as iOS lets you tap the clock to edit it.
             Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f)
                 .semantics { contentDescription = editClockLabel }
-                .clickable(onClickLabel = editClockLabel) { sheet = "clock" })
+                .clickable(onClickLabel = editClockLabel) { openPanel(CustomizerTab.CLOCK) })
         } else BoxWithConstraints(Modifier.fillMaxSize()) {
             // Same proportions as the switcher's cards, so zooming in lines up.
             val screenHeight = maxHeight
@@ -224,7 +239,7 @@ private fun CustomiseContent(
                         .border(1.dp, Color(0x66FFFFFF).copy(alpha = 0.4f * appear.value),
                             RoundedCornerShape(16.dp))
                         .background(Color(0x14FFFFFF).copy(alpha = 0.08f * appear.value))
-                        .clickable(onClickLabel = editClockLabel) { sheet = "clock" }
+                        .clickable(onClickLabel = editClockLabel) { openPanel(CustomizerTab.CLOCK) }
                         .padding(horizontal = 16.dp),
                 ) {
                     ClockText(clock, screenHeight * if (clock.small) 0.06f else 0.24f,
@@ -234,16 +249,17 @@ private fun CustomiseContent(
         }
 
         AppWidgetWallpaperLayer(ExtraInfoWallpaperLayer(clockBottom, wallpaper))
-        IndependentInfoWallpaperLayer(wallpaper)
+        IndependentInfoWallpaperLayer(wallpaper, fullScreen)
 
-        Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars)
-            .background(MaterialTheme.colorScheme.surface))
-        Row(
+        if (!fullScreen) Row(
             Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp,
                 vertical = 12.dp).alpha(appear.value),
         ) {
             Pill(stringResource(android.R.string.cancel), primary = false, onCancel)
             Spacer(Modifier.weight(1f))
+            ExpressiveIconButton(Icons.Rounded.Fullscreen,
+                stringResource(R.string.clock_maker_editor_fullscreen),
+                onClick = { panelOpen = false; fullScreen = true })
             Pill(stringResource(if (isNew) R.string.gallery_add else R.string.gallery_done),
                 primary = true) {
                 if (isCurrent && wallpaper == initial.wallpaper) {
@@ -255,88 +271,75 @@ private fun CustomiseContent(
             }
         }
 
-        Column(
-            Modifier.align(Alignment.BottomCenter).fillMaxWidth().alpha(appear.value)
-                .heightIn(max = controlsHeight)
-                .clip(RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainer)
-                .navigationBarsPadding().verticalScroll(rememberScrollState())
-                .padding(bottom = 16.dp, top = 20.dp),
-        ) {
-            Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 16.dp, bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(wallpaperLabel(wallpaper)),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = MaterialTheme.colorScheme.onSurface, modifier = Modifier.weight(1f))
-                TextButton(onClick = {
-                    onChangeWallpaper { selected ->
-                        // Replacing photos keeps the filter, depth and shuffle settings.
-                        wallpaper = if (selected.kind == wallpaper.kind && selected.photos.isNotEmpty()) {
-                            wallpaper.copy(photos = selected.photos)
-                        } else selected.copy(effect = 0)
+        if (fullScreen) {
+            FloatingActionButton(
+                onClick = { fullScreen = false },
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = androidx.compose.foundation.shape.CircleShape,
+            ) { Icon(Icons.Rounded.FullscreenExit, stringResource(R.string.clock_maker_editor_split)) }
+        }
+        if (!panelOpen && !fullScreen) {
+            FloatingActionButton(
+                onClick = { panelOpen = true },
+                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp)
+                    .alpha(appear.value),
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = androidx.compose.foundation.shape.CircleShape,
+            ) { Icon(Icons.Rounded.Settings, stringResource(R.string.lock_settings)) }
+        }
+
+        val tabs = listOf(
+            CustomizerTabSpec(CustomizerTab.WALLPAPER, Icons.Rounded.Wallpaper, stringResource(wallpaperLabel(wallpaper))),
+            CustomizerTabSpec(CustomizerTab.CLOCK, Icons.Rounded.Schedule, stringResource(R.string.gallery_clock)),
+            CustomizerTabSpec(CustomizerTab.SHORTCUTS, Icons.Rounded.Bolt, stringResource(R.string.gallery_shortcuts)),
+            CustomizerTabSpec(CustomizerTab.DEPTH, Icons.Rounded.Layers, stringResource(R.string.gallery_depth)),
+            CustomizerTabSpec(CustomizerTab.WIDGETS, Icons.Rounded.Widgets, stringResource(R.string.gallery_widgets)),
+            CustomizerTabSpec(CustomizerTab.AVATAR, Icons.Rounded.AccountCircle, stringResource(R.string.aod_avatar_title)),
+        )
+        LockscreenConfigPanel(
+            visible = panelOpen && !fullScreen,
+            tabs = tabs,
+            selectedTab = tab,
+            onTabChange = { tab = it },
+            onDismiss = { panelOpen = false },
+            selfScrolling = { it == CustomizerTab.SHORTCUTS || it == CustomizerTab.DEPTH ||
+                it == CustomizerTab.WIDGETS || it == CustomizerTab.AVATAR },
+        ) { current ->
+            CompositionLocalProvider(LocalCardInset provides 0.dp) {
+                when (current) {
+                    CustomizerTab.WALLPAPER -> {
+                        TextButton(onClick = {
+                            onChangeWallpaper { selected ->
+                                wallpaper = if (selected.kind == wallpaper.kind && selected.photos.isNotEmpty()) {
+                                    wallpaper.copy(photos = selected.photos)
+                                } else selected.copy(effect = 0)
+                            }
+                        }) { Text(stringResource(R.string.gallery_change_wallpaper)) }
+                        KindControls(wallpaper) { wallpaper = it }
                     }
-                }) {
-                    Text(stringResource(R.string.gallery_change_wallpaper))
-                }
-            }
-            KindControls(wallpaper) { wallpaper = it }
-            Row(
-                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                    .padding(top = 16.dp, start = 20.dp, end = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                RoundAction(Icons.Rounded.Schedule, stringResource(R.string.gallery_clock)) {
-                    sheet = "clock"
-                }
-                RoundAction(Icons.Rounded.Bolt, stringResource(R.string.gallery_shortcuts)) {
-                    sheet = "shortcuts"
-                }
-                RoundAction(Icons.Rounded.Layers, stringResource(R.string.gallery_depth)) {
-                    sheet = "depth"
-                }
-                RoundAction(Icons.Rounded.Widgets, stringResource(R.string.gallery_widgets)) {
-                    sheet = "widgets"
-                }
-                RoundAction(Icons.Rounded.AccountCircle, stringResource(R.string.aod_avatar_title)) {
-                    sheet = "avatar"
+                    CustomizerTab.CLOCK -> ClockSheet(clock, tuning, wallpaper, allowPhotoPicking,
+                        { clock = it }, { tuning = it }, onMaker = { showMaker = true }, inPanel = true)
+                    CustomizerTab.SHORTCUTS -> CompositionLocalProvider(LocalCardInset provides 20.dp) {
+                        ShortcutsSheet(shortcuts)
+                    }
+                    CustomizerTab.DEPTH -> DepthPage(back = { panelOpen = false }, inSheet = true,
+                        allowPhotoPicking = allowPhotoPicking)
+                    CustomizerTab.WIDGETS -> WidgetsPage(back = { panelOpen = false }, inSheet = true,
+                        preview = initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning)),
+                        onAppWidgets = { appWidgets = true })
+                    CustomizerTab.AVATAR -> SettingsPage(stringResource(R.string.aod_avatar_title),
+                        { panelOpen = false }, inSheet = true) {
+                        item { AodAvatarSettings(allowPhotoPicking = allowPhotoPicking) }
+                    }
                 }
             }
         }
     }
 
-    if (sheet == "clock") {
-        LockStylesBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            ClockSheet(clock, tuning, wallpaper, allowPhotoPicking, { clock = it }, { tuning = it },
-                onMaker = { showMaker = true })
-        }
-    }
-    if (sheet == "shortcuts") {
-        LockStylesBottomSheet(onDismissRequest = { sheet = null }, containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            ShortcutsSheet(shortcuts)
-        }
-    }
-    if (sheet == "depth") {
-        LockStylesBottomSheet(onDismissRequest = { sheet = null },
-            containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            DepthPage(back = { sheet = null }, inSheet = true,
-                allowPhotoPicking = allowPhotoPicking)
-        }
-    }
-    if (sheet == "widgets" || sheet == "avatar") {
-        LockStylesBottomSheet(onDismissRequest = { sheet = null },
-            containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-            if (sheet == "widgets") {
-                WidgetsPage(back = { sheet = null }, inSheet = true,
-                    preview = initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning)),
-                    onAppWidgets = { sheet = "app_widgets" })
-            } else {
-                SettingsPage(stringResource(R.string.aod_avatar_title), { sheet = null }, inSheet = true) {
-                    item { AodAvatarSettings(allowPhotoPicking = allowPhotoPicking) }
-                }
-            }
-        }
-    }
-    if (sheet == "app_widgets") AppWidgetsBottomSheet(onDismiss = { sheet = "widgets" })
+    if (appWidgets) AppWidgetsBottomSheet(onDismiss = { appWidgets = false })
     if (askHome) {
         HomeDialog(wallpaper, onDismiss = { askHome = false }, onSkip = {
             askHome = false
@@ -372,7 +375,9 @@ private fun RoundAction(icon: ImageVector, label: String, onClick: () -> Unit) {
 
 @Composable
 private fun Chips(labels: List<String>, selected: Int, onSelect: (Int) -> Unit) {
-    ExpressiveChoices(labels, selected, onSelect = onSelect)
+    Box(Modifier.padding(horizontal = LocalCardInset.current)) {
+        ChoiceCard(labels, selected, onSelect = onSelect)
+    }
 }
 
 @Composable
@@ -396,12 +401,12 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
                     stringResource(R.string.gallery_filter_wash)), wallpaper.variant) {
                     onChange(wallpaper.copy(variant = it))
                 }
-                ModernSettingSwitch(
+                SwitchCard(
                     title = stringResource(R.string.gallery_depth),
                     subtitle = stringResource(R.string.gallery_depth_summary),
                     checked = wallpaper.depth,
-                    onCheckedChange = { onChange(wallpaper.copy(depth = it)) },
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    onChange = { onChange(wallpaper.copy(depth = it)) },
+                    icon = Icons.Rounded.Layers,
                 )
             }
             Kind.SHUFFLE -> Chips(listOf(stringResource(R.string.gallery_shuffle_tap),
@@ -423,7 +428,7 @@ private fun KindControls(wallpaper: GalleryWallpaper, onChange: (GalleryWallpape
             }
             Kind.EMOJI -> {
                 Box(
-                    Modifier.padding(horizontal = 16.dp).fillMaxWidth()
+                    Modifier.padding(horizontal = LocalCardInset.current).fillMaxWidth()
                         .clip(RoundedCornerShape(14.dp))
                         .background(MaterialTheme.colorScheme.surfaceContainerHighest)
                         .padding(horizontal = 16.dp, vertical = 10.dp),
@@ -598,6 +603,7 @@ internal fun ClockSheet(
     onTuning: (CustomClocks.Tuning) -> Unit,
     onMaker: (() -> Unit)? = null,
     showStyles: Boolean = true,
+    inPanel: Boolean = false,
 ) {
     val context = LocalContext.current
     val onLight = rememberTopLight(wallpaper)
@@ -606,19 +612,18 @@ internal fun ClockSheet(
     }
     // Kept to half the screen and scrolled inside, so the clock preview above stays in view.
     val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.5f).dp
-    Column(Modifier.fillMaxWidth().heightIn(max = maxHeight)
-        .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val outer = if (inPanel) Modifier.fillMaxWidth() else Modifier.fillMaxWidth().heightIn(max = maxHeight)
+        .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)
+    CompositionLocalProvider(LocalCardInset provides (if (inPanel) 0.dp else LocalCardInset.current)) {
+    Column(outer, verticalArrangement = Arrangement.spacedBy(if (inPanel) 12.dp else 14.dp)) {
         if (onMaker != null) {
             ExpressiveButton(stringResource(R.string.clock_maker_title), onMaker,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp), icon = Icons.Rounded.Edit)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = LocalCardInset.current), icon = Icons.Rounded.Edit)
         }
         if (showStyles && styles.size > 1) {
-            Text(stringResource(R.string.gallery_clock_style), color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 20.dp))
+            Box(Modifier.padding(horizontal = LocalCardInset.current)) { SectionHeader(stringResource(R.string.gallery_clock_style)) }
             LazyRow(
-                contentPadding = PaddingValues(horizontal = 16.dp),
+                contentPadding = PaddingValues(horizontal = LocalCardInset.current),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 itemsIndexed(styles) { face, name ->
@@ -643,12 +648,10 @@ internal fun ClockSheet(
             }
         }
         if (clock.face == 0) {
-            Text(stringResource(R.string.gallery_clock_font), color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 20.dp))
+            Box(Modifier.padding(horizontal = LocalCardInset.current)) { SectionHeader(stringResource(R.string.gallery_clock_font)) }
             Row(
                 Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp),
+                    .padding(horizontal = LocalCardInset.current),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 CLOCK_PRESETS.indices.forEach { i ->
@@ -672,15 +675,13 @@ internal fun ClockSheet(
             }
         }
         if (clock.face in 1..44) {
-            Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = LocalCardInset.current)) {
                 ClockFontPicker()
             }
         }
         // Some custom styles keep their own colours on the lock screen.
         if (clock.face == 0 || CustomClocks.isColourable(clock.face)) {
-            Text(stringResource(R.string.gallery_clock_colour), color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 20.dp))
+            Box(Modifier.padding(horizontal = LocalCardInset.current)) { SectionHeader(stringResource(R.string.gallery_clock_colour)) }
             if (clock.face > 0) {
                 val mode = when {
                     tuning.gradient -> 2
@@ -736,9 +737,7 @@ internal fun ClockSheet(
                     onTuning(tuning.copy(shadowOpacity = it))
                 }
             }
-            Text(stringResource(R.string.gallery_clock_adjust), color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(horizontal = 20.dp))
+            Box(Modifier.padding(horizontal = LocalCardInset.current)) { SectionHeader(stringResource(R.string.gallery_clock_adjust)) }
             TuningSlider(stringResource(R.string.gallery_clock_size), tuning.scale, 50..150, "%",
                 CustomClocks.Tuning().scale) {
                 onTuning(tuning.copy(scale = it))
@@ -797,6 +796,7 @@ internal fun ClockSheet(
             }
         }
     }
+    }
 }
 
 private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
@@ -841,10 +841,9 @@ internal fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: Galle
 @Composable
 private fun SheetLabel(text: String) {
     Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.padding(horizontal = 20.dp))
+        modifier = Modifier.padding(horizontal = LocalCardInset.current + 4.dp))
 }
 
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun TuningSlider(
     label: String,
@@ -855,40 +854,16 @@ internal fun TuningSlider(
     displayValue: String? = null,
     onChange: (Int) -> Unit,
 ) {
-    Surface(shape = MaterialTheme.shapes.large, color = MaterialTheme.colorScheme.surfaceContainerLow,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            Text(label, color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.primaryContainer) {
-                    Crossfade(displayValue ?: "$value$unit", animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
-                        label = "tuning_value") { text ->
-                        Text(text, color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            style = MaterialTheme.typography.labelLarge,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
-                    }
-                }
-                Spacer(Modifier.weight(1f))
-                TextButton(enabled = value != defaultValue, onClick = { onChange(defaultValue) }) {
-                    Text(stringResource(R.string.gallery_clock_reset))
-                }
-            }
-            Slider(value = value.coerceIn(range).toFloat(), onValueChange = { onChange(it.roundToInt()) },
-                valueRange = range.first.toFloat()..range.last.toFloat(),
-                modifier = Modifier.semantics {
-                    contentDescription = label
-                    stateDescription = displayValue ?: "$value$unit"
-                },
-                colors = SliderDefaults.colors(inactiveTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest))
-        }
+    Box(Modifier.padding(horizontal = LocalCardInset.current)) {
+        SliderCard(label, value, range, unit, defaultValue, displayValue, onChange = onChange)
     }
 }
 
 @Composable
 internal fun TuningSwitch(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
-    ModernSettingSwitch(title = label, subtitle = "", checked = checked, onCheckedChange = onChange,
-        modifier = Modifier.padding(horizontal = 16.dp))
+    Box(Modifier.padding(horizontal = LocalCardInset.current)) {
+        SwitchCard(label, checked, onChange)
+    }
 }
 
 @Composable
@@ -906,24 +881,148 @@ private fun ShortcutsSheet(shortcuts: Shortcuts) {
         .navigationBarsPadding().padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(stringResource(R.string.gallery_shortcuts), color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp,
-            fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 20.dp))
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = LocalCardInset.current, end = LocalCardInset.current, top = 32.dp))
         slots.forEachIndexed { index, slot ->
             Text(stringResource(if (index == 0) R.string.gallery_shortcut_left
                 else R.string.gallery_shortcut_right),
                 color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(horizontal = 20.dp))
+                modifier = Modifier.padding(horizontal = LocalCardInset.current))
             val chosen = selections.firstOrNull { it.slotId == slot.id }?.affordanceId
-            val options = listOf(null to stringResource(R.string.gallery_shortcut_none)) +
-                affordances.filter { it.isEnabled }.map { it.id to it.name }
-            Chips(options.map { it.second }, options.indexOfFirst { it.first == chosen }
-                .coerceAtLeast(0)) { i ->
-                val id = options[i].first
+            val options: List<Shortcuts.Affordance?> = listOf<Shortcuts.Affordance?>(null) +
+                affordances.filter { it.isEnabled }
+            ShortcutIcons(options, options.indexOfFirst { it?.id == chosen }.coerceAtLeast(0)) { i ->
+                val id = options[i]?.id
                 scope.launch {
                     withContext(Dispatchers.IO) {
                         if (id == null) shortcuts.unselectAll(slot.id)
                         else shortcuts.select(slot.id, id)
                     }
                     version++
+                }
+            }
+        }
+    }
+}
+
+
+private fun affordanceIcon(
+    context: android.content.Context,
+    affordance: Shortcuts.Affordance
+): android.graphics.drawable.Drawable? {
+    return runCatching {
+        if (affordance.iconResourceId == 0) {
+            return@runCatching null
+        }
+
+        val resources = context.packageManager.getResourcesForApplication(
+            "com.android.systemui"
+        )
+
+        resources.getDrawable(
+            affordance.iconResourceId,
+            context.theme
+        )
+    }.onFailure {
+        android.util.Log.w(
+            "LockscreenShortcuts",
+            "Could not load icon for ${affordance.id}",
+            it
+        )
+    }.getOrNull()
+}
+
+@Composable
+private fun ShortcutIcons(
+    options: List<Shortcuts.Affordance?>,
+    selected: Int,
+    onSelect: (Int) -> Unit
+) {
+    val context = LocalContext.current
+    val dark = isDarkSurface()
+    val none = stringResource(R.string.gallery_shortcut_none)
+
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState())
+            .padding(horizontal = LocalCardInset.current),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        options.forEachIndexed { index, affordance ->
+            val on = index == selected
+            val label = affordance?.name ?: none
+
+            val tint = if (on) {
+                if (dark) Color.White
+                else MaterialTheme.colorScheme.primary
+            } else {
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
+            }
+
+            Surface(
+                onClick = { onSelect(index) },
+                shape = CircleShape,
+                modifier = Modifier
+                    .size(60.dp)
+                    .semantics {
+                        contentDescription = label
+                        this.selected = on
+                        role = Role.RadioButton
+                    },
+                color = if (on) {
+                    if (dark) Color.White.copy(alpha = 0.18f)
+                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                } else {
+                    innerContainer(dark)
+                },
+                border = if (on) {
+                    BorderStroke(1.5.dp, tint.copy(alpha = 0.6f))
+                } else {
+                    null
+                }
+            ) {
+                Box(
+                    Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    val bitmap = remember(
+                        affordance?.id,
+                        affordance?.iconResourceId
+                    ) {
+                        affordance
+                            ?.let { affordanceIcon(context, it) }
+                            ?.toBitmap(96, 96)
+                            ?.asImageBitmap()
+                    }
+
+                    when {
+                        affordance == null -> {
+                            Icon(
+                                Icons.Rounded.Block,
+                                label,
+                                Modifier.size(26.dp),
+                                tint = tint
+                            )
+                        }
+
+                        bitmap != null -> {
+                            Image(
+                                bitmap = bitmap,
+                                contentDescription = label,
+                                modifier = Modifier.size(28.dp),
+                                colorFilter = ColorFilter.tint(tint)
+                            )
+                        }
+
+                        else -> {
+                            Text(
+                                label.take(2),
+                                color = tint,
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                    }
                 }
             }
         }
