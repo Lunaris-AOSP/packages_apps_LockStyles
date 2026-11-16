@@ -310,7 +310,8 @@ object CustomClocks {
             context.resources.displayMetrics.density + 2f).toInt()
     }
 
-    fun frame(context: Context, tuning: Tuning = Tuning.load(context), style: Int = 0): Frame {
+    fun frame(context: Context, tuning: Tuning = Tuning.load(context), style: Int = 0,
+        homeScreen: Boolean = false): Frame {
         val density = context.resources.displayMetrics.density
         val screen = context.resources.displayMetrics.widthPixels
         val res = load(context)?.systemUi?.resources
@@ -322,11 +323,11 @@ object CustomClocks {
         val side = dimen("below_clock_padding_start", 32f)
         return Frame(
             top = (statusBar * 1.25f + tuning.marginTop * density).toInt(),
-            side = side + if (supportsHorizontalMargin(style)) {
+            side = side + if (homeScreen || supportsHorizontalMargin(style)) {
                 (tuning.marginStart * density).toInt()
             } else 0,
             width = screen - side * 2,
-            scale = tuning.scale.coerceIn(50, 150) / 100f,
+            scale = tuning.scale.coerceIn(if (homeScreen) 25 else 50, 150) / 100f,
             alpha = tuning.opacity.coerceIn(0, 100) / 100f,
         )
     }
@@ -336,11 +337,12 @@ object CustomClocks {
      * [trim] crops the empty space around it, for small tiles.
      */
     fun preview(context: Context, style: Int, width: Int, color: Int?,
-            trim: Boolean = false, tuning: Tuning? = null, glassBackground: ClockGlass? = null): Bitmap? {
+            trim: Boolean = false, tuning: Tuning? = null, glassBackground: ClockGlass? = null,
+            homeScreen: Boolean = false): Bitmap? {
         if (style <= 0) return null
         val minute = System.currentTimeMillis() / 60_000
         val assetsSeq = context.resources.configuration.assetsSeq
-        val key = "$style/$width/$color/$minute/$trim/$tuning/$assetsSeq/${System.identityHashCode(glassBackground)}"
+        val key = "$style/$width/$color/$minute/$trim/$tuning/$assetsSeq/$homeScreen/${System.identityHashCode(glassBackground)}"
         previews.get(key)?.let { return it }
         val cat = load(context) ?: return null
         if (style >= cat.layouts.size) return null
@@ -358,7 +360,7 @@ object CustomClocks {
                 prepareColours(view, view, color ?: Color.WHITE, tuning)
             }
             val glass = if (tuning?.textGlass == true && supportsTextGlass(style) && glassBackground != null) {
-                val frame = frame(context, tuning, style)
+                val frame = frame(context, tuning, style, homeScreen)
                 val stage = FrameLayout(context)
                 stage.addView(view)
                 stage.layout(0, 0, context.resources.displayMetrics.widthPixels,

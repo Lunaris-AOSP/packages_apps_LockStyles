@@ -340,16 +340,19 @@ fun CustomClockLayer(
     tuning: CustomClocks.Tuning? = null,
     onBottomChanged: ((Float) -> Unit)? = null,
     wallpaper: GalleryWallpaper? = null,
+    homeScreen: Boolean = false,
 ) {
     val context = LocalContext.current
     val fallbackTuning = remember { CustomClocks.Tuning.load(context) }
     val currentTuning = tuning ?: style.tuning ?: fallbackTuning
     if (style.face == ClockDesign.STYLE) {
-        MakerClockLayer(style, currentTuning, modifier, wallpaper = wallpaper, onBottomChanged = onBottomChanged)
+        MakerClockLayer(style, currentTuning, modifier, wallpaper = wallpaper,
+            onBottomChanged = onBottomChanged, homeScreen = homeScreen)
         return
     }
-    val frame = remember(currentTuning, style.face) {
-        CustomClocks.frame(context, currentTuning, style.face)
+    val configuration = LocalConfiguration.current
+    val frame = remember(currentTuning, style.face, homeScreen, configuration) {
+        CustomClocks.frame(context, currentTuning, style.face, homeScreen)
     }
     val color = when {
         currentTuning.gradient -> currentTuning.gradientStart
@@ -360,14 +363,15 @@ fun CustomClockLayer(
     val glass = rememberClockGlass(wallpaper, wantGlass,
         listOf(currentTuning.glassStyle.blurRadius, currentTuning.dateGlassStyle.blurRadius).distinct())
     val holdForGlass = holdPreview(wantGlass && wallpaper != null, glass != null, wallpaper)
-    val assetsSeq = LocalConfiguration.current.assetsSeq
-    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning, glass, holdForGlass, assetsSeq) {
+    val assetsSeq = configuration.assetsSeq
+    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning,
+        glass, holdForGlass, assetsSeq, homeScreen) {
         if (holdForGlass) {
             value = null
             return@produceState
         }
         value = CustomClocks.preview(context, style.face, frame.width, color, tuning = currentTuning,
-            glassBackground = glass)
+            glassBackground = glass, homeScreen = homeScreen)
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val bitmap = preview ?: return@BoxWithConstraints

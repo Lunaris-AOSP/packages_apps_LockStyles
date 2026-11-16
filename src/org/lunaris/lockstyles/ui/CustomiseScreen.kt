@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.Wallpaper
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Fullscreen
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButton
@@ -121,6 +122,7 @@ import org.lunaris.lockstyles.GalleryWallpaper.Kind
 import org.lunaris.lockstyles.GalleryWallpaper.Shuffle
 import org.lunaris.lockstyles.GalleryWeather
 import org.lunaris.lockstyles.HomeStyle
+import org.lunaris.lockstyles.HomeClockLayout
 import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.Shortcuts
@@ -616,6 +618,47 @@ internal fun ClockSheet(
         .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)
     CompositionLocalProvider(LocalCardInset provides (if (inPanel) 0.dp else LocalCardInset.current)) {
     Column(outer, verticalArrangement = Arrangement.spacedBy(if (inPanel) 12.dp else 14.dp)) {
+        if (clock.face > 0) {
+            Box(Modifier.padding(horizontal = LocalCardInset.current)) {
+                SwitchCard(stringResource(R.string.home_clock_title), clock.showOnHomeScreen,
+                    { onChange(clock.copy(showOnHomeScreen = it)) },
+                    subtitle = stringResource(R.string.home_clock_summary), icon = Icons.Rounded.Home)
+            }
+            if (clock.showOnHomeScreen) {
+                val layout = clock.homeLayout ?: HomeClockLayout.fromTuning(tuning, clock.face)
+                val configuration = LocalConfiguration.current
+                val height = configuration.screenHeightDp.coerceIn(200, 2000)
+                val width = configuration.screenWidthDp.coerceIn(200, 2000)
+                Box(Modifier.padding(horizontal = LocalCardInset.current)) {
+                    SectionHeader(stringResource(R.string.home_clock_adjust))
+                }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                    Box(Modifier.height(180.dp).aspectRatio(
+                        context.resources.displayMetrics.widthPixels.toFloat() /
+                            context.resources.displayMetrics.heightPixels)
+                        .clip(MaterialTheme.shapes.large)) {
+                        WallpaperImage(wallpaper, Modifier.fillMaxSize())
+                        CustomClockLayer(clock, tuning = layout.applyTo(tuning),
+                            wallpaper = wallpaper, homeScreen = true)
+                    }
+                }
+                TuningSlider(stringResource(R.string.home_clock_size), layout.scale, 25..150,
+                    "%", tuning.scale) { onChange(clock.copy(homeLayout = layout.copy(scale = it))) }
+                TuningSlider(stringResource(R.string.home_clock_vertical), layout.marginTop,
+                    0..height, " dp", tuning.marginTop) {
+                    onChange(clock.copy(homeLayout = layout.copy(marginTop = it)))
+                }
+                TuningSlider(stringResource(R.string.home_clock_horizontal), layout.marginStart,
+                    -width..width, " dp", 0) {
+                    onChange(clock.copy(homeLayout = layout.copy(marginStart = it)))
+                }
+                TextButton(onClick = { onChange(clock.copy(homeLayout = null)) },
+                    enabled = clock.homeLayout != null,
+                    modifier = Modifier.padding(horizontal = LocalCardInset.current)) {
+                    Text(stringResource(R.string.home_clock_match_lock))
+                }
+            }
+        }
         if (onMaker != null) {
             ExpressiveButton(stringResource(R.string.clock_maker_title), onMaker,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = LocalCardInset.current), icon = Icons.Rounded.Edit)

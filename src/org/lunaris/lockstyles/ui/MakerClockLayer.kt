@@ -51,7 +51,7 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
     onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null,
     onBottomChanged: ((Float) -> Unit)? = null, wallpaper: GalleryWallpaper? = null,
     onPinchStart: (() -> Unit)? = null, onPinch: ((Float) -> Unit)? = null,
-    onPinchEnd: (() -> Unit)? = null) {
+    onPinchEnd: (() -> Unit)? = null, homeScreen: Boolean = false) {
     val context = LocalContext.current
     val fallback = remember { ClockDesign() }
     val selectionColor = MaterialTheme.colorScheme.primary.toArgb()
@@ -66,6 +66,7 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
         it.onPinchEnd = onPinchEnd
         it.clock.setGlassPreview(glass, it.stage)
         it.thumbnail = thumbnail
+        it.homeScreen = homeScreen
         it.tuning = tuning
         it.clock.selectedId = selectedId
         it.clock.selectionColor = selectionColor
@@ -92,6 +93,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     val clock = ClockDesignView(context)
     var tuning = CustomClocks.Tuning()
     var thumbnail = false
+    var homeScreen = false
     private var dozing = false
     private var aodProgress = 0f
     private var aodAnimator: ValueAnimator? = null
@@ -221,7 +223,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
         val w = MeasureSpec.getSize(widthMeasureSpec).coerceAtLeast(1)
         val h = MeasureSpec.getSize(heightMeasureSpec).coerceAtLeast(1)
         setMeasuredDimension(w, h)
-        frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE)
+        frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE, homeScreen)
         stage.forceLayout()
         stage.measure(MeasureSpec.makeMeasureSpec(resources.displayMetrics.widthPixels, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(resources.displayMetrics.heightPixels, MeasureSpec.EXACTLY))

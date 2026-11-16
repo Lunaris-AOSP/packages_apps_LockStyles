@@ -145,6 +145,8 @@ data class ClockStyle(
     /** Null preserves the current tuning for lock screens saved by older versions. */
     val tuning: CustomClocks.Tuning? = null,
     val design: ClockDesign? = null,
+    val showOnHomeScreen: Boolean = false,
+    val homeLayout: HomeClockLayout? = null,
 ) {
     fun toJson(): JSONObject =
         JSONObject()
@@ -155,6 +157,8 @@ data class ClockStyle(
             .put("small", small)
             .put("tuning", tuning?.toJson() ?: JSONObject.NULL)
             .put("design", design?.toJson() ?: JSONObject.NULL)
+            .put("home_screen", showOnHomeScreen)
+            .put("home_layout", homeLayout?.toJson() ?: JSONObject.NULL)
 
     companion object {
         fun fromJson(json: JSONObject) =
@@ -166,6 +170,41 @@ data class ClockStyle(
                 small = json.optBoolean("small"),
                 tuning = json.optJSONObject("tuning")?.let(CustomClocks.Tuning::fromJson),
                 design = json.optJSONObject("design")?.let { runCatching { ClockDesign.fromJson(it) }.getOrNull() },
+                showOnHomeScreen = json.optBoolean("home_screen"),
+                homeLayout = json.optJSONObject("home_layout")?.let(HomeClockLayout::fromJson),
             )
+    }
+}
+
+data class HomeClockLayout(
+    val scale: Int = 100,
+    val marginTop: Int = 15,
+    val marginStart: Int = 0,
+) {
+    fun toJson() = JSONObject()
+        .put("scale", scale)
+        .put("margin_top", marginTop)
+        .put("margin_start", marginStart)
+
+    fun applyTo(tuning: CustomClocks.Tuning) = tuning.copy(
+        scale = scale, marginTop = marginTop, marginStart = marginStart,
+    )
+
+    companion object {
+        const val SIZE_SETTING = "lock_screen_home_clock_size"
+        const val TOP_SETTING = "lock_screen_home_clock_margin_top"
+        const val START_SETTING = "lock_screen_home_clock_margin_start"
+
+        fun fromTuning(tuning: CustomClocks.Tuning, style: Int) = HomeClockLayout(
+            scale = tuning.scale,
+            marginTop = tuning.marginTop,
+            marginStart = if (CustomClocks.supportsHorizontalMargin(style)) tuning.marginStart else 0,
+        )
+
+        fun fromJson(json: JSONObject) = HomeClockLayout(
+            scale = json.optInt("scale", 100).coerceIn(25, 150),
+            marginTop = json.optInt("margin_top", 15).coerceIn(0, 2000),
+            marginStart = json.optInt("margin_start", 0).coerceIn(-2000, 2000),
+        )
     }
 }

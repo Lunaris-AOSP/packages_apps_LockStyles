@@ -703,7 +703,11 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     }
     if (dialog == "global") {
         LockStylesBottomSheet(onDismissRequest = { dialog = null }) {
-            ClockSheet(clock, tuning, wallpaper, allowImport, { color = it.color }, { tuning = it }, showStyles = false)
+            ClockSheet(clock, tuning, wallpaper, allowImport, {
+                color = it.color
+                baseClock = baseClock.copy(showOnHomeScreen = it.showOnHomeScreen,
+                    homeLayout = it.homeLayout)
+            }, { tuning = it }, showStyles = false)
         }
     }
     if (dialog == "add") {

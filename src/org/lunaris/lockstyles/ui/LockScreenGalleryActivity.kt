@@ -13,6 +13,7 @@ import android.graphics.Canvas
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -67,6 +68,7 @@ import org.lunaris.lockstyles.GalleryApplier
 import org.lunaris.lockstyles.GalleryStore
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWallpaper.Kind
+import org.lunaris.lockstyles.HomeClockLayout
 import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.Shortcuts
@@ -595,6 +597,14 @@ class LockScreenGalleryActivity : ComponentActivity() {
     private suspend fun applyClock(style: ClockStyle, tuning: CustomClocks.Tuning?) {
         if (style.face == 0) applyStockClock(style)
         withContext(Dispatchers.IO) {
+            Settings.Secure.putString(contentResolver, HomeClockLayout.SIZE_SETTING,
+                style.homeLayout?.scale?.toString())
+            Settings.Secure.putString(contentResolver, HomeClockLayout.TOP_SETTING,
+                style.homeLayout?.marginTop?.toString())
+            Settings.Secure.putString(contentResolver, HomeClockLayout.START_SETTING,
+                style.homeLayout?.marginStart?.toString())
+            Settings.Secure.putInt(contentResolver, "lock_screen_home_clock_enabled",
+                if (style.showOnHomeScreen && style.face > 0) 1 else 0)
             runCatching { CustomClocks.apply(this@LockScreenGalleryActivity, style.face,
                 style.color, tuning, style.design) }
         }

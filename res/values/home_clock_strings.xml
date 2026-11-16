@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_clock_title">Use on home screen</string>
+    <string name="home_clock_summary">Show this clock above your wallpaper, behind Glance, widgets and icons. Available with the Lunaris launcher.</string>
+    <string name="home_clock_adjust">Home clock preview</string>
+    <string name="home_clock_size">Home clock size</string>
+    <string name="home_clock_vertical">Vertical position</string>
+    <string name="home_clock_horizontal">Horizontal position</string>
+    <string name="home_clock_match_lock">Match lock screen size and position</string>
+</resources>
