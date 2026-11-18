@@ -320,6 +320,7 @@ fun sliderRow(
             },
             valueRange = range.first.toFloat()..range.last.toFloat(),
             steps = if (steps in 1..60) steps else 0,
+            increment = step.toFloat(),
             valueLabel = { "$it$unit" },
             enabled = enabled,
         )

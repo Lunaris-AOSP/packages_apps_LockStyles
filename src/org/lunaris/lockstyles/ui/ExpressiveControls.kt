@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,7 +17,9 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ButtonGroupDefaults
@@ -25,9 +28,13 @@ import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderColors
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
@@ -113,6 +120,43 @@ internal fun ExpressiveIconButton(
             modifier = modifier.size(56.dp),
             content = content,
         )
+    }
+}
+
+@Composable
+internal fun AdjustableSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    steps: Int = 0,
+    increment: Float = 1f,
+    enabled: Boolean = true,
+    colors: SliderColors = SliderDefaults.colors(),
+    sliderModifier: Modifier = Modifier,
+) {
+    val current = value.coerceIn(valueRange)
+    val step = if (steps > 0) (valueRange.endInclusive - valueRange.start) / (steps + 1)
+        else increment
+    val decreased = (current - step).coerceIn(valueRange)
+    val increased = (current + step).coerceIn(valueRange)
+    Row(modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { onValueChange(decreased) }, enabled = enabled && decreased < current) {
+            Icon(Icons.Rounded.Remove, stringResource(R.string.slider_decrease, label))
+        }
+        Slider(
+            value = current,
+            onValueChange = onValueChange,
+            modifier = Modifier.weight(1f).then(sliderModifier),
+            valueRange = valueRange,
+            steps = steps,
+            enabled = enabled,
+            colors = colors,
+        )
+        IconButton(onClick = { onValueChange(increased) }, enabled = enabled && increased > current) {
+            Icon(Icons.Rounded.Add, stringResource(R.string.slider_increase, label))
+        }
     }
 }
 

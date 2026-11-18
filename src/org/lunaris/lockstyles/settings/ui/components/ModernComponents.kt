@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import org.lunaris.lockstyles.ui.ExpressiveButton
+import org.lunaris.lockstyles.ui.AdjustableSlider
 import org.lunaris.lockstyles.ui.cardContainer
 import org.lunaris.lockstyles.ui.innerContainer
 import org.lunaris.lockstyles.ui.isDarkSurface
@@ -143,6 +144,7 @@ fun ModernSettingSlider(
     modifier: Modifier = Modifier,
     valueLabel: (Int) -> String = { it.toString() },
     enabled: Boolean = true,
+    increment: Float = 1f,
 ) {
     val haptic = rememberHapticFeedback()
     val scope = rememberCoroutineScope()
@@ -172,8 +174,9 @@ fun ModernSettingSlider(
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        Slider(
+        AdjustableSlider(
             value = value.toFloat().coerceIn(valueRange),
+            label = title,
             enabled = enabled,
             onValueChange = { newValue ->
                 val intValue = newValue.toInt()
@@ -187,7 +190,8 @@ fun ModernSettingSlider(
             },
             valueRange = valueRange,
             steps = steps,
-            modifier = Modifier.fillMaxWidth().semantics {
+            increment = increment,
+            sliderModifier = Modifier.semantics {
                 contentDescription = title
                 stateDescription = valueLabel(value)
             },

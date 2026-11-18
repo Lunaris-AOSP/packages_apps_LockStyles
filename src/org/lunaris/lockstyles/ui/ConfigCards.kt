@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
@@ -172,9 +171,9 @@ internal fun SliderCard(
                     }
                 }
             }
-            Slider(value.coerceIn(range).toFloat(), { onChange(it.roundToInt()) },
+            AdjustableSlider(value.coerceIn(range).toFloat(), { onChange(it.roundToInt()) }, title,
                 valueRange = range.first.toFloat()..range.last.toFloat(),
-                modifier = Modifier.fillMaxWidth().semantics {
+                sliderModifier = Modifier.semantics {
                     contentDescription = title
                     stateDescription = shown
                 },

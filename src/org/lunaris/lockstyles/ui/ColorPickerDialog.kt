@@ -16,7 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -119,12 +118,15 @@ fun ColorPickerDialog(initialColor: Int, onDismiss: () -> Unit, onColorSelected:
 @Composable
 private fun ColorSlider(label: String, value: Float, range: ClosedFloatingPointRange<Float> = 0f..1f,
         onChange: (Float) -> Unit) {
+    val isHue = range.endInclusive == 360f
     Column {
-        Text(if (range.endInclusive == 360f) "$label: ${value.roundToInt()}°"
+        Text(if (isHue) "$label: ${value.roundToInt()}°"
             else "$label: ${(value * 100).roundToInt()}%",
             style = MaterialTheme.typography.labelMedium)
-        Slider(value, onChange, valueRange = range,
-            modifier = Modifier.semantics { contentDescription = label })
+        AdjustableSlider(value, onChange, label,
+            valueRange = if (isHue) range.start..359.99f else range,
+            increment = if (isHue) 1f else 0.01f,
+            sliderModifier = Modifier.semantics { contentDescription = label })
     }
 }
 

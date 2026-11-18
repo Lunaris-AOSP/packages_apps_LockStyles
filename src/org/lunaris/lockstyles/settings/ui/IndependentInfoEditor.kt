@@ -29,7 +29,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,6 +73,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.automirrored.rounded.Redo
 import org.lunaris.lockstyles.ui.ExpressiveIconButton
+import org.lunaris.lockstyles.ui.AdjustableSlider
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
@@ -543,19 +543,19 @@ private fun WidgetSlider(
     steps: Int = 0,
     onChange: (Float) -> Unit,
 ) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, Modifier.width(88.dp), style = MaterialTheme.typography.labelMedium)
-        Slider(
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.labelMedium)
+            Text("${(value * 100).roundToInt()}%", style = MaterialTheme.typography.labelSmall)
+        }
+        AdjustableSlider(
             value,
             onChange,
-            Modifier.weight(1f).semantics { contentDescription = label },
+            label,
             valueRange = valueRange,
             steps = steps,
-        )
-        Text(
-            "${(value * 100).roundToInt()}%",
-            Modifier.width(40.dp),
-            style = MaterialTheme.typography.labelSmall,
+            increment = 0.01f,
+            sliderModifier = Modifier.semantics { contentDescription = label },
         )
     }
 }

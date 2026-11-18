@@ -7,6 +7,8 @@
     <string name="app_name" translatable="false">Knock Lock</string>
     <string name="lock_settings">Lock screen settings</string>
     <string name="apply_change">Apply</string>
+    <string name="slider_decrease">Decrease %1$s</string>
+    <string name="slider_increase">Increase %1$s</string>
     <string name="gallery_applied">Lock screen applied</string>
     <string name="clock_style_in_gallery">Clock style</string>
     <string name="clock_style_in_gallery_summary">Style, colour and size, set for each lock screen in Customise</string>
