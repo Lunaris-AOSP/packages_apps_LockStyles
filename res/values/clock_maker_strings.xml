@@ -15,6 +15,7 @@
     <string name="clock_maker_style">Style</string>
     <string name="clock_maker_effects">Effects</string>
     <string name="clock_maker_visible">Visible</string>
+    <string name="clock_maker_visible_on_aod">Show on AOD</string>
     <string name="clock_maker_duplicate">Duplicate</string>
     <string name="clock_maker_remove">Remove</string>
     <string name="clock_maker_font">Typeface</string>

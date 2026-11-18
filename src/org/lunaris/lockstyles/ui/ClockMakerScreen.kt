@@ -494,6 +494,9 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                                     modifier = Modifier.padding(horizontal = 20.dp))
                                             } else ElementContent(selected) { edit(it) }
                                             TuningSwitch(stringResource(R.string.clock_maker_visible), selected.visible) { edit(selected.copy(visible = it)) }
+                                            TuningSwitch(stringResource(R.string.clock_maker_visible_on_aod), selected.visibleOnAod) {
+                                                edit(selected.copy(visibleOnAod = it))
+                                            }
                                             Row(Modifier.padding(horizontal = 12.dp)) {
                                                 TextButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS, onClick = {
                                                     val position = positioning?.move(selected.x, selected.y + 0.1f)
