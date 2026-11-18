@@ -76,6 +76,7 @@
             android:name=".ui.LockScreenGalleryActivity"
             android:label="@string/app_name"
             android:theme="@style/Theme.LockStyles"
+            android:configChanges="assetsPaths"
             android:exported="true"
             android:launchMode="singleTask"
             android:taskAffinity="org.lunaris.lockstyles.lockscreens">
@@ -97,6 +98,7 @@
             android:name=".settings.ui.LockSettingsActivity"
             android:label="@string/lock_settings"
             android:theme="@style/Theme.LockStyles.Settings"
+            android:configChanges="assetsPaths"
             android:launchMode="singleTop"
             android:exported="true">
             <intent-filter>

@@ -504,7 +504,10 @@ object CustomClocks {
         override fun onCreateView(parent: View?, name: String, context: Context,
                 attrs: AttributeSet): View? {
             if (!name.contains('.') || name.startsWith("android.")) return null
-            if (loader != null && name.startsWith("$SYSTEMUI.")) {
+            // Weather controllers depend on SystemUI's process-local Dependency singleton.
+            // Use the plain placeholders below without constructing those controllers.
+            if (loader != null && name.startsWith("$SYSTEMUI.") &&
+                    !name.startsWith("$SYSTEMUI.weather.")) {
                 try {
                     return loader.loadClass(name).asSubclass(View::class.java)
                         .getConstructor(Context::class.java, AttributeSet::class.java)
