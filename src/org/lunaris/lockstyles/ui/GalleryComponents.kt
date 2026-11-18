@@ -2,8 +2,11 @@ package org.lunaris.lockstyles.ui
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.RectF
 import android.graphics.Typeface
 import android.text.format.DateFormat
+import android.view.View
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -16,7 +19,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.absoluteOffset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,6 +42,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,8 +55,6 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.boundsInParent
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -73,6 +75,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.clockmaker.ClockGlass
+import org.lunaris.clockmaker.ClockPreviewGeometry
+import org.lunaris.clockmaker.ClockViewTransform
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryEffect
@@ -80,12 +84,12 @@ import org.lunaris.lockstyles.GalleryStore
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWeather
+import org.lunaris.lockstyles.StockClock
 import org.lunaris.lockstyles.settings.ExtraInfoSettings
 import org.lunaris.lockstyles.settings.ExtraInfoSettingsProvider
 
 /** The flex clock's weight/width presets, heaviest and narrowest first, as SystemUI has them. */
-val CLOCK_PRESETS = listOf(800f to 30f, 700f to 55f, 600f to 80f, 500f to 100f, 400f to 108f,
-    300f to 116f, 200f to 120f)
+val CLOCK_PRESETS = StockClock.PRESETS
 
 fun clockVariation(style: ClockStyle): String {
     val (weight, width) = CLOCK_PRESETS[(style.preset ?: 3).coerceIn(0, CLOCK_PRESETS.size - 1)]
@@ -128,6 +132,57 @@ fun WallpaperImage(
     }
 }
 
+@Composable
+internal fun LockScreenWallpaper(
+    wallpaper: GalleryWallpaper,
+    modifier: Modifier = Modifier,
+    live: Boolean = true,
+    weather: GalleryWeather.Snapshot? = null,
+) {
+    val geometry = CustomClocks.geometry(LocalContext.current)
+    Box(modifier) {
+        val background = Modifier.fillMaxSize().graphicsLayer {
+            transformOrigin = TransformOrigin(geometry.wallpaperPivotX / geometry.screenWidth,
+                geometry.wallpaperPivotY / geometry.screenHeight)
+            scaleX = geometry.wallpaperScale
+            scaleY = geometry.wallpaperScale
+        }
+        if (live) LiveWallpaper(wallpaper, background, weather)
+        else WallpaperImage(wallpaper, background, weather)
+        if (geometry.wallpaperDimAmount > 0f) {
+            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = geometry.wallpaperDimAmount)))
+        }
+        Box(Modifier.fillMaxSize().background(Color(geometry.wallpaperScrimColor)))
+    }
+}
+
+internal fun lockScreenWallpaperBitmap(context: Context, wallpaper: GalleryWallpaper,
+    width: Int, height: Int, geometry: ClockPreviewGeometry): Bitmap =
+    Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { bitmap ->
+        val canvas = Canvas(bitmap)
+        canvas.save()
+        canvas.scale(geometry.wallpaperScale, geometry.wallpaperScale,
+            geometry.wallpaperPivotX * width / geometry.screenWidth,
+            geometry.wallpaperPivotY * height / geometry.screenHeight)
+        GalleryRenderer.draw(context, canvas, wallpaper, width, height,
+            shuffleIndex = GalleryStore.get(context).shuffleIndex, weather = GalleryWeather.query(context))
+        canvas.restore()
+        canvas.drawColor(android.graphics.Color.argb((geometry.wallpaperDimAmount * 255f).toInt(), 0, 0, 0))
+        canvas.drawColor(geometry.wallpaperScrimColor)
+    }
+
+@Composable
+private fun previewMinute(): Long {
+    val minute by produceState(System.currentTimeMillis() / 60_000L) {
+        while (true) {
+            val now = System.currentTimeMillis()
+            value = now / 60_000L
+            kotlinx.coroutines.delay(60_000L - now % 60_000L)
+        }
+    }
+    return minute
+}
+
 internal data class GlassKey(val wallpaper: GalleryWallpaper, val radii: List<Int>, val width: Int, val height: Int)
 
 internal object ClockGlassCache {
@@ -147,11 +202,11 @@ private const val GLASS_SOURCE_WIDTH = 540
 
 @Composable
 internal fun rememberClockGlass(wallpaper: GalleryWallpaper?, enabled: Boolean,
-    blurRadii: List<Int> = listOf(16)): ClockGlass? {
+    blurRadii: List<Int> = listOf(16), homeScreen: Boolean = false): ClockGlass? {
     val context = LocalContext.current
-    val metrics = context.resources.displayMetrics
-    val width = metrics.widthPixels.coerceAtLeast(1)
-    val height = metrics.heightPixels.coerceAtLeast(1)
+    val geometry = CustomClocks.geometry(context, homeScreen)
+    val width = geometry.screenWidth
+    val height = geometry.screenHeight
     val frames by ClockGlassPreviewFrames.frames.collectAsState()
     val effectFrame = frames[wallpaper]
     DisposableEffect(wallpaper, enabled) {
@@ -319,8 +374,10 @@ fun LockClock(
         else -> style.color
     }
     val assetsSeq = LocalConfiguration.current.assetsSeq
-    val preview by produceState<Bitmap?>(null, style.face, color, style.tuning, assetsSeq) {
-        value = CustomClocks.preview(context, style.face, CustomClocks.frame(context).width,
+    val geometry = CustomClocks.geometry(context)
+    val minute = previewMinute()
+    val preview by produceState<Bitmap?>(null, style.face, color, style.tuning, assetsSeq, geometry, minute) {
+        value = CustomClocks.preview(context, style.face, geometry.clockWidth,
             color, trim = true, tuning = style.tuning)
     }
     preview?.let {
@@ -329,29 +386,28 @@ fun LockClock(
     }
 }
 
-/**
- * A custom clock style laid over a full lock screen preview exactly where SystemUI puts it,
- * shrunk with the preview, so cards, customising and the lock screen all match.
- */
+data class ClockPreviewBounds(val layoutBottom: Float, val visualBottom: Float)
+
 @Composable
 fun CustomClockLayer(
     style: ClockStyle,
     modifier: Modifier = Modifier,
     tuning: CustomClocks.Tuning? = null,
-    onBottomChanged: ((Float) -> Unit)? = null,
+    onBottomChanged: ((ClockPreviewBounds) -> Unit)? = null,
     wallpaper: GalleryWallpaper? = null,
     homeScreen: Boolean = false,
 ) {
     val context = LocalContext.current
     val fallbackTuning = remember { CustomClocks.Tuning.load(context) }
     val currentTuning = tuning ?: style.tuning ?: fallbackTuning
+    val geometry = CustomClocks.geometry(context, homeScreen)
     if (style.face == ClockDesign.STYLE) {
         MakerClockLayer(style, currentTuning, modifier, wallpaper = wallpaper,
             onBottomChanged = onBottomChanged, homeScreen = homeScreen)
         return
     }
     val configuration = LocalConfiguration.current
-    val frame = remember(currentTuning, style.face, homeScreen, configuration) {
+    val frame = remember(currentTuning, style.face, homeScreen, configuration, geometry) {
         CustomClocks.frame(context, currentTuning, style.face, homeScreen)
     }
     val color = when {
@@ -361,11 +417,13 @@ fun CustomClockLayer(
     }
     val wantGlass = currentTuning.textGlass && CustomClocks.supportsTextGlass(style.face)
     val glass = rememberClockGlass(wallpaper, wantGlass,
-        listOf(currentTuning.glassStyle.blurRadius, currentTuning.dateGlassStyle.blurRadius).distinct())
+        listOf(currentTuning.glassStyle.blurRadius, currentTuning.dateGlassStyle.blurRadius).distinct(),
+        homeScreen = homeScreen)
     val holdForGlass = holdPreview(wantGlass && wallpaper != null, glass != null, wallpaper)
     val assetsSeq = configuration.assetsSeq
+    val minute = previewMinute()
     val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning,
-        glass, holdForGlass, assetsSeq, homeScreen) {
+        glass, holdForGlass, assetsSeq, homeScreen, geometry, minute) {
         if (holdForGlass) {
             value = null
             return@produceState
@@ -377,12 +435,29 @@ fun CustomClockLayer(
         val bitmap = preview ?: return@BoxWithConstraints
         val shadowPadding = (bitmap.width - frame.width) / 2
         val metrics = context.resources.displayMetrics
-        val k = constraints.maxWidth / metrics.widthPixels.toFloat()
+        val k = constraints.maxWidth / geometry.screenWidth.toFloat()
         val density = LocalDensity.current
+        val bottom = remember(frame, currentTuning, bitmap.height, shadowPadding, k) {
+            val height = bitmap.height - shadowPadding * 2
+            val proxy = View(context).apply {
+                layout(0, 0, frame.width, height)
+                scaleX = frame.scale
+                scaleY = frame.scale
+                ClockViewTransform.applyClockTransform(this, currentTuning.rotation,
+                    currentTuning.tiltX, currentTuning.tiltY)
+            }
+            val visual = RectF(0f, 0f, frame.width.toFloat(), height.toFloat())
+            proxy.matrix.mapRect(visual)
+            val layout = (frame.top + ClockViewTransform.layoutHeight(frame.width,
+                height, frame.scale).coerceAtLeast(0)) * k
+            ClockPreviewBounds(layout, if (frame.alpha > 0f)
+                maxOf(layout, (frame.top + visual.bottom) * k) else layout)
+        }
+        SideEffect { onBottomChanged?.invoke(bottom) }
         Image(
             bitmap.asImageBitmap(), null,
             Modifier
-                .offset { IntOffset(((frame.side - shadowPadding) * k).toInt(),
+                .absoluteOffset { IntOffset(((frame.side - shadowPadding) * k).toInt(),
                     ((frame.top - shadowPadding) * k).toInt()) }
                 .wrapContentSize(Alignment.TopStart, unbounded = true)
                 .size(with(density) { (bitmap.width * k).toDp() },
@@ -392,14 +467,14 @@ fun CustomClockLayer(
                     scaleX = frame.scale
                     scaleY = frame.scale
                     alpha = frame.alpha
-                    rotationX = currentTuning.tiltX.toFloat()
-                    rotationY = currentTuning.tiltY.toFloat()
-                    rotationZ = currentTuning.rotation.toFloat()
+                    rotationX = currentTuning.tiltX.coerceIn(-75, 75).toFloat()
+                    rotationY = currentTuning.tiltY.coerceIn(-75, 75).toFloat()
+                    rotationZ = currentTuning.rotation.coerceIn(-180, 180).toFloat()
                     // View.setCameraDistance divides by densityDpi; Compose passes directly
                     // to RenderNode. Match SystemUI's conversion before shrinking the preview.
-                    cameraDistance = maxOf(maxOf(frame.width, bitmap.height - shadowPadding * 2) * 4f,
-                        1280f * metrics.density) / metrics.densityDpi * k
-                }.onGloballyPositioned { onBottomChanged?.invoke(it.boundsInParent().bottom) },
+                    cameraDistance = ClockViewTransform.cameraDistance(frame.width,
+                        bitmap.height - shadowPadding * 2, metrics.density) / metrics.densityDpi * k
+                },
             contentScale = ContentScale.FillBounds,
         )
     }
@@ -429,38 +504,45 @@ fun LockScreenCard(
 ) {
     val shape = RoundedCornerShape(corner.coerceAtLeast(0.dp))
     val onLight = rememberTopLight(wallpaper)
-    var clockBottom by remember(clock.face, clock.small) { mutableStateOf<Float?>(null) }
+    var clockBottom by remember(clock.face, clock.small) { mutableStateOf<ClockPreviewBounds?>(null) }
     BoxWithConstraints(
         modifier
             .clip(shape)
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
     ) {
-        // The still stays underneath, so turning live never flashes an empty card.
-        WallpaperImage(wallpaper, Modifier.fillMaxSize(), weather)
-        if (live && wallpaper.isAnimated) LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
-        if (clock.face > 0) {
-            CustomClockLayer(clock, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
-        } else {
-            val clockHeight = maxHeight * if (clock.small) 0.06f else 0.24f
-            val dateSize = (maxWidth.value * 0.055f).sp
-            Column(
-                Modifier.fillMaxWidth().onSizeChanged { clockBottom = it.height.toFloat() }
-                    .padding(top = maxHeight * 0.1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(
-                    dateString(),
-                    color = if (onLight) Color(0xFF1C1C1E) else Color.White,
-                    fontSize = dateSize,
-                    fontWeight = FontWeight.Medium,
-                )
-                ClockText(clock, clockHeight, fixedTime = fixedTime, onLight = onLight)
+        LockScreenPreviewLayout(Modifier.fillMaxSize()) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                LockScreenWallpaper(wallpaper, Modifier.fillMaxSize(), live && wallpaper.isAnimated, weather)
+                if (clock.face > 0) {
+                    CustomClockLayer(clock, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
+                } else {
+                    val clockHeight = maxHeight * if (clock.small) 0.06f else 0.24f
+                    val dateSize = (maxWidth.value * 0.055f).sp
+                    Column(
+                        Modifier.fillMaxWidth().onSizeChanged {
+                            clockBottom = ClockPreviewBounds(it.height.toFloat(), it.height.toFloat())
+                        }
+                            .padding(top = maxHeight * 0.1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(
+                            dateString(),
+                            color = if (onLight) Color(0xFF1C1C1E) else Color.White,
+                            fontSize = dateSize,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        ClockText(clock, clockHeight, fixedTime = fixedTime, onLight = onLight)
+                    }
+                }
+                ExtraInfoSettingsProvider(extraInfo) {
+                    val infoBottom = if (showExtraInfo)
+                        ExtraInfoWallpaperLayer(clockBottom?.layoutBottom, wallpaper)
+                        else clockBottom?.layoutBottom
+                    AppWidgetWallpaperLayer(infoBottom, clockBottom)
+                    if (showExtraInfo) IndependentInfoWallpaperLayer(wallpaper)
+                }
             }
-        }
-        ExtraInfoSettingsProvider(extraInfo) {
-            AppWidgetWallpaperLayer(if (showExtraInfo) ExtraInfoWallpaperLayer(clockBottom, wallpaper) else clockBottom)
-            if (showExtraInfo) IndependentInfoWallpaperLayer(wallpaper)
         }
     }
 }

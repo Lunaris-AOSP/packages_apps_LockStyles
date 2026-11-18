@@ -196,7 +196,7 @@ private fun CustomiseContent(
     ImmersiveEffect(fullScreen)
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
-    var clockBottom by remember(clock.face, clock.small) { mutableStateOf<Float?>(null) }
+    var clockBottom by remember(clock.face, clock.small) { mutableStateOf<ClockPreviewBounds?>(null) }
     if (showMaker) {
         ClockMakerScreen(clock.copy(face = ClockDesign.STYLE, tuning = tuning), wallpaper,
             initial.id, allowPhotoPicking, onCancel = { showMaker = false }, onSave = {
@@ -216,42 +216,46 @@ private fun CustomiseContent(
     LaunchedEffect(Unit) { appear.animateTo(1f, appearSpec) }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
-        LiveWallpaper(wallpaper, Modifier.fillMaxSize(), weather)
-        val onLight = rememberTopLight(wallpaper)
-        if (clock.face > 0) {
-            CustomClockLayer(clock, tuning = tuning, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
-            // The clock area stays tappable, as iOS lets you tap the clock to edit it.
-            Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f)
-                .semantics { contentDescription = editClockLabel }
-                .clickable(onClickLabel = editClockLabel) { openPanel(CustomizerTab.CLOCK) })
-        } else BoxWithConstraints(Modifier.fillMaxSize()) {
-            // Same proportions as the switcher's cards, so zooming in lines up.
-            val screenHeight = maxHeight
-            val dateSize = (maxWidth.value * 0.055f).sp
-            Column(
-                Modifier.fillMaxWidth().onSizeChanged { clockBottom = it.height.toFloat() }
-                    .padding(top = maxHeight * 0.1f),
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(dateString(), color = if (onLight) Color(0xFF1C1C1E) else Color.White,
-                    fontSize = dateSize, fontWeight = FontWeight.Medium)
-                // Framed, as iOS marks what can be edited.
-                Box(
-                    Modifier.clip(RoundedCornerShape(16.dp))
-                        .border(1.dp, Color(0x66FFFFFF).copy(alpha = 0.4f * appear.value),
-                            RoundedCornerShape(16.dp))
-                        .background(Color(0x14FFFFFF).copy(alpha = 0.08f * appear.value))
-                        .clickable(onClickLabel = editClockLabel) { openPanel(CustomizerTab.CLOCK) }
-                        .padding(horizontal = 16.dp),
-                ) {
-                    ClockText(clock, screenHeight * if (clock.small) 0.06f else 0.24f,
-                        fixedTime = false, onLight = onLight)
+        LockScreenPreviewLayout(Modifier.fillMaxSize()) {
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                LockScreenWallpaper(wallpaper, Modifier.fillMaxSize(), weather = weather)
+                val onLight = rememberTopLight(wallpaper)
+                if (clock.face > 0) {
+                    CustomClockLayer(clock, tuning = tuning, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
+                    Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f)
+                        .semantics { contentDescription = editClockLabel }
+                        .clickable(onClickLabel = editClockLabel) { openPanel(CustomizerTab.CLOCK) })
+                } else BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val screenHeight = maxHeight
+                    val dateSize = (maxWidth.value * 0.055f).sp
+                    Column(
+                        Modifier.fillMaxWidth().onSizeChanged {
+                            clockBottom = ClockPreviewBounds(it.height.toFloat(), it.height.toFloat())
+                        }
+                            .padding(top = maxHeight * 0.1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Text(dateString(), color = if (onLight) Color(0xFF1C1C1E) else Color.White,
+                            fontSize = dateSize, fontWeight = FontWeight.Medium)
+                        Box(
+                            Modifier.clip(RoundedCornerShape(16.dp))
+                                .border(1.dp, Color(0x66FFFFFF).copy(alpha = 0.4f * appear.value),
+                                    RoundedCornerShape(16.dp))
+                                .background(Color(0x14FFFFFF).copy(alpha = 0.08f * appear.value))
+                                .clickable(onClickLabel = editClockLabel) { openPanel(CustomizerTab.CLOCK) }
+                                .padding(horizontal = 16.dp),
+                        ) {
+                            ClockText(clock, screenHeight * if (clock.small) 0.06f else 0.24f,
+                                fixedTime = false, onLight = onLight)
+                        }
+                    }
                 }
+
+                val infoBottom = ExtraInfoWallpaperLayer(clockBottom?.layoutBottom, wallpaper)
+                AppWidgetWallpaperLayer(infoBottom, clockBottom)
+                IndependentInfoWallpaperLayer(wallpaper, fullScreen)
             }
         }
-
-        AppWidgetWallpaperLayer(ExtraInfoWallpaperLayer(clockBottom, wallpaper))
-        IndependentInfoWallpaperLayer(wallpaper, fullScreen)
 
         if (!fullScreen) Row(
             Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 20.dp,
@@ -633,13 +637,13 @@ internal fun ClockSheet(
                     SectionHeader(stringResource(R.string.home_clock_adjust))
                 }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    Box(Modifier.height(180.dp).aspectRatio(
-                        context.resources.displayMetrics.widthPixels.toFloat() /
-                            context.resources.displayMetrics.heightPixels)
+                    Box(Modifier.height(180.dp).aspectRatio(CustomClocks.geometry(context, true).aspect)
                         .clip(MaterialTheme.shapes.large)) {
-                        WallpaperImage(wallpaper, Modifier.fillMaxSize())
-                        CustomClockLayer(clock, tuning = layout.applyTo(tuning),
-                            wallpaper = wallpaper, homeScreen = true)
+                        LockScreenPreviewLayout(Modifier.fillMaxSize(), homeScreen = true) {
+                            WallpaperImage(wallpaper, Modifier.fillMaxSize())
+                            CustomClockLayer(clock, tuning = layout.applyTo(tuning),
+                                wallpaper = wallpaper, homeScreen = true)
+                        }
                     }
                 }
                 TuningSlider(stringResource(R.string.home_clock_size), layout.scale, 25..150,
@@ -1106,7 +1110,7 @@ private fun HomeDialog(
                         modifier = Modifier.width(88.dp).clip(MaterialTheme.shapes.medium).clickable { onPick(style) }) {
                         val shape = RoundedCornerShape(12.dp)
                         val base = Color(dominant ?: 0xFF444444.toInt())
-                        Box(Modifier.fillMaxWidth().aspectRatio(0.46f).clip(shape)
+                        Box(Modifier.fillMaxWidth().aspectRatio(CustomClocks.geometry(context, true).aspect).clip(shape)
                             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)) {
                             when (style) {
                                 HomeStyle.PAIR -> WallpaperImage(wallpaper, Modifier.fillMaxSize())

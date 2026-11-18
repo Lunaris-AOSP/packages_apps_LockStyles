@@ -51,6 +51,16 @@ class GalleryStore private constructor(private val context: Context) {
         save(current.copy(extraInfo = ExtraInfoSettings.load(context)))
     }
 
+    @Synchronized
+    fun syncCurrentSettings() {
+        val current = lockScreens.firstOrNull { it.id == currentId } ?: return
+        val applied = current.copy(
+            clock = CustomClocks.appliedStyle(context, current.clock),
+            extraInfo = ExtraInfoSettings.load(context),
+        )
+        if (applied != current) save(applied)
+    }
+
     fun addListener(listener: () -> Unit) {
         listeners += listener
     }

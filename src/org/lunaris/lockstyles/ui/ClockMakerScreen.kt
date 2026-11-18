@@ -342,58 +342,60 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
         BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
             val preview: @Composable (Modifier) -> Unit = { pane ->
                 BoxWithConstraints(pane.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), contentAlignment = Alignment.Center) {
-                    val aspect = context.resources.displayMetrics.widthPixels.toFloat() / context.resources.displayMetrics.heightPixels
+                    val aspect = CustomClocks.geometry(context).aspect
                     val previewWidth = minOf(maxWidth, maxHeight * aspect)
                     val previewShape = MaterialTheme.shapes.extraLarge
                     Box(Modifier.size(previewWidth, previewWidth / aspect)
                         .clip(previewShape)
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f), previewShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
-                        if (!previewAod) LiveWallpaper(wallpaper, Modifier.fillMaxSize())
-                        else {
-                            Box(Modifier.fillMaxSize().background(Color.Black))
-                            Surface(
-                                color = Color.Black.copy(alpha = 0.72f),
-                                shape = MaterialTheme.shapes.large,
-                                modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
-                            ) {
-                                Text(
-                                    stringResource(R.string.clock_maker_preview_aod_paused),
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                )
-                            }
-                        }
-                        MakerClockLayer(clock, tuning, wallpaper = wallpaper, dozing = previewAod, selectedId = selectedId, onSelect = { selectedId = it },
-                            onMove = { id, x, y ->
-                                if (!dragging) { undo = (undo + design).takeLast(50); dragging = true }
-                                change(design.copy(elements = design.elements.map {
-                                    if (it.id == id) it.copy(x = x, y = y) else it
-                                }), record = false)
-                            }, onDragFinished = { dragging = false },
-                            onPositioningChanged = { positioning = it },
-                            onPinchStart = if (!fullScreenEditor) null else { {
-                                pinchBase = design.elements.firstOrNull { it.id == selectedId }
-                                pinchRecorded = false
-                            } },
-                            onPinch = if (!fullScreenEditor) null else { { factor ->
-                                pinchBase?.let { base ->
-                                    val scaled = if (base.kind == ClockElementKind.IMAGE) {
-                                        base.resizeImage(
-                                            width = (base.imageWidth * factor).roundToInt().coerceIn(16, 360),
-                                            height = (base.imageHeight * factor).roundToInt().coerceIn(16, 720))
-                                    } else base.copy(size = (base.size * factor).roundToInt().coerceIn(8, 200))
-                                    val next = design.copy(elements = design.elements.map {
-                                        if (it.id == scaled.id) scaled else it
-                                    })
-                                    if (next != design) {
-                                        change(next, record = !pinchRecorded)
-                                        pinchRecorded = true
-                                    }
+                        LockScreenPreviewLayout(Modifier.fillMaxSize()) {
+                            if (!previewAod) LockScreenWallpaper(wallpaper, Modifier.fillMaxSize())
+                            else {
+                                Box(Modifier.fillMaxSize().background(Color.Black))
+                                Surface(
+                                    color = Color.Black.copy(alpha = 0.72f),
+                                    shape = MaterialTheme.shapes.large,
+                                    modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
+                                ) {
+                                    Text(
+                                        stringResource(R.string.clock_maker_preview_aod_paused),
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    )
                                 }
-                            } },
-                            onPinchEnd = if (!fullScreenEditor) null else { { pinchBase = null } })
+                            }
+                            MakerClockLayer(clock, tuning, wallpaper = wallpaper, dozing = previewAod, selectedId = selectedId, onSelect = { selectedId = it },
+                                onMove = { id, x, y ->
+                                    if (!dragging) { undo = (undo + design).takeLast(50); dragging = true }
+                                    change(design.copy(elements = design.elements.map {
+                                        if (it.id == id) it.copy(x = x, y = y) else it
+                                    }), record = false)
+                                }, onDragFinished = { dragging = false },
+                                onPositioningChanged = { positioning = it },
+                                onPinchStart = if (!fullScreenEditor) null else { {
+                                    pinchBase = design.elements.firstOrNull { it.id == selectedId }
+                                    pinchRecorded = false
+                                } },
+                                onPinch = if (!fullScreenEditor) null else { { factor ->
+                                    pinchBase?.let { base ->
+                                        val scaled = if (base.kind == ClockElementKind.IMAGE) {
+                                            base.resizeImage(
+                                                width = (base.imageWidth * factor).roundToInt().coerceIn(16, 360),
+                                                height = (base.imageHeight * factor).roundToInt().coerceIn(16, 720))
+                                        } else base.copy(size = (base.size * factor).roundToInt().coerceIn(8, 200))
+                                        val next = design.copy(elements = design.elements.map {
+                                            if (it.id == scaled.id) scaled else it
+                                        })
+                                        if (next != design) {
+                                            change(next, record = !pinchRecorded)
+                                            pinchRecorded = true
+                                        }
+                                    }
+                                } },
+                                onPinchEnd = if (!fullScreenEditor) null else { { pinchBase = null } })
+                        }
                     }
                 }
             }

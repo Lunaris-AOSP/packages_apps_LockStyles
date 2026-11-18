@@ -44,7 +44,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -62,7 +61,7 @@ import org.lunaris.extrainfowidgets.ExtraInfoLayout
 import org.lunaris.extrainfowidgets.InfoData
 import org.lunaris.extrainfowidgets.InfoWidget
 import org.lunaris.lockstyles.ClockStyle
-import org.lunaris.lockstyles.GalleryApplier
+import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryStore
 import org.lunaris.lockstyles.GalleryWallpaper
@@ -79,6 +78,8 @@ import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.ui.LockScreenCard
+import org.lunaris.lockstyles.ui.LockScreenPreviewLayout
+import org.lunaris.lockstyles.ui.lockScreenWallpaperBitmap
 import org.lunaris.lockstyles.ui.holdPreview
 import org.lunaris.lockstyles.ui.rememberClockGlass
 
@@ -95,22 +96,19 @@ internal fun IndependentInfoPreview(
     onPinchEnd: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val screenWidth =
-        remember(context, LocalConfiguration.current) {
-            GalleryApplier.screenSize(context).first.coerceAtLeast(1)
-        }
+    val geometry = CustomClocks.geometry(context)
     val appearance = extraInfoAppearance()
     val glass = rememberClockGlass(wallpaper, appearance.liquidGlass, listOf(appearance.glassStyle.blurRadius))
     BoxWithConstraints(modifier) {
         val width = constraints.maxWidth
         val height = constraints.maxHeight
         val bitmap by
-            produceState<Bitmap?>(null, wallpaper, width, height, appearance.axBlur) {
+            produceState<Bitmap?>(null, wallpaper, width, height, appearance.axBlur, geometry) {
                 value =
                     if (appearance.axBlur && width > 0 && height > 0) {
                         withContext(Dispatchers.Default) {
                             runCatching {
-                                    GalleryRenderer.toBitmap(context, wallpaper, width, height)
+                                    lockScreenWallpaperBitmap(context, wallpaper, width, height, geometry)
                                 }
                                 .getOrNull()
                         }
@@ -131,7 +129,12 @@ internal fun IndependentInfoPreview(
                 it.widgets.appearance = appearance
                 it.setGlassMaterial(glass)
                 it.setGlassEnabled(appearance.liquidGlass)
-                it.widgets.previewScale = width / screenWidth.toFloat()
+                val scale = width / geometry.screenWidth.toFloat()
+                it.setContentBounds((geometry.contentLeft * scale).roundToInt(),
+                    (geometry.contentTop * scale).roundToInt(),
+                    (geometry.contentWidth * scale).roundToInt(),
+                    (geometry.contentHeight * scale).roundToInt())
+                it.widgets.previewScale = scale
                 it.widgets.editable = onEdit != null
                 it.widgets.selectedId = selected
                 it.widgets.onSelected = onSelected
@@ -208,24 +211,24 @@ private fun PositionPreview(
     onPinchEnd: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
-    val screen =
-        remember(context, LocalConfiguration.current) { GalleryApplier.screenSize(context) }
-    val aspect = screen.first.toFloat() / screen.second.coerceAtLeast(1)
+    val aspect = CustomClocks.geometry(context).aspect
     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         val width = minOf(maxWidth, maxHeight * aspect)
         Box(Modifier.size(width, width / aspect).clip(RoundedCornerShape(20.dp))) {
-            LockScreenCard(wallpaper, clock, Modifier.fillMaxSize(), showExtraInfo = false)
-            IndependentInfoPreview(
-                layout,
-                wallpaper,
-                Modifier.fillMaxSize(),
-                selected,
-                onSelected,
-                onEdit,
-                onPinchStart,
-                onPinch,
-                onPinchEnd,
-            )
+            LockScreenPreviewLayout(Modifier.fillMaxSize()) {
+                LockScreenCard(wallpaper, clock, Modifier.fillMaxSize(), showExtraInfo = false)
+                IndependentInfoPreview(
+                    layout,
+                    wallpaper,
+                    Modifier.fillMaxSize(),
+                    selected,
+                    onSelected,
+                    onEdit,
+                    onPinchStart,
+                    onPinch,
+                    onPinchEnd,
+                )
+            }
         }
     }
 }

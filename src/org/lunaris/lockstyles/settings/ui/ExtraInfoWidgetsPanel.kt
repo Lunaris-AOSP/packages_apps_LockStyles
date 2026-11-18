@@ -81,6 +81,8 @@ fun ExtraInfoPreview(
     glassMaterial: ClockGlass? = null,
     sampleWhenEmpty: Boolean = false,
     showBackdrop: Boolean = false,
+    contentLeft: Int = 0,
+    contentWidth: Int? = null,
 ) {
     val context = LocalContext.current
     val catalog = remember(context) { ExtraInfoCatalog.load(context) }
@@ -91,6 +93,7 @@ fun ExtraInfoPreview(
         factory = { ExtraInfoPreviewHost(it) },
         modifier = modifier.fillMaxWidth(),
         update = {
+            it.setContentBounds(contentLeft, contentWidth)
             it.showBackdrop(showBackdrop)
             it.wallpaper = wallpaper
             it.wallpaperOffset = wallpaperOffset

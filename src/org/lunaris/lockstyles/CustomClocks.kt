@@ -10,6 +10,7 @@ import android.graphics.LinearGradient
 import android.graphics.Paint
 import android.graphics.RenderNode
 import android.graphics.Shader
+import android.os.Bundle
 import android.provider.Settings
 import android.util.AttributeSet
 import android.util.Log
@@ -18,6 +19,7 @@ import android.view.ContextThemeWrapper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextClock
 import android.widget.TextView
@@ -25,9 +27,15 @@ import org.json.JSONObject
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockEffects
 import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.clockmaker.ClockGlassController
 import org.lunaris.clockmaker.ClockGlassStyle
+import org.lunaris.clockmaker.ClockPreviewGeometry
+import org.lunaris.clockmaker.ClockViewTransform
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 /**
  * The custom lock screen clock styles from Singularity. SystemUI owns the layouts that are
@@ -67,11 +75,11 @@ object CustomClocks {
     private const val KEY_WOBBLE = "lock_screen_custom_clock_wobble_on_charge"
     private const val KEY_WEATHER = "custom_clock_weather"
     private const val COLOR_MODE_ACCENT = "accent"
-    private const val PREVIEW_SHADOW = 0x59000000
 
     /** Styles whose colours SystemUI never changes. */
     private val NO_COLOR = setOf(1, 2, 25, 26)
     private val NO_HORIZONTAL_MARGIN = setOf(45, 73, 74)
+    private var measuredGeometry by mutableStateOf<ClockPreviewGeometry?>(null)
 
     private class Catalogue(
         val names: List<String>,
@@ -179,9 +187,9 @@ object CustomClocks {
                     shadowOpacity = json.optInt("shadowOpacity", d.shadowOpacity).coerceIn(0, 100),
                     marginTop = json.optInt("marginTop", d.marginTop),
                     marginStart = json.optInt("marginStart", d.marginStart),
-                    rotation = json.optInt("rotation", d.rotation),
-                    tiltX = json.optInt("tiltX", d.tiltX),
-                    tiltY = json.optInt("tiltY", d.tiltY),
+                    rotation = json.optInt("rotation", d.rotation).coerceIn(-180, 180),
+                    tiltX = json.optInt("tiltX", d.tiltX).coerceIn(-75, 75),
+                    tiltY = json.optInt("tiltY", d.tiltY).coerceIn(-75, 75),
                     hyperBlur = json.optBoolean("hyperBlur", d.hyperBlur),
                     textGlass = json.optBoolean("textGlass", d.textGlass),
                     glassIntensity = json.optInt("glassIntensity", d.glassIntensity).coerceIn(0, 100),
@@ -304,6 +312,68 @@ object CustomClocks {
     fun supportsHyperBlur(style: Int) = style in 93..102
     fun supportsTextGlass(style: Int) = style in 1..92 && isColourable(style)
 
+    fun refreshPreviewGeometry(context: Context) {
+        val display = runCatching { context.display?.displayId ?: 0 }.getOrDefault(0)
+        val result = runCatching {
+            context.contentResolver.call(ClockPreviewGeometry.URI, ClockPreviewGeometry.METHOD,
+                null, Bundle().apply { putInt("display_id", display) })
+                ?.let(ClockPreviewGeometry::fromBundle)
+        }.getOrNull()
+        if (result != null) measuredGeometry = result
+    }
+
+    fun geometry(context: Context, homeScreen: Boolean = false): ClockPreviewGeometry {
+        val metrics = context.resources.displayMetrics
+        val bounds = context.getSystemService(WindowManager::class.java)!!.maximumWindowMetrics.bounds
+        val width = bounds.width().coerceAtLeast(1)
+        val height = bounds.height().coerceAtLeast(1)
+        val display = runCatching { context.display?.displayId ?: 0 }.getOrDefault(0)
+        if (!homeScreen) measuredGeometry?.takeIf {
+            it.displayId == display && it.userId == context.userId &&
+                ((it.screenWidth == width && it.screenHeight == height) ||
+                    (it.screenWidth == height && it.screenHeight == width)) && it.density == metrics.density
+        }?.let { return it }
+        val res = load(context)?.systemUi?.resources
+        fun dimen(name: String, fallbackDp: Float): Int {
+            val id = res?.getIdentifier(name, "dimen", SYSTEMUI) ?: 0
+            return if (id != 0) res!!.getDimensionPixelSize(id) else (fallbackDp * metrics.density).toInt()
+        }
+        val statusBarTop = dimen("status_bar_height", 28f) * 1.25f
+        val side = dimen("below_clock_padding_start", 32f)
+        val zoomEnabled = !homeScreen && runCatching {
+            Settings.System.getInt(context.contentResolver, Settings.System.WALLPAPER_ZOOM_ENABLED, 1) != 0 &&
+                Settings.System.getInt(context.contentResolver,
+                    Settings.System.LOCKSCREEN_WALLPAPER_ZOOM_ENABLED, 1) != 0
+        }.getOrDefault(true)
+        val wallpaperScale = if (zoomEnabled) runCatching {
+            context.resources.getFloat(com.android.internal.R.dimen.config_wallpaperMaxScale)
+        }.getOrDefault(1f) else 1f
+        return ClockPreviewGeometry(display, context.userId, width, height, side,
+            statusBarTop.toInt(), (width - side * 2).coerceAtLeast(1), statusBarTop, metrics.density,
+            wallpaperScale = wallpaperScale)
+    }
+
+    fun appliedStyle(context: Context, fallback: ClockStyle): ClockStyle = runCatching {
+        val cr = context.contentResolver
+        val face = Settings.Secure.getInt(cr, KEY_STYLE, fallback.face)
+            .coerceIn(0, ClockCatalogue.entries.lastIndex)
+        if (face == 0) return@runCatching StockClock.load(context)
+        val tuning = Tuning.load(context)
+        val size = Settings.Secure.getString(cr, HomeClockLayout.SIZE_SETTING)?.toIntOrNull()
+        val top = Settings.Secure.getString(cr, HomeClockLayout.TOP_SETTING)?.toIntOrNull()
+        val start = Settings.Secure.getString(cr, HomeClockLayout.START_SETTING)?.toIntOrNull()
+        fallback.copy(face = face, tuning = tuning,
+            color = if (Settings.Secure.getString(cr, KEY_COLOR_MODE) == "custom")
+                Settings.Secure.getInt(cr, KEY_CUSTOM_COLOR, Color.WHITE) else null,
+            design = if (face == ClockDesign.STYLE)
+                ClockDesign.parse(Settings.Secure.getString(cr, ClockDesign.SETTING)) ?: ClockDesign() else null,
+            showOnHomeScreen = Settings.Secure.getInt(cr, "lock_screen_home_clock_enabled", 0) != 0,
+            homeLayout = if (size != null || top != null || start != null) HomeClockLayout(
+                (size ?: tuning.scale).coerceIn(25, 150), (top ?: tuning.marginTop).coerceIn(0, 2000),
+                (start ?: tuning.marginStart).coerceIn(-2000, 2000)) else null,
+        )
+    }.getOrDefault(fallback)
+
     private fun shadowPadding(context: Context, tuning: Tuning?): Int {
         if (tuning == null || Color.alpha(tuning.shadowArgb) == 0) return 0
         return ceil((tuning.shadowSoftness.coerceIn(0, 30) * 2f + 2f) *
@@ -312,21 +382,12 @@ object CustomClocks {
 
     fun frame(context: Context, tuning: Tuning = Tuning.load(context), style: Int = 0,
         homeScreen: Boolean = false): Frame {
-        val density = context.resources.displayMetrics.density
-        val screen = context.resources.displayMetrics.widthPixels
-        val res = load(context)?.systemUi?.resources
-        fun dimen(name: String, fallbackDp: Float): Int {
-            val id = res?.getIdentifier(name, "dimen", SYSTEMUI) ?: 0
-            return if (id != 0) res!!.getDimensionPixelSize(id) else (fallbackDp * density).toInt()
-        }
-        val statusBar = dimen("status_bar_height", 28f)
-        val side = dimen("below_clock_padding_start", 32f)
+        val geometry = geometry(context, homeScreen)
         return Frame(
-            top = (statusBar * 1.25f + tuning.marginTop * density).toInt(),
-            side = side + if (homeScreen || supportsHorizontalMargin(style)) {
-                (tuning.marginStart * density).toInt()
-            } else 0,
-            width = screen - side * 2,
+            top = geometry.top(tuning.marginTop.coerceIn(0, if (homeScreen) 2000 else 200)),
+            side = geometry.left(if (homeScreen || supportsHorizontalMargin(style))
+                tuning.marginStart.coerceIn(if (homeScreen) -2000 else -200, if (homeScreen) 2000 else 200) else 0),
+            width = geometry.clockWidth,
             scale = tuning.scale.coerceIn(if (homeScreen) 25 else 50, 150) / 100f,
             alpha = tuning.opacity.coerceIn(0, 100) / 100f,
         )
@@ -342,7 +403,8 @@ object CustomClocks {
         if (style <= 0) return null
         val minute = System.currentTimeMillis() / 60_000
         val assetsSeq = context.resources.configuration.assetsSeq
-        val key = "$style/$width/$color/$minute/$trim/$tuning/$assetsSeq/$homeScreen/${System.identityHashCode(glassBackground)}"
+        val geometry = geometry(context, homeScreen)
+        val key = "$style/$width/$color/$minute/$trim/$tuning/$assetsSeq/$homeScreen/$geometry/${System.identityHashCode(glassBackground)}"
         previews.get(key)?.let { return it }
         val cat = load(context) ?: return null
         if (style >= cat.layouts.size) return null
@@ -350,8 +412,7 @@ object CustomClocks {
             val inflater = LayoutInflater.from(cat.inflateContext).cloneInContext(
                 cat.inflateContext).apply { factory2 = SystemUiViews(cat.systemUi?.classLoader) }
             val view = inflater.inflate(cat.layouts[style], null)
-            prepare(view, if (isColourable(style)) color ?: Color.WHITE else null,
-                tuning?.shadowEnabled == true)
+            prepare(view, if (isColourable(style)) color ?: Color.WHITE else null)
             view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
             view.layout(0, 0, view.measuredWidth, view.measuredHeight)
@@ -363,19 +424,14 @@ object CustomClocks {
                 val frame = frame(context, tuning, style, homeScreen)
                 val stage = FrameLayout(context)
                 stage.addView(view)
-                stage.layout(0, 0, context.resources.displayMetrics.widthPixels,
-                    context.resources.displayMetrics.heightPixels)
+                stage.layout(0, 0, geometry.screenWidth, geometry.screenHeight)
                 view.layout(frame.side, frame.top, frame.side + view.measuredWidth,
                     frame.top + view.measuredHeight)
                 view.pivotX = view.width / 2f
                 view.pivotY = view.height / 2f
                 view.scaleX = frame.scale
                 view.scaleY = frame.scale
-                view.rotation = tuning.rotation.toFloat()
-                view.rotationX = tuning.tiltX.toFloat()
-                view.rotationY = tuning.tiltY.toFloat()
-                view.cameraDistance = maxOf(maxOf(view.width, view.height) * 4f,
-                    1280f * context.resources.displayMetrics.density)
+                ClockViewTransform.applyClockTransform(view, tuning.rotation, tuning.tiltX, tuning.tiltY)
                 ClockGlassController(view).apply {
                     setPreview(glassBackground, stage)
                     fun collect(child: View) {
@@ -391,8 +447,7 @@ object CustomClocks {
                 }
             } else null
             val padding = shadowPadding(context, tuning)
-            val bitmap = drawPreview(view, padding, glass)
-            val preview = addShadow(bitmap, context, tuning)
+            val preview = drawPreview(view, padding, glass, tuning)
             (if (trim) trimmed(preview) else preview)
                 ?.also { previews.put(key, it) }
         } catch (e: Exception) {
@@ -401,15 +456,18 @@ object CustomClocks {
         }
     }
 
-    private fun drawPreview(view: View, padding: Int, glass: ClockGlassController?): Bitmap {
+    private fun drawPreview(view: View, padding: Int, glass: ClockGlassController?, tuning: Tuning?): Bitmap {
         val width = view.measuredWidth + padding * 2
         val height = view.measuredHeight + padding * 2
-        if (glass != null) {
+        val effect = if (tuning?.shadowEnabled == true) ClockEffects.shadow(tuning.shadowColor,
+            tuning.shadowOpacity, tuning.shadowSoftness, view.resources.displayMetrics.density) else null
+        if (glass != null || effect != null) {
             // The glyph shader can disappear on a software Canvas after hiding the text.
             // Render it on the GPU, then copy back for shadow extraction and tile cropping.
             val node = RenderNode("ClockGlassPreview")
             try {
                 node.setPosition(0, 0, width, height)
+                node.setRenderEffect(effect)
                 val canvas = node.beginRecording(width, height)
                 try {
                     canvas.translate(padding.toFloat(), padding.toFloat())
@@ -427,14 +485,15 @@ object CustomClocks {
                 Log.w(TAG, "Could not render glass preview; drawing plain text", e)
             } finally {
                 node.discardDisplayList()
-                glass.clear()
+                glass?.clear()
             }
         }
-        return Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also {
             val canvas = Canvas(it)
             canvas.translate(padding.toFloat(), padding.toFloat())
             view.draw(canvas)
         }
+        return addShadow(bitmap, view.context, tuning)
     }
 
     /**
@@ -463,7 +522,7 @@ object CustomClocks {
             onCreateView(null, name, context, attrs)
     }
 
-    private fun prepare(view: View, color: Int?, customShadow: Boolean) {
+    private fun prepare(view: View, color: Int?) {
         if (view is TextView) {
             // Detached views never tick, and single-line centred text is only scrolled into
             // place once attached, so both are done by hand.
@@ -476,16 +535,11 @@ object CustomClocks {
             if (color != null && (view.currentTextColor and 0xFFFFFF) == 0xFFFFFF) {
                 view.setTextColor(color)
             }
-            // The lock screen dims the wallpaper behind the clock and the previews don't, so
-            // white clocks vanish on light wallpapers without this.
-            if (!customShadow) {
-                view.setShadowLayer(view.textSize * 0.08f, 0f, view.textSize * 0.02f, PREVIEW_SHADOW)
-            }
         }
         if (view is ViewGroup) {
             view.clipChildren = false
             view.clipToPadding = false
-            for (i in 0 until view.childCount) prepare(view.getChildAt(i), color, customShadow)
+            for (i in 0 until view.childCount) prepare(view.getChildAt(i), color)
         }
     }
 

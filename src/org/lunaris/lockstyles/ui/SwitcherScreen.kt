@@ -61,6 +61,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.contentDescription
@@ -73,6 +74,7 @@ import kotlin.math.abs
 import kotlin.math.min
 import kotlinx.coroutines.launch
 import org.lunaris.lockstyles.GalleryRenderer
+import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryStore
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWallpaper.Kind
@@ -113,6 +115,7 @@ fun SwitcherScreen(
     onDelete: (LockScreen) -> Unit,
     onClock: (LockScreen) -> Unit,
 ) {
+    val aspect = CustomClocks.geometry(LocalContext.current).aspect
     var changes by remember { mutableIntStateOf(0) }
     DisposableEffect(store) {
         val listener: () -> Unit = { changes++ }
@@ -235,7 +238,7 @@ fun SwitcherScreen(
                     LaunchedEffect(isCurrent) { if (!isCurrent) drag = 0f }
                     val lift by animateFloatAsState(drag, animationSpec = spring, label = "lift")
                     BoxWithConstraints(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        val previewWidth = minOf(maxWidth, maxHeight * 0.46f)
+                        val previewWidth = minOf(maxWidth, maxHeight * aspect)
                         val revealDistance = with(LocalDensity.current) { 112.dp.toPx() }
                         val revealThreshold = with(LocalDensity.current) { 40.dp.toPx() }
                         val label = stringResource(wallpaperLabel(lockScreen.wallpaper))
@@ -262,7 +265,7 @@ fun SwitcherScreen(
                             corner = 36.dp,
                             modifier = Modifier
                                 .width(previewWidth)
-                                .aspectRatio(0.46f)
+                                .aspectRatio(aspect)
                                 .semantics(mergeDescendants = true) {
                                     contentDescription = label
                                     customActions = if (interactive) listOf(CustomAccessibilityAction(deleteLabel) {

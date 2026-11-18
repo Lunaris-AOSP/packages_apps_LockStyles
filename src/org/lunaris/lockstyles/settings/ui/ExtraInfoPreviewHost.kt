@@ -149,6 +149,8 @@ private class ExtraInfoBackdrop(context: Context) : View(context) {
 internal class ExtraInfoPreviewHost(context: Context) : FrameLayout(context) {
     val grid = ExtraInfoGridView(context)
     private val source = ExtraInfoBackdrop(context)
+    private var contentLeft = 0
+    private var contentWidth: Int? = null
     var wallpaper: Bitmap?
         get() = source.wallpaper
         set(value) {
@@ -178,16 +180,31 @@ internal class ExtraInfoPreviewHost(context: Context) : FrameLayout(context) {
         source.visibility = if (visible) VISIBLE else INVISIBLE
     }
 
+    fun setContentBounds(left: Int, width: Int?) {
+        if (contentLeft == left && contentWidth == width) return
+        contentLeft = left
+        contentWidth = width
+        requestLayout()
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-        grid.measure(widthMeasureSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
+        val gridWidthSpec = contentWidth?.let {
+            MeasureSpec.makeMeasureSpec(it.coerceAtLeast(1), MeasureSpec.EXACTLY)
+        } ?: widthMeasureSpec
+        grid.measure(gridWidthSpec, MeasureSpec.makeMeasureSpec(0, MeasureSpec.UNSPECIFIED))
         setMeasuredDimension(
-            grid.measuredWidth,
+            resolveSize(grid.measuredWidth, widthMeasureSpec),
             resolveSize(grid.measuredHeight, heightMeasureSpec),
         )
         val widthSpec = MeasureSpec.makeMeasureSpec(measuredWidth, MeasureSpec.EXACTLY)
         val heightSpec = MeasureSpec.makeMeasureSpec(measuredHeight, MeasureSpec.EXACTLY)
         source.measure(widthSpec, heightSpec)
-        grid.measure(widthSpec, heightSpec)
+        grid.measure(gridWidthSpec, heightSpec)
+    }
+
+    override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
+        source.layout(0, 0, measuredWidth, measuredHeight)
+        grid.layout(contentLeft, 0, contentLeft + grid.measuredWidth, grid.measuredHeight)
     }
 
     fun refreshSource() {
@@ -265,4 +282,15 @@ internal class ExtraInfoFreeformPreviewHost(context: Context) : FrameLayout(cont
     fun setGlassEnabled(enabled: Boolean) { source.glassEnabled = enabled }
 
     fun setGlassMaterial(material: ClockGlass?) { source.setGlassMaterial(material) }
+
+    fun setContentBounds(left: Int, top: Int, width: Int, height: Int) {
+        val params = widgets.layoutParams as LayoutParams
+        if (params.leftMargin == left && params.topMargin == top &&
+            params.width == width && params.height == height) return
+        params.leftMargin = left
+        params.topMargin = top
+        params.width = width.coerceAtLeast(1)
+        params.height = height.coerceAtLeast(1)
+        widgets.layoutParams = params
+    }
 }

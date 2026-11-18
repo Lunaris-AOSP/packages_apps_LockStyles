@@ -125,11 +125,18 @@ class LockScreenGalleryActivity : ComponentActivity() {
         launchRequest = requestFor(intent, 0)
         updateWindowForEntry()
         val store = GalleryStore.get(this)
+        val generation = launchGeneration
         lifecycleScope.launch {
             try {
-                withContext(Dispatchers.IO) { adoptCurrentWallpaper(store) }
+                withContext(Dispatchers.IO) {
+                    applyMutex.withLock {
+                        CustomClocks.refreshPreviewGeometry(this@LockScreenGalleryActivity)
+                        adoptCurrentWallpaper(store)
+                        store.syncCurrentSettings()
+                    }
+                }
             } finally {
-                initializing = false
+                if (launchGeneration == generation) initializing = false
             }
         }
         setContent {
@@ -442,6 +449,12 @@ class LockScreenGalleryActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshDeviceLocked()
+        if (!initializing && !applying) lifecycleScope.launch(Dispatchers.IO) {
+            applyMutex.withLock {
+                CustomClocks.refreshPreviewGeometry(this@LockScreenGalleryActivity)
+                GalleryStore.get(this@LockScreenGalleryActivity).syncCurrentSettings()
+            }
+        }
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -454,6 +467,20 @@ class LockScreenGalleryActivity : ComponentActivity() {
         setIntent(intent)
         launchRequest = requestFor(intent, ++launchGeneration)
         updateWindowForEntry()
+        initializing = true
+        val generation = launchGeneration
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    applyMutex.withLock {
+                        CustomClocks.refreshPreviewGeometry(this@LockScreenGalleryActivity)
+                        GalleryStore.get(this@LockScreenGalleryActivity).syncCurrentSettings()
+                    }
+                }
+            } finally {
+                if (launchGeneration == generation) initializing = false
+            }
+        }
     }
 
     private fun requestFor(intent: Intent, generation: Int) = LaunchRequest(
@@ -641,6 +668,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
             try {
                 store.saveInitial(LockScreen(store.newId(),
                     GalleryWallpaper(Kind.PHOTO, photos = listOf(path)),
+                    clock = CustomClocks.appliedStyle(this, ClockStyle()),
                     extraInfo = ExtraInfoSettings.load(this)))
             } finally {
                 store.discardImportedPhotos(listOf(path))
