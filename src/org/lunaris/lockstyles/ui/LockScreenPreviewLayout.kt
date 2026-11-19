@@ -4,11 +4,18 @@
  */
 package org.lunaris.lockstyles.ui
 
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
+import android.provider.Settings
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.layout.Layout
@@ -18,6 +25,7 @@ import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.constrainWidth
 import org.lunaris.lockstyles.CustomClocks
+import org.lunaris.clockmaker.ClockPreviewGeometry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
@@ -31,7 +39,25 @@ internal fun LockScreenPreviewLayout(
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
     val geometry = CustomClocks.geometry(context, homeScreen)
-    LaunchedEffect(context, configuration, homeScreen) {
+    val refreshVersion = remember(context) { mutableIntStateOf(0) }
+    DisposableEffect(context, homeScreen) {
+        if (homeScreen) return@DisposableEffect onDispose {}
+        val resolver = context.contentResolver
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                CustomClocks.refreshPreviewWallpaperZoom(context)
+                refreshVersion.intValue++
+            }
+        }
+        resolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.WALLPAPER_ZOOM_ENABLED), false, observer)
+        resolver.registerContentObserver(
+            Settings.System.getUriFor(Settings.System.LOCKSCREEN_WALLPAPER_ZOOM_ENABLED), false, observer)
+        resolver.registerContentObserver(ClockPreviewGeometry.URI, false, observer)
+        CustomClocks.refreshPreviewWallpaperZoom(context)
+        onDispose { resolver.unregisterContentObserver(observer) }
+    }
+    LaunchedEffect(context, configuration, homeScreen, refreshVersion.intValue) {
         if (!homeScreen) withContext(Dispatchers.IO) { CustomClocks.refreshPreviewGeometry(context) }
     }
     Layout(modifier = modifier, content = { Box(Modifier.fillMaxSize(), content = content) }) {

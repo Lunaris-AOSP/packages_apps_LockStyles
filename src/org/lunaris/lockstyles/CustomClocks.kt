@@ -80,6 +80,7 @@ object CustomClocks {
     private val NO_COLOR = setOf(1, 2, 25, 26)
     private val NO_HORIZONTAL_MARGIN = setOf(45, 73, 74)
     private var measuredGeometry by mutableStateOf<ClockPreviewGeometry?>(null)
+    private var previewWallpaperZoomEnabled by mutableStateOf<Boolean?>(null)
 
     private class Catalogue(
         val names: List<String>,
@@ -312,7 +313,19 @@ object CustomClocks {
     fun supportsHyperBlur(style: Int) = style in 93..102
     fun supportsTextGlass(style: Int) = style in 1..92 && isColourable(style)
 
+    private fun readWallpaperZoomEnabled(context: Context): Boolean = runCatching {
+        Settings.System.getInt(context.contentResolver, Settings.System.WALLPAPER_ZOOM_ENABLED, 1) != 0 &&
+            Settings.System.getInt(context.contentResolver,
+                Settings.System.LOCKSCREEN_WALLPAPER_ZOOM_ENABLED, 1) != 0
+    }.getOrDefault(true)
+
+    fun refreshPreviewWallpaperZoom(context: Context) {
+        previewWallpaperZoomEnabled = readWallpaperZoomEnabled(context)
+    }
+
+    @Synchronized
     fun refreshPreviewGeometry(context: Context) {
+        refreshPreviewWallpaperZoom(context)
         val display = runCatching { context.display?.displayId ?: 0 }.getOrDefault(0)
         val result = runCatching {
             context.contentResolver.call(ClockPreviewGeometry.URI, ClockPreviewGeometry.METHOD,
@@ -328,11 +341,13 @@ object CustomClocks {
         val width = bounds.width().coerceAtLeast(1)
         val height = bounds.height().coerceAtLeast(1)
         val display = runCatching { context.display?.displayId ?: 0 }.getOrDefault(0)
+        val zoomEnabled = !homeScreen &&
+            (previewWallpaperZoomEnabled ?: readWallpaperZoomEnabled(context))
         if (!homeScreen) measuredGeometry?.takeIf {
             it.displayId == display && it.userId == context.userId &&
                 ((it.screenWidth == width && it.screenHeight == height) ||
                     (it.screenWidth == height && it.screenHeight == width)) && it.density == metrics.density
-        }?.let { return it }
+        }?.let { return if (zoomEnabled) it else it.copy(wallpaperScale = 1f) }
         val res = load(context)?.systemUi?.resources
         fun dimen(name: String, fallbackDp: Float): Int {
             val id = res?.getIdentifier(name, "dimen", SYSTEMUI) ?: 0
@@ -340,11 +355,6 @@ object CustomClocks {
         }
         val statusBarTop = dimen("status_bar_height", 28f) * 1.25f
         val side = dimen("below_clock_padding_start", 32f)
-        val zoomEnabled = !homeScreen && runCatching {
-            Settings.System.getInt(context.contentResolver, Settings.System.WALLPAPER_ZOOM_ENABLED, 1) != 0 &&
-                Settings.System.getInt(context.contentResolver,
-                    Settings.System.LOCKSCREEN_WALLPAPER_ZOOM_ENABLED, 1) != 0
-        }.getOrDefault(true)
         val wallpaperScale = if (zoomEnabled) runCatching {
             context.resources.getFloat(com.android.internal.R.dimen.config_wallpaperMaxScale)
         }.getOrDefault(1f) else 1f
