@@ -26,7 +26,7 @@ import android.graphics.RectF
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.animation.AccelerateInterpolator
-import android.view.animation.OvershootInterpolator
+import android.view.animation.DecelerateInterpolator
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
@@ -62,11 +62,12 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
     val fallback = remember { ClockDesign() }
     val selectionColor = MaterialTheme.colorScheme.primary.toArgb()
     val geometry = CustomClocks.geometry(context, homeScreen)
-    val glass = rememberClockGlass(wallpaper, !dozing && style.design?.elements?.any { it.glass && it.visible } == true,
+    val glass = rememberClockGlass(wallpaper, style.design?.elements?.any { it.glass && it.visible } == true,
         style.design?.elements?.filter { it.glass && it.visible }?.map { it.glassStyle.blurRadius }?.distinct().orEmpty(),
         homeScreen = homeScreen)
     val wantGlass = !dozing && style.design?.elements?.any { it.glass && it.visible } == true
-    val hold = holdPreview(wantGlass && wallpaper != null, glass != null, wallpaper)
+    val startedDozing = remember { dozing }
+    val hold = holdPreview(wantGlass && !startedDozing && wallpaper != null, glass != null, wallpaper)
     val shown by animateFloatAsState(if (hold) 0f else 1f, tween(160), label = "glass_ready")
     AndroidView(factory = { MakerPreview(it) }, modifier = modifier.fillMaxSize().alpha(shown), update = {
         it.onPinchStart = onPinchStart
@@ -107,7 +108,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     private var dozing = false
     private var aodProgress = 0f
     private var aodAnimator: ValueAnimator? = null
-    private var aodScaleAnimator: ValueAnimator? = null
+    private var initialized = false
     var onMove: ((String, Float, Float) -> Unit)? = null
     var onPositioningChanged: ((ClockDesignPositioning) -> Unit)? = null
     var onBottomChanged: ((ClockPreviewBounds) -> Unit)? = null
@@ -121,57 +122,56 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     private var frame = CustomClocks.frame(context, tuning, ClockDesign.STYLE)
 
     fun setPreviewDozing(value: Boolean) {
-        if (dozing == value) return
-        dozing = value
-        aodAnimator?.cancel()
-        aodAnimator = null
-        aodScaleAnimator?.cancel()
-        aodScaleAnimator = null
         val target = if (value) 1f else 0f
-        val targetScale = ClockViewTransform.renderScale(frame.scale, value, tuning.aodAnimation)
-        if (!isAttachedToWindow || thumbnail || !tuning.aodAnimation) {
+        if (!initialized || !isAttachedToWindow || thumbnail || !tuning.aodAnimation) {
+            initialized = true
+            dozing = value
+            aodAnimator?.cancel()
+            aodAnimator = null
             aodProgress = target
-            clock.setAodProgress(target)
-            clock.scaleX = targetScale
-            clock.scaleY = targetScale
+            applyAodProgress()
             return
         }
-        if (!value) {
-            clock.scaleX = ClockViewTransform.AOD_SCALE_DOWN
-            clock.scaleY = clock.scaleX
+        if (dozing == value) {
+            applyAodProgress()
+            return
         }
-        aodScaleAnimator = ValueAnimator.ofFloat(clock.scaleX, targetScale).apply {
+        dozing = value
+        aodAnimator?.cancel()
+        aodAnimator = ValueAnimator.ofFloat(aodProgress, target).apply {
             duration = if (value) ClockViewTransform.AOD_ANIM_OUT_MS else ClockViewTransform.AOD_ANIM_IN_MS
-            interpolator = if (value) AccelerateInterpolator(1.5f) else OvershootInterpolator(1.2f)
+            interpolator = if (value) AccelerateInterpolator(1.5f) else DecelerateInterpolator(1.2f)
             addUpdateListener {
-                clock.scaleX = it.animatedValue as Float
-                clock.scaleY = clock.scaleX
-                updatePositioning()
+                aodProgress = it.animatedValue as Float
+                applyAodProgress()
             }
             addListener(object : AnimatorListenerAdapter() {
                 override fun onAnimationEnd(animation: Animator) {
-                    if (aodScaleAnimator === animation) aodScaleAnimator = null
+                    if (aodAnimator === animation) aodAnimator = null
                 }
             })
             start()
         }
-        aodAnimator = ValueAnimator.ofFloat(aodProgress, target).apply {
-            duration = 500L
-            addUpdateListener {
-                aodProgress = it.animatedValue as Float
-                clock.setAodProgress(aodProgress)
-            }
-            start()
-        }
+    }
+
+    private fun applyAodProgress() {
+        val progress = if (tuning.aodAnimation) aodProgress else if (dozing) 1f else 0f
+        clock.setAodProgress(progress)
+        clock.scaleX = ClockViewTransform.renderScale(frame.scale, progress, tuning.aodAnimation)
+        clock.scaleY = clock.scaleX
+        clock.alpha = ClockViewTransform.alpha(tuning.opacity, progress)
+        clock.setRenderEffect(if (tuning.shadowEnabled && progress < 1f) ClockEffects.shadow(tuning.shadowColor,
+            (tuning.shadowOpacity * (1f - progress)).toInt(), tuning.shadowSoftness,
+            resources.displayMetrics.density) else null)
+        updatePositioning()
     }
 
     override fun onDetachedFromWindow() {
         aodAnimator?.cancel()
         aodAnimator = null
-        aodScaleAnimator?.cancel()
-        aodScaleAnimator = null
+        initialized = false
         aodProgress = if (dozing) 1f else 0f
-        clock.setAodProgress(aodProgress)
+        applyAodProgress()
         super.onDetachedFromWindow()
     }
 
@@ -194,15 +194,8 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
             clock.layout(frame.side, frame.top, frame.side + w, frame.top + h)
             clock.pivotX = w / 2f
             clock.pivotY = clock.transformPivotY
-            if (aodScaleAnimator?.isRunning != true) {
-                clock.scaleX = ClockViewTransform.renderScale(frame.scale, dozing, tuning.aodAnimation)
-                clock.scaleY = clock.scaleX
-            }
             ClockViewTransform.applyClockTransform(clock, tuning.rotation, tuning.tiltX, tuning.tiltY)
-            clock.alpha = ClockViewTransform.alpha(tuning.opacity, dozing)
-            clock.setRenderEffect(if (tuning.shadowEnabled && !dozing) ClockEffects.shadow(tuning.shadowColor,
-                tuning.shadowOpacity, tuning.shadowSoftness, resources.displayMetrics.density) else null)
-            updatePositioning()
+            applyAodProgress()
         }
     }
 
@@ -229,6 +222,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
     }
 
     override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+        if (aodAnimator?.isRunning == true) return false
         if (clock.onSelect == null) return super.dispatchTouchEvent(event)
         if (onPinch != null) {
             if (event.actionMasked == MotionEvent.ACTION_DOWN) pinching = false
@@ -296,7 +290,7 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
         stage.translationX = if (thumbnail) width / 2f - bounds.centerX() * scale else 0f
         stage.translationY = if (thumbnail) height / 2f - bounds.centerY() * scale else 0f
         val layoutBottom = (frame.top + ClockViewTransform.layoutHeight(clock.width,
-            clock.height, frame.scale, clockMaker = true).coerceAtLeast(0)) * scale + stage.translationY
+            clock.height, clock.scaleX, clockMaker = true).coerceAtLeast(0)) * scale + stage.translationY
         onBottomChanged?.invoke(ClockPreviewBounds(layoutBottom, if (clock.alpha > 0f)
             maxOf(layoutBottom, bounds.bottom * scale + stage.translationY) else layoutBottom))
     }

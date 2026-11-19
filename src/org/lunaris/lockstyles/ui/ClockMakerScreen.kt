@@ -54,9 +54,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
@@ -104,9 +101,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.asComposePath
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -117,7 +111,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontSynthesis
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -127,13 +120,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockDesignEdit
+import org.lunaris.clockmaker.ClockDesignEditMode
 import org.lunaris.clockmaker.ClockDesignPositioning
 import org.lunaris.clockmaker.ClockElement
 import org.lunaris.clockmaker.ClockElementKind
 import org.lunaris.clockmaker.ClockFonts
 import org.lunaris.clockmaker.ClockHourFormat
-import org.lunaris.clockmaker.ClockImageFit
-import org.lunaris.clockmaker.ClockImageShapes
 import org.lunaris.clockmaker.ClockTimePart
 import org.lunaris.lockstyles.ClockImageStore
 import org.lunaris.lockstyles.ClockMakerStore
@@ -157,8 +150,10 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     var selectedId by remember(draftKey, initial) { mutableStateOf(design.elements.firstOrNull()?.id) }
     var tab by remember(draftKey) { mutableStateOf(0) }
     var dialog by remember(draftKey) { mutableStateOf<String?>(null) }
-    var undo by remember(draftKey) { mutableStateOf(emptyList<ClockDesign>()) }
-    var redo by remember(draftKey) { mutableStateOf(emptyList<ClockDesign>()) }
+    var undo by remember(draftKey) { mutableStateOf(emptyList<ClockDesignEdit>()) }
+    var redo by remember(draftKey) { mutableStateOf(emptyList<ClockDesignEdit>()) }
+    var aodUndo by remember(draftKey) { mutableStateOf(emptyList<ClockDesignEdit>()) }
+    var aodRedo by remember(draftKey) { mutableStateOf(emptyList<ClockDesignEdit>()) }
     var dragging by remember(draftKey) { mutableStateOf(false) }
     var finished by remember(draftKey) { mutableStateOf(false) }
     var fonts by remember(draftKey) { mutableStateOf(store.fonts) }
@@ -168,13 +163,14 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     var library by remember(draftKey) { mutableStateOf(store.designs) }
     var importing by remember(draftKey) { mutableStateOf(false) }
     var fontTarget by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
+    var fontTargetAod by rememberSaveable(draftKey) { mutableStateOf(false) }
     var error by remember(draftKey) { mutableStateOf(false) }
     var removeFont by remember(draftKey) { mutableStateOf<ClockMakerStore.ImportedFont?>(null) }
     var importingImage by remember(draftKey) { mutableStateOf(false) }
     var imageError by remember(draftKey) { mutableStateOf(false) }
     var imageTarget by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
     var imageDesign by rememberSaveable(draftKey) { mutableStateOf<String?>(null) }
-    var previewAod by remember(draftKey) { mutableStateOf(false) }
+    var editingAod by rememberSaveable(draftKey) { mutableStateOf(false) }
     var fullScreenEditor by rememberSaveable(draftKey) { mutableStateOf(false) }
     var editorHidden by rememberSaveable(draftKey) { mutableStateOf(false) }
     var pinchBase by remember(draftKey) { mutableStateOf<ClockElement?>(null) }
@@ -183,11 +179,52 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     val scope = rememberCoroutineScope()
     val clock = baseClock.copy(face = ClockDesign.STYLE, design = design, tuning = tuning, color = color)
     val latestClock by rememberUpdatedState(clock)
-    fun change(value: ClockDesign, record: Boolean = true) {
-        if (value == design) return
-        if (record) undo = (undo + design).takeLast(50)
-        redo = emptyList()
-        design = value
+    fun change(value: ClockDesign, record: Boolean = true,
+        mode: ClockDesignEditMode = ClockDesignEditMode.LOCKSCREEN, coalesce: Boolean = true) {
+        val existingIds = design.elements.map { it.id }.toSet()
+        val next = if (design.elements.any { it.aodLayoutConfigured }) value.copy(elements = value.elements.map {
+            if (it.id !in existingIds && !it.aodLayoutConfigured) it.configureAod() else it
+        }) else value
+        if (next == design) return
+        if (record || coalesce) {
+            val history = if (mode == ClockDesignEditMode.AOD) aodUndo else undo
+            val entry = ClockDesignEdit(design, next, mode)
+            val updated = if (!record && history.lastOrNull()?.after == design)
+                history.dropLast(1) + history.last().copy(after = next)
+            else (history + entry).takeLast(50)
+            if (mode == ClockDesignEditMode.AOD) {
+                aodUndo = updated
+                aodRedo = emptyList()
+            } else {
+                undo = updated
+                redo = emptyList()
+            }
+        }
+        design = next
+    }
+    fun undoEdit(mode: ClockDesignEditMode = ClockDesignEditMode.LOCKSCREEN) {
+        val history = if (mode == ClockDesignEditMode.AOD) aodUndo else undo
+        val entry = history.lastOrNull()?.retainAod(design) ?: return
+        design = entry.undo(design)
+        if (mode == ClockDesignEditMode.AOD) {
+            aodUndo = history.dropLast(1)
+            aodRedo = (aodRedo + entry).takeLast(50)
+        } else {
+            undo = history.dropLast(1)
+            redo = (redo + entry).takeLast(50)
+        }
+    }
+    fun redoEdit(mode: ClockDesignEditMode = ClockDesignEditMode.LOCKSCREEN) {
+        val history = if (mode == ClockDesignEditMode.AOD) aodRedo else redo
+        val entry = history.lastOrNull()?.retainAod(design) ?: return
+        design = entry.redo(design)
+        if (mode == ClockDesignEditMode.AOD) {
+            aodRedo = history.dropLast(1)
+            aodUndo = (aodUndo + entry).takeLast(50)
+        } else {
+            redo = history.dropLast(1)
+            undo = (undo + entry).takeLast(50)
+        }
     }
     fun openDesign(value: ClockStyle) {
         baseClock = value
@@ -196,6 +233,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
         color = value.color
         undo = emptyList()
         redo = emptyList()
+        aodUndo = emptyList()
+        aodRedo = emptyList()
         selectedId = design.elements.firstOrNull()?.id
         dialog = null
     }
@@ -206,13 +245,24 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
             selectedId = design.elements.first().id
         }
     }
-    fun edit(element: ClockElement) = change(design.copy(elements = design.elements.map {
+    fun edit(element: ClockElement, mode: ClockDesignEditMode = ClockDesignEditMode.LOCKSCREEN) = change(design.copy(elements = design.elements.map {
         if (it.id == element.id) element else it
-    }))
+    }), mode = mode)
+    fun editAod(element: ClockElement, record: Boolean = true) = change(design.copy(
+        elements = design.elements.map { if (it.id == element.id) it.editAod(element) else it }), record,
+        mode = ClockDesignEditMode.AOD)
     fun cancel() {
         finished = true
         store.clearDraft(draftKey)
         onCancel()
+    }
+    fun save() {
+        val saved = clock.copy(design = design.copy(name = design.name.trim().ifEmpty { "Custom clock" }))
+        store.save(saved)
+        library = store.designs
+        finished = true
+        store.clearDraft(draftKey)
+        onSave(saved)
     }
     BackHandler { cancel() }
     BackHandler(enabled = fullScreenEditor) { fullScreenEditor = false }
@@ -233,7 +283,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                 importing = false
                 if (font == null) error = true else {
                     fonts = store.fonts
-                    design.elements.firstOrNull { it.id == fontTarget }?.let { edit(it.copy(font = font.family)) }
+                    design.elements.firstOrNull { it.id == fontTarget }?.let { edit(it.copy(font = font.family),
+                        if (fontTargetAod) ClockDesignEditMode.AOD else ClockDesignEditMode.LOCKSCREEN) }
                 }
             }
         }
@@ -244,7 +295,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
             importingImage = true
             val target = imageTarget
             val targetDesign = imageDesign
-            val keepImages = (listOf(design) + undo + redo).flatMap { it.elements }.map { it.image }.toSet()
+            val keepImages = (listOf(design) + (undo + redo + aodUndo + aodRedo)
+                .flatMap { listOf(it.before, it.after) }).flatMap { it.elements }.map { it.image }.toSet()
             scope.launch {
                 val imported = withContext(Dispatchers.IO) { runCatching { imageStore.importImage(uri, keepImages) }.getOrNull() }
                 importingImage = false
@@ -278,7 +330,31 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val layoutSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>()
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
+    if (editingAod) {
+        val selected = design.elements.firstOrNull { it.id == selectedId }
+        val fontName = selected?.let { element ->
+            fonts.firstOrNull { it.family == element.font }?.name ?:
+                bundledFonts.firstOrNull { it.first == element.font }?.second ?:
+                if (element.font.startsWith("import:")) stringResource(R.string.clock_maker_missing_font)
+                else element.font
+        }.orEmpty()
+        ClockMakerAodScreen(clock, wallpaper, allowImport, selectedId, fontName,
+            canUndo = aodUndo.isNotEmpty(), canRedo = aodRedo.isNotEmpty(),
+            onClose = { editingAod = false }, onSelect = { selectedId = it },
+            onEdit = { element, record -> editAod(element, record) },
+            onChooseFont = { dialog = "fonts" },
+            onUndo = { undoEdit(ClockDesignEditMode.AOD) },
+            onRedo = { redoEdit(ClockDesignEditMode.AOD) },
+            onReset = { id ->
+                change(design.copy(elements = design.elements.map { if (it.id == id) it.resetAod() else it }),
+                    mode = ClockDesignEditMode.AOD)
+            },
+            onAnimateOutline = { id, enabled ->
+                change(design.copy(elements = design.elements.map {
+                    if (it.id == id) it.configureAod(it.aodStyle.copy(animateOutline = enabled)) else it
+                }), mode = ClockDesignEditMode.AOD)
+            })
+    } else Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surface)
         .statusBarsPadding().navigationBarsPadding()) {
         if (!fullScreenEditor) Surface(color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
             Column {
@@ -298,29 +374,18 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                     }
                     ExpressiveButton(stringResource(R.string.clock_maker_save),
                         enabled = design.elements.isNotEmpty() && !importing && !importingImage,
-                        icon = Icons.Rounded.Save, onClick = {
-                            val saved = design.copy(name = design.name.trim().ifEmpty { "Custom clock" })
-                            store.save(clock.copy(design = saved))
-                            library = store.designs
-                            finished = true
-                            store.clearDraft(draftKey)
-                            onSave(clock.copy(design = saved))
-                        })
+                        icon = Icons.Rounded.Save, onClick = { save() })
                 }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     ExpressiveIconButton(Icons.AutoMirrored.Rounded.Undo,
                         stringResource(R.string.clock_maker_undo), enabled = undo.isNotEmpty(), onClick = {
-                            redo = redo + design
-                            design = undo.last()
-                            undo = undo.dropLast(1)
+                            undoEdit()
                         })
                     ExpressiveIconButton(Icons.AutoMirrored.Rounded.Redo,
                         stringResource(R.string.clock_maker_redo), enabled = redo.isNotEmpty(), onClick = {
-                            undo = undo + design
-                            design = redo.last()
-                            redo = redo.dropLast(1)
+                            redoEdit()
                         })
                     Spacer(Modifier.weight(1f))
                     ClockArchiveActions(clock, store, allowImport && !importing && !importingImage) { imported ->
@@ -350,28 +415,13 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f), previewShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
                         LockScreenPreviewLayout(Modifier.fillMaxSize()) {
-                            if (!previewAod) LockScreenWallpaper(wallpaper, Modifier.fillMaxSize())
-                            else {
-                                Box(Modifier.fillMaxSize().background(Color.Black))
-                                Surface(
-                                    color = Color.Black.copy(alpha = 0.72f),
-                                    shape = MaterialTheme.shapes.large,
-                                    modifier = Modifier.align(Alignment.TopCenter).padding(12.dp),
-                                ) {
-                                    Text(
-                                        stringResource(R.string.clock_maker_preview_aod_paused),
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                    )
-                                }
-                            }
-                            MakerClockLayer(clock, tuning, wallpaper = wallpaper, dozing = previewAod, selectedId = selectedId, onSelect = { selectedId = it },
+                            LockScreenWallpaper(wallpaper, Modifier.fillMaxSize())
+                            MakerClockLayer(clock, tuning, wallpaper = wallpaper, selectedId = selectedId, onSelect = { selectedId = it },
                                 onMove = { id, x, y ->
-                                    if (!dragging) { undo = (undo + design).takeLast(50); dragging = true }
                                     change(design.copy(elements = design.elements.map {
                                         if (it.id == id) it.copy(x = x, y = y) else it
-                                    }), record = false)
+                                    }), record = !dragging)
+                                    dragging = true
                                 }, onDragFinished = { dragging = false },
                                 onPositioningChanged = { positioning = it },
                                 onPinchStart = if (!fullScreenEditor) null else { {
@@ -446,8 +496,11 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                             label = { Text(stringResource(R.string.clock_maker_global)) })
                         AssistChip(onClick = { dialog = "name" },
                             label = { Text(design.name.trim().ifEmpty { stringResource(R.string.clock_maker_name) }) })
-                        FilterChip(previewAod, { previewAod = !previewAod },
-                            label = { Text(stringResource(R.string.clock_maker_preview_aod)) })
+                        AssistChip(onClick = {
+                            change(design.prepareAod(), record = false, coalesce = false)
+                            editingAod = true
+                        },
+                            label = { Text(stringResource(R.string.clock_maker_edit_aod)) })
                     }
                     val selected = design.elements.firstOrNull { it.id == selectedId }
                     if (selected == null) {
@@ -494,15 +547,17 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                                     modifier = Modifier.padding(horizontal = 20.dp))
                                             } else ElementContent(selected) { edit(it) }
                                             TuningSwitch(stringResource(R.string.clock_maker_visible), selected.visible) { edit(selected.copy(visible = it)) }
-                                            TuningSwitch(stringResource(R.string.clock_maker_visible_on_aod), selected.visibleOnAod) {
-                                                edit(selected.copy(visibleOnAod = it))
-                                            }
                                             Row(Modifier.padding(horizontal = 12.dp)) {
                                                 TextButton(enabled = design.elements.size < ClockDesign.MAX_ELEMENTS, onClick = {
                                                     val position = positioning?.move(selected.x, selected.y + 0.1f)
                                                         ?: (selected.x to (selected.y + 0.1f).coerceAtMost(ClockElement.MAX_POSITION))
                                                     val duplicate = selected.copy(id = java.util.UUID.randomUUID().toString(),
-                                                        x = position.first, y = position.second)
+                                                        x = position.first, y = position.second,
+                                                        aod = selected.aod?.copy(
+                                                            x = (selected.aodStyle.x + position.first - selected.x)
+                                                                .coerceIn(ClockElement.MIN_POSITION, ClockElement.MAX_POSITION),
+                                                            y = (selected.aodStyle.y + position.second - selected.y)
+                                                                .coerceIn(ClockElement.MIN_POSITION, ClockElement.MAX_POSITION)))
                                                     change(design.copy(elements = design.elements + duplicate))
                                                     selectedId = duplicate.id
                                                 }) { Text(stringResource(R.string.clock_maker_duplicate)) }
@@ -526,50 +581,16 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                             }
                                         }
                                         1 -> {
-                                            if (selected.kind == ClockElementKind.IMAGE) {
-                                                ImageSizeControls(selected) { edit(it) }
-                                            } else {
-                                                TextButton(onClick = { dialog = "fonts" }, modifier = Modifier.padding(horizontal = 12.dp)) {
-                                                    Text(stringResource(R.string.clock_maker_font) + ": " +
-                                                        (fonts.firstOrNull { it.family == selected.font }?.name ?:
-                                                            bundledFonts.firstOrNull { it.first == selected.font }?.second ?:
-                                                            if (selected.font.startsWith("import:")) stringResource(R.string.clock_maker_missing_font) else selected.font))
-                                                }
-                                                TuningSlider(stringResource(R.string.gallery_clock_size), selected.size, 8..200, "", ClockElement.create(selected.kind).size) { edit(selected.copy(size = it)) }
-                                                TuningSlider(stringResource(R.string.clock_maker_weight), selected.weight, 100..900, "", 400) { edit(selected.copy(weight = it)) }
-                                                TuningSwitch(stringResource(R.string.clock_maker_italic), selected.italic) { edit(selected.copy(italic = it)) }
-                                                TuningSlider(stringResource(R.string.clock_maker_spacing), selected.letterSpacing, -10..50, "%", 0) { edit(selected.copy(letterSpacing = it)) }
-                                            }
-                                            positioning?.let { placement ->
-                                                val position = placement.position(selected.x, selected.y)
-                                                TuningSlider(stringResource(R.string.clock_maker_horizontal),
-                                                    (position.first * 100).roundToInt(), 0..100, "%", 50) {
-                                                    val moved = placement.move(selected.x, selected.y, horizontal = it / 100f)
-                                                    edit(selected.copy(x = moved.first, y = moved.second))
-                                                }
-                                                TuningSlider(stringResource(R.string.clock_maker_vertical),
-                                                    (position.second * 100).roundToInt(), 0..100, "%", 10) {
-                                                    val moved = placement.move(selected.x, selected.y, vertical = it / 100f)
-                                                    edit(selected.copy(x = moved.first, y = moved.second))
-                                                }
-                                            }
-                                            TuningSlider(stringResource(R.string.custom_clock_rotation_title), selected.rotation, -180..180, "°", 0) { edit(selected.copy(rotation = it)) }
+                                            val fontName = fonts.firstOrNull { it.family == selected.font }?.name ?:
+                                                bundledFonts.firstOrNull { it.first == selected.font }?.second ?:
+                                                if (selected.font.startsWith("import:")) stringResource(R.string.clock_maker_missing_font)
+                                                else selected.font
+                                            ElementLayoutControls(selected, positioning, fontName,
+                                                onChooseFont = { dialog = "fonts" }, onChange = { edit(it) })
                                         }
                                         2 -> {
                                             if (selected.kind == ClockElementKind.IMAGE) {
-                                                ShapePicker(selected.imageShape) { edit(selected.copy(imageShape = it)) }
-                                                TuningSwitch(stringResource(R.string.clock_maker_border), selected.imageBorderWidth > 0) {
-                                                    edit(selected.copy(imageBorderWidth = if (it) 2 else 0))
-                                                }
-                                                if (selected.imageBorderWidth > 0) {
-                                                    TuningSlider(stringResource(R.string.clock_maker_border_width), selected.imageBorderWidth,
-                                                        1..24, "", 2) { edit(selected.copy(imageBorderWidth = it)) }
-                                                    Text(stringResource(R.string.clock_maker_border_colour), Modifier.padding(horizontal = 20.dp),
-                                                        style = MaterialTheme.typography.titleSmall)
-                                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.imageBorderColor, wallpaper, allowImport) {
-                                                        edit(selected.copy(imageBorderColor = it ?: selected.imageBorderColor))
-                                                    }
-                                                }
+                                                ElementImageShapeControls(selected, wallpaper, allowImport) { edit(it) }
                                             } else {
                                                 TuningSwitch(stringResource(R.string.clock_maker_inherit), selected.color == null && !selected.gradient && !selected.glass) {
                                                     edit(selected.copy(color = if (it) null else android.graphics.Color.WHITE, gradient = false, glass = false))
@@ -601,48 +622,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                             }
                                         }
                                         3 -> {
-                                            if (selected.supportsAodOutline) {
-                                                TuningSwitch(stringResource(R.string.clock_maker_lockscreen_outline), selected.lockscreenOutline) {
-                                                    edit(selected.copy(lockscreenOutline = it))
-                                                }
-                                                if (selected.lockscreenOutline) {
-                                                    TuningSlider(stringResource(R.string.clock_maker_aod_outline_width),
-                                                        selected.lockscreenOutlineWidth, 1..6, "", 2) {
-                                                        edit(selected.copy(lockscreenOutlineWidth = it))
-                                                    }
-                                                }
-                                                TuningSwitch(stringResource(R.string.clock_maker_aod_outline), selected.aodOutline) {
-                                                    edit(selected.copy(aodOutline = it))
-                                                }
-                                                if (selected.aodOutline) {
-                                                    TuningSlider(stringResource(R.string.clock_maker_aod_outline_width),
-                                                        selected.aodOutlineWidth, 1..6, "", 2) {
-                                                        edit(selected.copy(aodOutlineWidth = it))
-                                                    }
-                                                }
-                                                if (selected.lockscreenOutline || selected.aodOutline) {
-                                                    TuningSwitch(stringResource(R.string.clock_maker_aod_outline_animate), selected.animateAodOutline) {
-                                                        edit(selected.copy(animateAodOutline = it))
-                                                    }
-                                                }
-                                                TuningSwitch(stringResource(R.string.clock_maker_text_stroke), selected.textStroke) {
-                                                    edit(selected.copy(textStroke = it))
-                                                }
-                                                if (selected.textStroke) {
-                                                    Text(stringResource(R.string.clock_maker_text_stroke_summary),
-                                                        Modifier.padding(horizontal = 20.dp), style = MaterialTheme.typography.bodySmall,
-                                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                                    TuningSlider(stringResource(R.string.clock_maker_text_stroke_width),
-                                                        selected.textStrokeWidth, 1..12, "", 2) {
-                                                        edit(selected.copy(textStrokeWidth = it))
-                                                    }
-                                                    Text(stringResource(R.string.clock_maker_text_stroke_colour), Modifier.padding(horizontal = 20.dp),
-                                                        style = MaterialTheme.typography.titleSmall)
-                                                    ClockColourPicker(ELEMENT_COLOURS.filterNotNull(), selected.textStrokeColor, wallpaper, allowImport) {
-                                                        edit(selected.copy(textStrokeColor = it ?: selected.textStrokeColor))
-                                                    }
-                                                }
-                                            }
+                                            ElementTextEffectsControls(selected, wallpaper, allowImport) { edit(it) }
                                             TuningSwitch(stringResource(R.string.gallery_clock_shadow), selected.shadow) { edit(selected.copy(shadow = it)) }
                                             AnimatedVisibility(
                                                 visible = selected.shadow,
@@ -688,15 +668,11 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         ExpressiveIconButton(Icons.AutoMirrored.Rounded.Undo,
                             stringResource(R.string.clock_maker_undo), enabled = undo.isNotEmpty(), onClick = {
-                                redo = redo + design
-                                design = undo.last()
-                                undo = undo.dropLast(1)
+                                undoEdit()
                             })
                         ExpressiveIconButton(Icons.AutoMirrored.Rounded.Redo,
                             stringResource(R.string.clock_maker_redo), enabled = redo.isNotEmpty(), onClick = {
-                                undo = undo + design
-                                design = redo.last()
-                                redo = redo.dropLast(1)
+                                redoEdit()
                             })
                         ExpressiveIconButton(Icons.Rounded.FullscreenExit,
                             stringResource(R.string.clock_maker_editor_split),
@@ -815,6 +791,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         enabled = allowImport && !importing, primary = false, icon = Icons.Rounded.UploadFile,
                         modifier = Modifier.fillMaxWidth(), onClick = {
                             fontTarget = selectedId
+                            fontTargetAod = editingAod
                             importer.launch(arrayOf("*/*"))
                         })
                 }
@@ -833,7 +810,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                 .background(if (isSelected) MaterialTheme.colorScheme.secondaryContainer
                                     else MaterialTheme.colorScheme.surfaceContainerHigh)
                                 .selectable(isSelected, role = Role.RadioButton, onClick = {
-                                    design.elements.firstOrNull { it.id == selectedId }?.let { edit(it.copy(font = family)) }
+                                    design.elements.firstOrNull { it.id == selectedId }?.let { edit(it.copy(font = family),
+                                        if (editingAod) ClockDesignEditMode.AOD else ClockDesignEditMode.LOCKSCREEN) }
                                     dialog = null
                                 })) {
                                 FontOption(family, name, isSelected, Modifier.fillMaxWidth().padding(end = 28.dp))
@@ -860,7 +838,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                     val removed = withContext(Dispatchers.IO) { runCatching { store.removeFont(font) }.isSuccess }
                     if (removed) {
                         fonts = store.fonts
-                        change(design.copy(elements = design.elements.map { if (it.font == font.family) it.copy(font = "sans-serif") else it }))
+                        change(design.copy(elements = design.elements.map { if (it.font == font.family) it.copy(font = "sans-serif") else it }),
+                            mode = if (editingAod) ClockDesignEditMode.AOD else ClockDesignEditMode.LOCKSCREEN)
                     } else error = true
                     removeFont = null
                 }
@@ -964,54 +943,6 @@ private fun ElementContent(element: ClockElement, onChange: (ClockElement) -> Un
 }
 
 @Composable
-private fun ImageSizeControls(element: ClockElement, onChange: (ClockElement) -> Unit) {
-    TuningSwitch(stringResource(R.string.clock_maker_lock_aspect), element.imageAspectLocked) {
-        onChange(element.copy(imageAspectLocked = it, imageAspectRatio = element.imageWidth.toFloat() / element.imageHeight))
-    }
-    TuningSlider(stringResource(R.string.clock_maker_image_width), element.imageWidth, 16..360, "", 120) {
-        onChange(element.resizeImage(width = it))
-    }
-    TuningSlider(stringResource(R.string.clock_maker_image_height), element.imageHeight, 16..720, "", 120) {
-        onChange(element.resizeImage(height = it))
-    }
-    TuningSlider(stringResource(R.string.gallery_clock_opacity), element.opacity, 0..100, "%", 100) {
-        onChange(element.copy(opacity = it))
-    }
-    Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ClockImageFit.entries.forEach { fit ->
-            FilterChip(element.imageFit == fit, { onChange(element.copy(imageFit = fit)) },
-                label = { Text(stringResource(if (fit == ClockImageFit.CROP) R.string.clock_maker_crop else R.string.clock_maker_fit)) })
-        }
-    }
-}
-
-@Composable
-private fun ShapePicker(shape: String, onChange: (String) -> Unit) {
-    LazyVerticalGrid(columns = GridCells.Adaptive(88.dp), modifier = Modifier.fillMaxWidth()
-        .height(300.dp).padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        items(ClockImageShapes.ids, key = { it }) { id ->
-            val isSelected = id == shape
-            val tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
-            Surface(shape = MaterialTheme.shapes.large,
-                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.clip(MaterialTheme.shapes.large)
-                    .selectable(isSelected, role = Role.RadioButton, onClick = { onChange(id) })) {
-                Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.size(40.dp).drawWithCache {
-                        val path = ClockImageShapes.path(id, size.width, size.height).asComposePath()
-                        onDrawBehind { drawPath(path, tint) }
-                    })
-                    Text(shapeLabel(id), style = MaterialTheme.typography.labelMedium, color = tint,
-                        textAlign = TextAlign.Center, minLines = 2)
-                }
-            }
-        }
-    }
-}
-
-@Composable
 private fun FontOption(family: String, name: String, selected: Boolean, modifier: Modifier) {
     val context = LocalContext.current
     val face by produceState(Typeface.DEFAULT, context.userId, family) {
@@ -1060,74 +991,3 @@ private fun bundledFontChoices(context: Context): List<Pair<String, String>> {
         .distinctBy { it.first.lowercase(Locale.ROOT) }
         .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.second })
 }
-
-@Composable
-private fun elementLabel(element: ClockElement): String =
-    if (element.kind == ClockElementKind.TIME && element.timePart != ClockTimePart.FULL) {
-        timePartLabel(element.timePart)
-    } else elementLabel(element.kind)
-
-@Composable
-private fun timePartLabel(part: ClockTimePart): String = stringResource(when (part) {
-    ClockTimePart.FULL -> R.string.clock_maker_full_time
-    ClockTimePart.HOUR_TENS -> R.string.clock_maker_hour_tens
-    ClockTimePart.HOUR_ONES -> R.string.clock_maker_hour_ones
-    ClockTimePart.MINUTE_TENS -> R.string.clock_maker_minute_tens
-    ClockTimePart.MINUTE_ONES -> R.string.clock_maker_minute_ones
-    ClockTimePart.SECOND_TENS -> R.string.clock_maker_second_tens
-    ClockTimePart.SECOND_ONES -> R.string.clock_maker_second_ones
-})
-
-@Composable
-private fun elementLabel(kind: ClockElementKind): String = stringResource(when (kind) {
-    ClockElementKind.TIME -> R.string.clock_maker_time
-    ClockElementKind.DATE -> R.string.clock_maker_date
-    ClockElementKind.WEATHER -> R.string.gallery_clock_weather
-    ClockElementKind.TEXT -> R.string.clock_maker_text
-    ClockElementKind.IMAGE -> R.string.clock_maker_image
-    ClockElementKind.QUICKLOOK -> R.string.clock_maker_quicklook
-})
-
-@Composable
-private fun shapeLabel(id: String): String = stringResource(when (id) {
-    "Circle" -> R.string.clock_maker_shape_circle
-    "Square" -> R.string.clock_maker_shape_square
-    "Slanted" -> R.string.clock_maker_shape_slanted
-    "Arch" -> R.string.clock_maker_shape_arch
-    "Fan" -> R.string.clock_maker_shape_fan
-    "Arrow" -> R.string.clock_maker_shape_arrow
-    "SemiCircle" -> R.string.clock_maker_shape_semicircle
-    "Oval" -> R.string.clock_maker_shape_oval
-    "Pill" -> R.string.clock_maker_shape_pill
-    "Triangle" -> R.string.clock_maker_shape_triangle
-    "Diamond" -> R.string.clock_maker_shape_diamond
-    "ClamShell" -> R.string.clock_maker_shape_clamshell
-    "Pentagon" -> R.string.clock_maker_shape_pentagon
-    "Gem" -> R.string.clock_maker_shape_gem
-    "Sunny" -> R.string.clock_maker_shape_sunny
-    "VerySunny" -> R.string.clock_maker_shape_verysunny
-    "Cookie4Sided" -> R.string.clock_maker_shape_cookie4sided
-    "Cookie6Sided" -> R.string.clock_maker_shape_cookie6sided
-    "Cookie7Sided" -> R.string.clock_maker_shape_cookie7sided
-    "Cookie9Sided" -> R.string.clock_maker_shape_cookie9sided
-    "Cookie12Sided" -> R.string.clock_maker_shape_cookie12sided
-    "Ghostish" -> R.string.clock_maker_shape_ghostish
-    "Clover4Leaf" -> R.string.clock_maker_shape_clover4leaf
-    "Clover8Leaf" -> R.string.clock_maker_shape_clover8leaf
-    "Burst" -> R.string.clock_maker_shape_burst
-    "SoftBurst" -> R.string.clock_maker_shape_softburst
-    "Boom" -> R.string.clock_maker_shape_boom
-    "SoftBoom" -> R.string.clock_maker_shape_softboom
-    "Flower" -> R.string.clock_maker_shape_flower
-    "Puffy" -> R.string.clock_maker_shape_puffy
-    "PuffyDiamond" -> R.string.clock_maker_shape_puffydiamond
-    "PixelCircle" -> R.string.clock_maker_shape_pixelcircle
-    "PixelTriangle" -> R.string.clock_maker_shape_pixeltriangle
-    "Bun" -> R.string.clock_maker_shape_bun
-    "Heart" -> R.string.clock_maker_shape_heart
-    else -> R.string.clock_maker_shape_none
-})
-
-private val ELEMENT_COLOURS: List<Int?> = listOf(null, 0xFFFFFFFF.toInt(), 0xFF000000.toInt(),
-    0xFFFFD60A.toInt(), 0xFFFF9F0A.toInt(), 0xFFFF6482.toInt(), 0xFFBF5AF2.toInt(),
-    0xFF64D2FF.toInt(), 0xFF30D158.toInt())

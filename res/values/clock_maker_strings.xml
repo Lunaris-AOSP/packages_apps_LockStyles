@@ -72,6 +72,14 @@
     <string name="clock_maker_crop">Crop to fill</string>
     <string name="clock_maker_fit">Fit inside</string>
     <string name="clock_maker_preview_aod">Preview AOD</string>
+    <string name="clock_maker_edit_aod">Edit AOD clock</string>
+    <string name="clock_maker_aod_title">AOD Clock Maker</string>
+    <string name="clock_maker_back_to_lockscreen">Back to lockscreen editor</string>
+    <string name="clock_maker_aod_summary">Arrange the same clock elements for your always-on display. Positions, sizes and effects are saved separately. Add elements and change their content in the lockscreen editor.</string>
+    <string name="clock_maker_shared_font">Typeface, weight and italic settings are shared with the lockscreen and AOD clocks.</string>
+    <string name="clock_maker_preview_lockscreen">Preview lockscreen</string>
+    <string name="clock_maker_aod_preview_read_only">Lockscreen preview. Turn off the preview to continue editing your AOD clock.</string>
+    <string name="clock_maker_aod_reset_element">Copy lockscreen appearance</string>
     <string name="clock_maker_lockscreen_outline">Outline on lockscreen</string>
     <string name="clock_maker_aod_outline">Outline on AOD</string>
     <string name="clock_maker_text_stroke">Text stroke</string>
