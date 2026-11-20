@@ -44,6 +44,7 @@ object StockClock {
             rounded = (axes["ROND"] ?: 100f) >= 50f,
             color = if (json.isNull("seedColor")) null else json.optInt("seedColor"),
             small = Settings.Secure.getInt(resolver, KEY_DOUBLE_LINE, 1) == 0,
+            stockAxes = axes,
         )
     }
 

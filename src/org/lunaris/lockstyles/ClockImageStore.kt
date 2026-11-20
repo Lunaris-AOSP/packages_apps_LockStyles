@@ -22,6 +22,7 @@ import android.graphics.drawable.AnimatedImageDrawable
 import android.net.Uri
 import android.provider.Settings
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.DynamicClockSettings
 import org.lunaris.clockmaker.ClockImages
 import org.lunaris.clockmaker.ClockLottie
 import java.io.File
@@ -104,7 +105,8 @@ class ClockImageStore(private val context: Context) {
     private fun pruneUnused(keepIds: Set<String>) {
         val references = storage.getSharedPreferences("clock_maker", Context.MODE_PRIVATE).all.values.filterIsInstance<String>() +
             context.getSharedPreferences("wallpaper_gallery", Context.MODE_PRIVATE).all.values.filterIsInstance<String>() +
-            listOfNotNull(Settings.Secure.getString(resolver, ClockDesign.SETTING))
+            listOfNotNull(Settings.Secure.getString(resolver, ClockDesign.SETTING),
+                DynamicClockSettings.decode(Settings.Secure.getString(resolver, DynamicClockSettings.LAYOUTS))?.toString())
         val cutoff = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
         directory.listFiles()?.forEach { file ->
             if (file.name.endsWith(".pending") && ClockImages.validId(file.name.removeSuffix(".pending")) &&

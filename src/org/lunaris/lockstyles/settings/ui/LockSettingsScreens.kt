@@ -77,6 +77,8 @@ import org.lunaris.lockstyles.settings.ui.components.ModernConfirmDialog
 import org.lunaris.lockstyles.ui.ExpressiveButton
 import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.ui.LockScreenGalleryActivity
+import org.lunaris.lockstyles.ui.DynamicClockActivity
+import org.lunaris.clockmaker.DynamicClockSettings
 
 /** The pages of the lock screen settings, as Singularity's fragments were. */
 enum class Page { MAIN, CLOCK, WIDGETS, DEPTH, MEDIA_ART, PULSE, NOW_PLAYING, UDFPS }
@@ -288,6 +290,19 @@ private fun ClockPage(open: (Page) -> Unit, back: () -> Unit) {
             navRow(s(R.string.clock_style_in_gallery), s(R.string.clock_style_in_gallery_summary),
                 Icons.Rounded.Schedule) {
                 context.startActivity(Intent(context, LockScreenGalleryActivity::class.java))
+            },
+        ))
+        group(s(R.string.dynamic_clock_title), listOf(
+            switchRow(s(R.string.dynamic_clock_title), s(R.string.dynamic_clock_summary), Keys.DYNAMIC_CLOCK),
+            navRow(s(R.string.dynamic_clock_small_title), s(R.string.dynamic_clock_small_summary),
+                Icons.Rounded.Schedule) {
+                context.startActivity(Intent(context, DynamicClockActivity::class.java)
+                    .putExtra(DynamicClockSettings.EXTRA_SIZE, DynamicClockSettings.SMALL))
+            },
+            navRow(s(R.string.dynamic_clock_large_title), s(R.string.dynamic_clock_large_summary),
+                Icons.Rounded.Schedule) {
+                context.startActivity(Intent(context, DynamicClockActivity::class.java)
+                    .putExtra(DynamicClockSettings.EXTRA_SIZE, DynamicClockSettings.LARGE))
             },
         ))
         item { ClockFontPicker() }

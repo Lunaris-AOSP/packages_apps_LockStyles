@@ -77,6 +77,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -116,6 +117,7 @@ import kotlinx.coroutines.withContext
 import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
+import org.lunaris.lockstyles.DynamicClocks
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWallpaper.Kind
@@ -185,6 +187,11 @@ private fun CustomiseContent(
     var wallpaper by remember { mutableStateOf(initial.wallpaper.copy(effect = 0)) }
     var clock by remember { mutableStateOf(initial.clock) }
     var tuning by remember { mutableStateOf(initial.clock.tuning ?: CustomClocks.Tuning.load(context)) }
+    var dynamicClock by rememberSaveable(initial.id, stateSaver = dynamicClockSaver) {
+        mutableStateOf(initial.dynamicClock ?: if (isCurrent) DynamicClocks.load(context)
+            else DynamicClocks.defaults(initial.clock.copy(tuning = tuning)))
+    }
+    var showDynamicClock by rememberSaveable(initial.id) { mutableStateOf(false) }
     var showMaker by remember { mutableStateOf(false) }
     var panelOpen by remember { mutableStateOf(openClock) }
     var tab by remember { mutableStateOf(if (openClock) CustomizerTab.CLOCK else CustomizerTab.WALLPAPER) }
@@ -197,6 +204,15 @@ private fun CustomiseContent(
     var askHome by remember { mutableStateOf(false) }
     var weather by remember { mutableStateOf<GalleryWeather.Snapshot?>(null) }
     var clockBottom by remember(clock.face, clock.small) { mutableStateOf<ClockPreviewBounds?>(null) }
+    if (showDynamicClock) {
+        DynamicClockScreen(dynamicClock, wallpaper, initial.id, allowPhotoPicking,
+            onCancel = { showDynamicClock = false }, onSave = {
+                dynamicClock = it
+                showDynamicClock = false
+                panelOpen = false
+            })
+        return
+    }
     if (showMaker) {
         ClockMakerScreen(clock.copy(face = ClockDesign.STYLE, tuning = tuning), wallpaper,
             initial.id, allowPhotoPicking, onCancel = { showMaker = false }, onSave = {
@@ -220,8 +236,11 @@ private fun CustomiseContent(
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 LockScreenWallpaper(wallpaper, Modifier.fillMaxSize(), weather = weather)
                 val onLight = rememberTopLight(wallpaper)
-                if (clock.face > 0) {
-                    CustomClockLayer(clock, tuning = tuning, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
+                val previewDynamic = dynamicClock.enabled && !(panelOpen && tab == CustomizerTab.CLOCK)
+                val previewClock = if (previewDynamic) dynamicClock.large else clock
+                val previewTuning = if (previewDynamic) previewClock.tuning ?: tuning else tuning
+                if (previewClock.face > 0 || previewDynamic) {
+                    CustomClockLayer(previewClock, tuning = previewTuning, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
                     Box(Modifier.fillMaxWidth().fillMaxHeight(0.3f)
                         .semantics { contentDescription = editClockLabel }
                         .clickable(onClickLabel = editClockLabel) { openPanel(CustomizerTab.CLOCK) })
@@ -245,7 +264,7 @@ private fun CustomiseContent(
                                 .clickable(onClickLabel = editClockLabel) { openPanel(CustomizerTab.CLOCK) }
                                 .padding(horizontal = 16.dp),
                         ) {
-                            ClockText(clock, screenHeight * if (clock.small) 0.06f else 0.24f,
+                            ClockText(previewClock, screenHeight * if (previewClock.small) 0.06f else 0.24f,
                                 fixedTime = false, onLight = onLight)
                         }
                     }
@@ -270,7 +289,7 @@ private fun CustomiseContent(
                 primary = true) {
                 if (isCurrent && wallpaper == initial.wallpaper) {
                     // Editing only the active clock does not change either wallpaper.
-                    onDone(initial.copy(clock = clock.copy(tuning = tuning)), tuning)
+                    onDone(initial.copy(clock = clock.copy(tuning = tuning), dynamicClock = dynamicClock), tuning)
                 } else {
                     askHome = true
                 }
@@ -326,8 +345,15 @@ private fun CustomiseContent(
                         }) { Text(stringResource(R.string.gallery_change_wallpaper)) }
                         KindControls(wallpaper) { wallpaper = it }
                     }
-                    CustomizerTab.CLOCK -> ClockSheet(clock, tuning, wallpaper, allowPhotoPicking,
-                        { clock = it }, { tuning = it }, onMaker = { showMaker = true }, inPanel = true)
+                    CustomizerTab.CLOCK -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        ExpressiveButton(stringResource(R.string.dynamic_clock_title),
+                            onClick = { showDynamicClock = true }, modifier = Modifier.fillMaxWidth(),
+                            icon = Icons.Rounded.Schedule)
+                        if (dynamicClock.enabled) Text(stringResource(R.string.dynamic_clock_base_title),
+                            style = MaterialTheme.typography.titleMedium)
+                        ClockSheet(clock, tuning, wallpaper, allowPhotoPicking,
+                            { clock = it }, { tuning = it }, onMaker = { showMaker = true }, inPanel = true)
+                    }
                     CustomizerTab.SHORTCUTS -> CompositionLocalProvider(LocalCardInset provides 20.dp) {
                         ShortcutsSheet(shortcuts)
                     }
@@ -349,11 +375,11 @@ private fun CustomiseContent(
     if (askHome) {
         HomeDialog(wallpaper, onDismiss = { askHome = false }, onSkip = {
             askHome = false
-            onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning),
+            onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning), dynamicClock = dynamicClock,
                 home = HomeStyle.KEEP), tuning)
         }) { home ->
             askHome = false
-            onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning),
+            onDone(initial.copy(wallpaper = wallpaper, clock = clock.copy(tuning = tuning), dynamicClock = dynamicClock,
                 home = home), tuning)
         }
     }
@@ -610,6 +636,7 @@ internal fun ClockSheet(
     onMaker: (() -> Unit)? = null,
     showStyles: Boolean = true,
     inPanel: Boolean = false,
+    layoutSize: Boolean? = null,
 ) {
     val context = LocalContext.current
     val onLight = rememberTopLight(wallpaper)
@@ -622,7 +649,7 @@ internal fun ClockSheet(
         .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)
     CompositionLocalProvider(LocalCardInset provides (if (inPanel) 0.dp else LocalCardInset.current)) {
     Column(outer, verticalArrangement = Arrangement.spacedBy(if (inPanel) 12.dp else 14.dp)) {
-        if (clock.face > 0) {
+        if (clock.face > 0 && layoutSize == null) {
             Box(Modifier.padding(horizontal = LocalCardInset.current)) {
                 SwitchCard(stringResource(R.string.home_clock_title), clock.showOnHomeScreen,
                     { onChange(clock.copy(showOnHomeScreen = it)) },
@@ -721,7 +748,9 @@ internal fun ClockSheet(
                 onChange(clock.copy(rounded = it))
             }
         }
-        if (clock.face in 1..44) {
+        if (clock.face in 1..92 && layoutSize != null) {
+            ClockLayoutFontPicker(clock, allowPhotoPicking, onChange)
+        } else if (clock.face in 1..44) {
             Box(Modifier.fillMaxWidth().padding(horizontal = LocalCardInset.current)) {
                 ClockFontPicker()
             }
@@ -766,7 +795,7 @@ internal fun ClockSheet(
                 }
             }
         }
-        if (clock.face > 0) {
+        if (clock.face > 0 || layoutSize != null) {
             TuningSwitch(stringResource(R.string.gallery_clock_shadow), tuning.shadowEnabled) {
                 onTuning(tuning.copy(shadowEnabled = it))
             }
@@ -827,7 +856,7 @@ internal fun ClockSheet(
             }
             TuningSwitch(stringResource(R.string.gallery_clock_album_art),
                 tuning.albumArtColour) { onTuning(tuning.copy(albumArtColour = it)) }
-            TuningSwitch(stringResource(R.string.gallery_clock_aod_animation),
+            if (layoutSize == null) TuningSwitch(stringResource(R.string.gallery_clock_aod_animation),
                 tuning.aodAnimation) { onTuning(tuning.copy(aodAnimation = it)) }
             TuningSwitch(stringResource(R.string.gallery_clock_wobble), tuning.wobbleOnCharge) {
                 onTuning(tuning.copy(wobbleOnCharge = it))
@@ -836,7 +865,7 @@ internal fun ClockSheet(
                 onTuning(tuning.copy(weather = it))
             }
         }
-        if (clock.face == 0) {
+        if (clock.face == 0 && layoutSize == null) {
             Chips(listOf(stringResource(R.string.gallery_clock_large),
                 stringResource(R.string.gallery_clock_small)), if (clock.small) 1 else 0) {
                 onChange(clock.copy(small = it == 1))

@@ -258,7 +258,8 @@ fun SwitcherScreen(
                             abs(pager.currentPage - page + pager.currentPageOffsetFraction)
                         LockScreenCard(
                             wallpaper = lockScreen.wallpaper,
-                            clock = lockScreen.clock,
+                            clock = lockScreen.dynamicClock?.takeIf { it.enabled }?.large ?: lockScreen.clock,
+                            dynamicClock = lockScreen.dynamicClock?.enabled == true,
                             extraInfo = lockScreen.extraInfo,
                             live = isCurrent,
                             fixedTime = false,
@@ -369,7 +370,8 @@ fun SwitcherScreen(
             val density = LocalDensity.current
             LockScreenCard(
                 wallpaper = moving.wallpaper,
-                clock = moving.clock,
+                clock = moving.dynamicClock?.takeIf { it.enabled }?.large ?: moving.clock,
+                dynamicClock = moving.dynamicClock?.enabled == true,
                 extraInfo = moving.extraInfo,
                 live = true,
                 fixedTime = false,

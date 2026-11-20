@@ -28,6 +28,7 @@ import kotlin.math.ceil
 import kotlin.math.roundToInt
 import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.clockmaker.ClockEffects
+import org.lunaris.clockmaker.ClockFonts
 import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.clockmaker.ClockGlassController
 import org.lunaris.clockmaker.ClockGlassStyle
@@ -409,25 +410,35 @@ object CustomClocks {
      */
     fun preview(context: Context, style: Int, width: Int, color: Int?,
             trim: Boolean = false, tuning: Tuning? = null, glassBackground: ClockGlass? = null,
-            homeScreen: Boolean = false): Bitmap? {
-        if (style <= 0) return null
+            homeScreen: Boolean = false, font: String? = null, stockStyle: ClockStyle? = null): Bitmap? {
+        if (style < 0) return null
         val minute = System.currentTimeMillis() / 60_000
         val assetsSeq = context.resources.configuration.assetsSeq
         val geometry = geometry(context, homeScreen)
-        val key = "$style/$width/$color/$minute/$trim/$tuning/$assetsSeq/$homeScreen/$geometry/${System.identityHashCode(glassBackground)}"
+        val stockKey = stockStyle?.let { "${it.small}/${it.preset}/${it.rounded}/${it.stockAxes}" }.orEmpty()
+        val key = "$style/$width/$color/$minute/$trim/$tuning/$assetsSeq/$homeScreen/$geometry/$font/$stockKey/${System.identityHashCode(glassBackground)}"
         previews.get(key)?.let { return it }
         val cat = load(context) ?: return null
         if (style >= cat.layouts.size) return null
         return try {
             val inflater = LayoutInflater.from(cat.inflateContext).cloneInContext(
                 cat.inflateContext).apply { factory2 = SystemUiViews(cat.systemUi?.classLoader) }
-            val view = inflater.inflate(cat.layouts[style], null)
-            prepare(view, if (isColourable(style)) color ?: Color.WHITE else null)
+            val view = if (style == 0) inflateStockClock(context, cat,
+                stockStyle ?: ClockStyle(), color) else inflater.inflate(cat.layouts[style], null)
+            if (style != 0) prepare(view, if (isColourable(style)) color ?: Color.WHITE else null)
+            if (font != null) {
+                val typeface = ClockFonts.load(context, context.userId, font)
+                fun applyFont(child: View) {
+                    if (child is TextView) child.typeface = typeface
+                    if (child is ViewGroup) for (i in 0 until child.childCount) applyFont(child.getChildAt(i))
+                }
+                applyFont(view)
+            }
             view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED))
             view.layout(0, 0, view.measuredWidth, view.measuredHeight)
             if (view.measuredHeight <= 0) return null
-            if (isColourable(style)) {
+            if (style != 0 && isColourable(style)) {
                 prepareColours(view, view, color ?: Color.WHITE, tuning)
             }
             val glass = if (tuning?.textGlass == true && supportsTextGlass(style) && glassBackground != null) {
@@ -463,6 +474,57 @@ object CustomClocks {
         } catch (e: Exception) {
             Log.w(TAG, "Could not draw clock style $style", e)
             null
+        }
+    }
+
+    private fun inflateStockClock(context: Context, cat: Catalogue, style: ClockStyle, color: Int?): View {
+        val loader = requireNotNull(cat.systemUi).classLoader
+        val settingsClass = loader.loadClass("com.android.systemui.plugins.keyguard.ui.clocks.ClockSettings")
+        val settingsCompanion = settingsClass.getField("Companion").get(null)
+        val axes = style.preset?.let { preset ->
+            val (weight, width) = StockClock.PRESETS[preset.coerceIn(0, StockClock.PRESETS.lastIndex)]
+            mapOf("wght" to weight, "wdth" to width, "slnt" to 0f)
+        } ?: style.stockAxes ?: mapOf("wght" to 500f, "wdth" to 100f, "slnt" to 0f)
+        val settingsJson = JSONObject().put("clockId", "DEFAULT")
+            .put("seedColor", color ?: JSONObject.NULL)
+            .put("axes", org.json.JSONArray().also { array ->
+                (axes + ("ROND" to if (style.rounded) 100f else 0f)).forEach { (key, value) ->
+                    array.put(JSONObject().put("key", key).put("value", value))
+                }
+            })
+        val settings = settingsCompanion.javaClass.getMethod("fromJson", JSONObject::class.java)
+            .invoke(settingsCompanion, settingsJson)
+        val providerClass = loader.loadClass("com.android.systemui.shared.clocks.DefaultClockProvider")
+        val reactive = loader.loadClass("com.android.systemui.shared.Flags")
+            .getMethod("clockReactiveVariants").invoke(null) as Boolean
+        val provider = providerClass.getConstructor(LayoutInflater::class.java,
+            android.content.res.Resources::class.java, Boolean::class.javaPrimitiveType,
+            android.os.Vibrator::class.java).newInstance(LayoutInflater.from(cat.inflateContext),
+                cat.inflateContext.resources, reactive, context.getSystemService(android.os.Vibrator::class.java))
+        val controller = providerClass.getMethod("createClock", Context::class.java, settingsClass)
+            .invoke(provider, cat.inflateContext, settings)
+        val controllerClass = loader.loadClass("com.android.systemui.plugins.keyguard.ui.clocks.ClockController")
+        controllerClass.getMethod("initialize", Boolean::class.javaPrimitiveType,
+            Float::class.javaPrimitiveType, Float::class.javaPrimitiveType).invoke(controller, true, 0f, 0f)
+        val eventClass = loader.loadClass("com.android.systemui.plugins.keyguard.ui.clocks.ClockEvents")
+        val events = controllerClass.getMethod("getEvents").invoke(controller)
+        val formatClass = loader.loadClass("com.android.systemui.plugins.keyguard.ui.clocks.TimeFormatKind")
+        val format = formatClass.enumConstants.first { (it as Enum<*>).name ==
+            if (android.text.format.DateFormat.is24HourFormat(context)) "FULL_DAY" else "HALF_DAY" }
+        eventClass.getMethod("onTimeFormatChanged", formatClass).invoke(events, format)
+        val face = controllerClass.getMethod(if (style.small) "getSmallClock" else "getLargeClock").invoke(controller)
+        val faceClass = loader.loadClass("com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceController")
+        val faceEvents = faceClass.getMethod("getEvents").invoke(face)
+        val sizeId = cat.inflateContext.resources.getIdentifier(
+            if (style.small) "small_clock_text_size" else "large_clock_text_size", "dimen", SYSTEMUI)
+        require(sizeId != 0)
+        val faceEventClass = loader.loadClass("com.android.systemui.plugins.keyguard.ui.clocks.ClockFaceEvents")
+        faceEventClass.getMethod("onFontSettingChanged", Float::class.javaPrimitiveType)
+            .invoke(faceEvents, cat.inflateContext.resources.getDimension(sizeId))
+        faceEventClass.getMethod("onTimeTick").invoke(faceEvents)
+        return (faceClass.getMethod("getView").invoke(face) as View).apply {
+            layoutParams = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT)
         }
     }
 

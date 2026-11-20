@@ -106,6 +106,7 @@ data class LockScreen(
     val home: HomeStyle = HomeStyle.PAIR,
     val clock: ClockStyle = ClockStyle(),
     val extraInfo: ExtraInfoSettings = ExtraInfoSettings(),
+    val dynamicClock: DynamicClockConfiguration? = null,
 ) {
     fun toJson(): JSONObject =
         JSONObject()
@@ -114,6 +115,7 @@ data class LockScreen(
             .put("home", home.name)
             .put("clock", clock.toJson())
             .put("extra_info", extraInfo.toJson())
+            .put("dynamic_clock", dynamicClock?.toJson() ?: JSONObject.NULL)
 
     companion object {
         fun fromJson(json: JSONObject) =
@@ -126,6 +128,7 @@ data class LockScreen(
                 clock = json.optJSONObject("clock")?.let(ClockStyle::fromJson) ?: ClockStyle(),
                 extraInfo = json.optJSONObject("extra_info")?.let(ExtraInfoSettings::fromJson)
                     ?: ExtraInfoSettings(),
+                dynamicClock = json.optJSONObject("dynamic_clock")?.let(DynamicClockConfiguration::fromJson),
             )
     }
 }
@@ -147,6 +150,8 @@ data class ClockStyle(
     val design: ClockDesign? = null,
     val showOnHomeScreen: Boolean = false,
     val homeLayout: HomeClockLayout? = null,
+    val font: String? = null,
+    val stockAxes: Map<String, Float>? = null,
 ) {
     fun toJson(): JSONObject =
         JSONObject()
@@ -159,6 +164,8 @@ data class ClockStyle(
             .put("design", design?.toJson() ?: JSONObject.NULL)
             .put("home_screen", showOnHomeScreen)
             .put("home_layout", homeLayout?.toJson() ?: JSONObject.NULL)
+            .put("font", font ?: JSONObject.NULL)
+            .put("stock_axes", stockAxes?.let { JSONObject(it) } ?: JSONObject.NULL)
 
     companion object {
         fun fromJson(json: JSONObject) =
@@ -172,6 +179,12 @@ data class ClockStyle(
                 design = json.optJSONObject("design")?.let { runCatching { ClockDesign.fromJson(it) }.getOrNull() },
                 showOnHomeScreen = json.optBoolean("home_screen"),
                 homeLayout = json.optJSONObject("home_layout")?.let(HomeClockLayout::fromJson),
+                font = json.optString("font").takeIf { it.isNotBlank() && it != "null" },
+                stockAxes = json.optJSONObject("stock_axes")?.let { axes ->
+                    axes.keys().asSequence().take(32).mapNotNull { key ->
+                        axes.optDouble(key).toFloat().takeIf { it.isFinite() }?.let { key to it }
+                    }.toMap()
+                },
             )
     }
 }

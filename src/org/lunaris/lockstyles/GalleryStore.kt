@@ -57,8 +57,15 @@ class GalleryStore private constructor(private val context: Context) {
         val applied = current.copy(
             clock = CustomClocks.appliedStyle(context, current.clock),
             extraInfo = ExtraInfoSettings.load(context),
+            dynamicClock = DynamicClocks.load(context),
         )
         if (applied != current) save(applied)
+    }
+
+    @Synchronized
+    fun saveCurrentDynamicClock(configuration: DynamicClockConfiguration) {
+        val current = lockScreens.firstOrNull { it.id == currentId } ?: return
+        save(current.copy(dynamicClock = configuration))
     }
 
     fun addListener(listener: () -> Unit) {

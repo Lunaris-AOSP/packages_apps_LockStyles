@@ -138,7 +138,7 @@ import org.lunaris.lockstyles.R
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey: String,
-    allowImport: Boolean, onCancel: () -> Unit, onSave: (ClockStyle) -> Unit) {
+    allowImport: Boolean, onCancel: () -> Unit, onSave: (ClockStyle) -> Unit, layoutSize: Boolean? = null) {
     val context = LocalContext.current
     val store = remember { ClockMakerStore(context) }
     val imageStore = remember { ClockImageStore(context) }
@@ -330,7 +330,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
     val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
     val spatial = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
     val layoutSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntSize>()
-    if (editingAod) {
+    if (editingAod && layoutSize == null) {
         val selected = design.elements.firstOrNull { it.id == selectedId }
         val fontName = selected?.let { element ->
             fonts.firstOrNull { it.family == element.font }?.name ?:
@@ -365,7 +365,11 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.clock_maker_title),
+                        Text(stringResource(when (layoutSize) {
+                            true -> R.string.dynamic_clock_small_maker
+                            false -> R.string.dynamic_clock_large_maker
+                            null -> R.string.clock_maker_title
+                        }),
                             style = MaterialTheme.typography.titleLarge)
                         Text(design.name.trim().ifEmpty { stringResource(R.string.clock_maker_new) },
                             style = MaterialTheme.typography.labelMedium,
@@ -434,7 +438,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                             base.resizeImage(
                                                 width = (base.imageWidth * factor).roundToInt().coerceIn(16, 360),
                                                 height = (base.imageHeight * factor).roundToInt().coerceIn(16, 720))
-                                        } else base.copy(size = (base.size * factor).roundToInt().coerceIn(8, 200))
+                                        } else base.copy(size = (base.size * factor).roundToInt()
+                                            .coerceIn(ClockElement.MIN_TEXT_SIZE, ClockElement.MAX_TEXT_SIZE))
                                         val next = design.copy(elements = design.elements.map {
                                             if (it.id == scaled.id) scaled else it
                                         })
@@ -496,7 +501,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                             label = { Text(stringResource(R.string.clock_maker_global)) })
                         AssistChip(onClick = { dialog = "name" },
                             label = { Text(design.name.trim().ifEmpty { stringResource(R.string.clock_maker_name) }) })
-                        AssistChip(onClick = {
+                        if (layoutSize == null) AssistChip(onClick = {
                             change(design.prepareAod(), record = false, coalesce = false)
                             editingAod = true
                         },
@@ -586,7 +591,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                                 if (selected.font.startsWith("import:")) stringResource(R.string.clock_maker_missing_font)
                                                 else selected.font
                                             ElementLayoutControls(selected, positioning, fontName,
-                                                onChooseFont = { dialog = "fonts" }, onChange = { edit(it) })
+                                                onChooseFont = { dialog = "fonts" }, showAodFontHint = layoutSize == null,
+                                                onChange = { edit(it) })
                                         }
                                         2 -> {
                                             if (selected.kind == ClockElementKind.IMAGE) {
@@ -688,7 +694,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                 color = it.color
                 baseClock = baseClock.copy(showOnHomeScreen = it.showOnHomeScreen,
                     homeLayout = it.homeLayout)
-            }, { tuning = it }, showStyles = false)
+            }, { tuning = it }, showStyles = false, layoutSize = layoutSize)
         }
     }
     if (dialog == "add") {

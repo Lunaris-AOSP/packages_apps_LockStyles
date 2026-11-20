@@ -64,6 +64,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
+import org.lunaris.lockstyles.DynamicClockConfiguration
+import org.lunaris.lockstyles.DynamicClocks
 import org.lunaris.lockstyles.GalleryApplier
 import org.lunaris.lockstyles.GalleryStore
 import org.lunaris.lockstyles.GalleryWallpaper
@@ -413,7 +415,11 @@ class LockScreenGalleryActivity : ComponentActivity() {
                                     lockScreen.id != store.currentId ||
                                     lockScreen.wallpaper != current.lockScreen.wallpaper ||
                                     lockScreen.home != current.lockScreen.home
-                                apply(lockScreen, tuning, updateWallpaper,
+                                val before = current.lockScreen.clock.copy(tuning = current.lockScreen.clock.tuning
+                                    ?: CustomClocks.Tuning.load(this@LockScreenGalleryActivity))
+                                val after = lockScreen.clock.copy(tuning = tuning)
+                                val updateBaseClock = current.isNew || lockScreen.id != store.currentId || before != after
+                                apply(lockScreen, tuning, updateWallpaper, updateBaseClock = updateBaseClock,
                                     closeWhenApplied = request.fromLockScreen) {
                                     version++
                                     screen = Screen.Switcher(zoomIn = true)
@@ -554,6 +560,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
 
     private fun apply(lockScreen: LockScreen, tuning: CustomClocks.Tuning? = null,
             updateWallpaper: Boolean = true, closeWhenApplied: Boolean = launchRequest.fromLockScreen,
+            updateBaseClock: Boolean = true,
             onFinished: () -> Unit = {},
             onApplied: () -> Unit = {}) {
         if (applying) return
@@ -575,7 +582,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                             }
                         } else GalleryApplier.Result.APPLIED
                         if (applied != GalleryApplier.Result.FAILED) {
-                            applyClock(lockScreen.clock, tuning ?: lockScreen.clock.tuning)
+                            applyClock(lockScreen.clock, tuning ?: lockScreen.clock.tuning, lockScreen.dynamicClock, updateBaseClock)
                             withContext(Dispatchers.IO) {
                                 lockScreen.extraInfo.apply(this@LockScreenGalleryActivity)
                                 store.save(lockScreen, makeCurrent = true)
@@ -621,7 +628,13 @@ class LockScreenGalleryActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun applyClock(style: ClockStyle, tuning: CustomClocks.Tuning?) {
+    private suspend fun applyClock(style: ClockStyle, tuning: CustomClocks.Tuning?,
+        dynamicClock: DynamicClockConfiguration?, updateBaseClock: Boolean) {
+        withContext(Dispatchers.IO) {
+            DynamicClocks.apply(this@LockScreenGalleryActivity,
+                dynamicClock ?: DynamicClocks.defaults(style.copy(tuning = tuning ?: style.tuning)))
+        }
+        if (!updateBaseClock) return
         if (style.face == 0) applyStockClock(style)
         withContext(Dispatchers.IO) {
             Settings.Secure.putString(contentResolver, HomeClockLayout.SIZE_SETTING,
@@ -642,7 +655,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
             val (weight, width) = CLOCK_PRESETS[it.coerceIn(0, CLOCK_PRESETS.size - 1)]
             mapOf("wght" to weight, "wdth" to width,
                 "ROND" to if (style.rounded) 100f else 0f, "slnt" to 0f)
-        }
+        } ?: style.stockAxes?.plus("ROND" to if (style.rounded) 100f else 0f)
         withContext(Dispatchers.IO) {
             runCatching {
                 StockClock.apply(this@LockScreenGalleryActivity, style.small, style.color, axes)
@@ -669,6 +682,7 @@ class LockScreenGalleryActivity : ComponentActivity() {
                 store.saveInitial(LockScreen(store.newId(),
                     GalleryWallpaper(Kind.PHOTO, photos = listOf(path)),
                     clock = CustomClocks.appliedStyle(this, ClockStyle()),
+                    dynamicClock = DynamicClocks.load(this),
                     extraInfo = ExtraInfoSettings.load(this)))
             } finally {
                 store.discardImportedPhotos(listOf(path))

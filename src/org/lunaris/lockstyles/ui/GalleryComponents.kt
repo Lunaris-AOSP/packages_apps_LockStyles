@@ -93,7 +93,8 @@ val CLOCK_PRESETS = StockClock.PRESETS
 
 fun clockVariation(style: ClockStyle): String {
     val (weight, width) = CLOCK_PRESETS[(style.preset ?: 3).coerceIn(0, CLOCK_PRESETS.size - 1)]
-    return "'wght' $weight, 'wdth' $width, 'ROND' ${if (style.rounded) 100 else 0}"
+    val axes = style.stockAxes.takeIf { style.preset == null }
+    return "'wght' ${axes?.get("wght") ?: weight}, 'wdth' ${axes?.get("wdth") ?: width}, 'ROND' ${if (style.rounded) 100 else 0}"
 }
 
 private val clockTypeface: Typeface by lazy { Typeface.create("google-sans-flex-clock",
@@ -376,9 +377,9 @@ fun LockClock(
     val assetsSeq = LocalConfiguration.current.assetsSeq
     val geometry = CustomClocks.geometry(context)
     val minute = previewMinute()
-    val preview by produceState<Bitmap?>(null, style.face, color, style.tuning, assetsSeq, geometry, minute) {
+    val preview by produceState<Bitmap?>(null, style.face, color, style.tuning, style.font, assetsSeq, geometry, minute) {
         value = CustomClocks.preview(context, style.face, geometry.clockWidth,
-            color, trim = true, tuning = style.tuning)
+            color, trim = true, tuning = style.tuning, font = style.font)
     }
     preview?.let {
         Image(it.asImageBitmap(), null, modifier.width(widthDp).height(heightDp),
@@ -422,14 +423,16 @@ fun CustomClockLayer(
     val holdForGlass = holdPreview(wantGlass && wallpaper != null, glass != null, wallpaper)
     val assetsSeq = configuration.assetsSeq
     val minute = previewMinute()
-    val preview by produceState<Bitmap?>(null, style.face, color, frame.width, currentTuning,
+    val preview by produceState<Bitmap?>(null, style.face, style.font, style.small, style.preset,
+        style.rounded, style.stockAxes, color, frame.width, currentTuning,
         glass, holdForGlass, assetsSeq, homeScreen, geometry, minute) {
         if (holdForGlass) {
             value = null
             return@produceState
         }
         value = CustomClocks.preview(context, style.face, frame.width, color, tuning = currentTuning,
-            glassBackground = glass, homeScreen = homeScreen)
+            glassBackground = glass, homeScreen = homeScreen, font = style.font,
+            stockStyle = style.takeIf { it.face == 0 })
     }
     BoxWithConstraints(modifier.fillMaxSize()) {
         val bitmap = preview ?: return@BoxWithConstraints
@@ -500,11 +503,12 @@ fun LockScreenCard(
     weather: GalleryWeather.Snapshot? = null,
     showExtraInfo: Boolean = true,
     extraInfo: ExtraInfoSettings = ExtraInfoSettings(),
+    dynamicClock: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
     val shape = RoundedCornerShape(corner.coerceAtLeast(0.dp))
     val onLight = rememberTopLight(wallpaper)
-    var clockBottom by remember(clock.face, clock.small) { mutableStateOf<ClockPreviewBounds?>(null) }
+    var clockBottom by remember(clock.face, clock.small, dynamicClock) { mutableStateOf<ClockPreviewBounds?>(null) }
     BoxWithConstraints(
         modifier
             .clip(shape)
@@ -514,7 +518,7 @@ fun LockScreenCard(
         LockScreenPreviewLayout(Modifier.fillMaxSize()) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 LockScreenWallpaper(wallpaper, Modifier.fillMaxSize(), live && wallpaper.isAnimated, weather)
-                if (clock.face > 0) {
+                if (clock.face > 0 || dynamicClock) {
                     CustomClockLayer(clock, wallpaper = wallpaper, onBottomChanged = { clockBottom = it })
                 } else {
                     val clockHeight = maxHeight * if (clock.small) 0.06f else 0.24f

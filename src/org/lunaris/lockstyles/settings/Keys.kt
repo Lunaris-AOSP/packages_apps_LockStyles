@@ -12,6 +12,7 @@ import org.lunaris.lockstyles.settings.LockSetting.Num
 import org.lunaris.lockstyles.settings.LockSetting.Text
 import org.lunaris.lockstyles.settings.Table.SECURE
 import org.lunaris.lockstyles.settings.Table.SYSTEM
+import org.lunaris.clockmaker.DynamicClockSettings
 
 /**
  * Every lock screen setting Singularity had, with its table and default as its preference XML
@@ -49,6 +50,7 @@ object Keys {
     // Clock
     // The clock's style, colours, size and animations are the gallery's, in CustomClocks.
     val NOTIFICATIONS_ABOVE_CLOCK = Bool(SECURE, "lock_screen_notifications_above_clock", false)
+    val DYNAMIC_CLOCK = Bool(SECURE, DynamicClockSettings.ENABLED, false)
     val AOD_IMAGE = Bool(SYSTEM, "custom_aod_image_enabled", false)
     val AOD_IMAGE_URI = Text(SYSTEM, "custom_aod_image_uri", null)
 

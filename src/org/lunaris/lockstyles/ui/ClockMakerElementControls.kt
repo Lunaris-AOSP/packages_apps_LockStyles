@@ -48,6 +48,7 @@ internal fun ElementLayoutControls(
     positioning: ClockDesignPositioning?,
     fontName: String,
     onChooseFont: () -> Unit,
+    showAodFontHint: Boolean = true,
     onChange: (ClockElement) -> Unit,
 ) {
     if (element.kind == ClockElementKind.IMAGE) {
@@ -56,11 +57,12 @@ internal fun ElementLayoutControls(
         TextButton(onClick = onChooseFont, modifier = Modifier.padding(horizontal = 12.dp)) {
             Text(stringResource(R.string.clock_maker_font) + ": " + fontName)
         }
-        Text(stringResource(R.string.clock_maker_shared_font),
+        if (showAodFontHint) Text(stringResource(R.string.clock_maker_shared_font),
             modifier = Modifier.padding(horizontal = 20.dp),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant)
-        TuningSlider(stringResource(R.string.gallery_clock_size), element.size, 8..200, "",
+        TuningSlider(stringResource(R.string.gallery_clock_size), element.size,
+            ClockElement.MIN_TEXT_SIZE..ClockElement.MAX_TEXT_SIZE, "",
             ClockElement.create(element.kind).size) { onChange(element.copy(size = it)) }
         TuningSlider(stringResource(R.string.clock_maker_weight), element.weight, 100..900, "", 400) {
             onChange(element.copy(weight = it))

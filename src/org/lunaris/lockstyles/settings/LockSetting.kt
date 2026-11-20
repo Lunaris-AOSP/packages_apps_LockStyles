@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import org.lunaris.lockstyles.GalleryStore
+import org.lunaris.lockstyles.DynamicClocks
 
 /** Which settings table a key lives in. */
 enum class Table { SYSTEM, SECURE }
@@ -86,7 +87,10 @@ fun <T> LockSetting<T>.state(): MutableState<T> {
                 get() = inner.value
                 set(v) {
                     inner.value = v
-                    write(context, v)
+                    if (this@state === Keys.DYNAMIC_CLOCK) {
+                        val configuration = DynamicClocks.update(context) { it.copy(enabled = v == true) }
+                        GalleryStore.get(context).saveCurrentDynamicClock(configuration)
+                    } else write(context, v)
                     if (ExtraInfoSettings.contains(this@state)) {
                         GalleryStore.get(context).saveCurrentExtraInfo()
                     }

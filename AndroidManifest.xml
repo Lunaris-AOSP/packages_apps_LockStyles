@@ -95,6 +95,19 @@
         </activity>
 
         <activity
+            android:name=".ui.DynamicClockActivity"
+            android:label="@string/dynamic_clock_title"
+            android:theme="@style/Theme.LockStyles.Settings"
+            android:configChanges="assetsPaths"
+            android:launchMode="singleTop"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.lunaris.lockstyles.action.DYNAMIC_CLOCK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity
             android:name=".settings.ui.LockSettingsActivity"
             android:label="@string/lock_settings"
             android:theme="@style/Theme.LockStyles.Settings"

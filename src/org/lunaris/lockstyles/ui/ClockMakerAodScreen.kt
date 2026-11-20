@@ -179,7 +179,8 @@ internal fun ClockMakerAodScreen(
                                     val scaled = if (base.kind == ClockElementKind.IMAGE) base.resizeImage(
                                         width = (base.imageWidth * factor).roundToInt().coerceIn(16, 360),
                                         height = (base.imageHeight * factor).roundToInt().coerceIn(16, 720))
-                                    else base.copy(size = (base.size * factor).roundToInt().coerceIn(8, 200))
+                                    else base.copy(size = (base.size * factor).roundToInt()
+                                        .coerceIn(ClockElement.MIN_TEXT_SIZE, ClockElement.MAX_TEXT_SIZE))
                                     if (scaled != aodElement) {
                                         onEdit(scaled, !pinchRecorded)
                                         pinchRecorded = true

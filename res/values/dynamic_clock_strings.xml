@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dynamic_clock_title">Dynamic Clock</string>
+    <string name="dynamic_clock_summary">Show the small clock with notifications and the large clock when notifications are cleared</string>
+    <string name="dynamic_clock_small_title">Small clock</string>
+    <string name="dynamic_clock_large_title">Large clock</string>
+    <string name="dynamic_clock_small_summary">Layout shown when lockscreen notifications are visible</string>
+    <string name="dynamic_clock_large_summary">Layout shown when there are no lockscreen notifications</string>
+    <string name="dynamic_clock_edit">Edit layout</string>
+    <string name="dynamic_clock_aod_summary">Your existing AOD clock keeps its own layout, style and animations.</string>
+    <string name="dynamic_clock_small_maker">Small Clock Maker</string>
+    <string name="dynamic_clock_large_maker">Large Clock Maker</string>
+    <string name="dynamic_clock_import_font">Import font</string>
+    <string name="dynamic_clock_font_failed">Could not import this font</string>
+    <string name="dynamic_clock_save_failed">Could not save the clock layouts</string>
+    <string name="dynamic_clock_base_title">Base and AOD clock</string>
+</resources>
