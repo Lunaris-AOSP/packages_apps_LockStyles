@@ -194,7 +194,8 @@ private class MakerPreview(context: Context) : ViewGroup(context) {
             clock.layout(frame.side, frame.top, frame.side + w, frame.top + h)
             clock.pivotX = w / 2f
             clock.pivotY = clock.transformPivotY
-            ClockViewTransform.applyClockTransform(clock, tuning.rotation, tuning.tiltX, tuning.tiltY)
+            ClockViewTransform.applyClockTransform(clock, tuning.rotation,
+                tuning.previewTiltX(homeScreen), tuning.previewTiltY(homeScreen))
             applyAodProgress()
         }
     }

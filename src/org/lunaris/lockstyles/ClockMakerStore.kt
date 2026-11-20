@@ -145,7 +145,8 @@ class ClockMakerStore(private val context: Context) {
             scale = tuning.scale.coerceIn(50, 150), opacity = tuning.opacity.coerceIn(0, 100),
             marginTop = tuning.marginTop.coerceIn(0, 200), marginStart = tuning.marginStart.coerceIn(-200, 200),
             rotation = tuning.rotation.coerceIn(-180, 180), tiltX = tuning.tiltX.coerceIn(-75, 75),
-            tiltY = tuning.tiltY.coerceIn(-75, 75), gradientAnchorY = tuning.gradientAnchorY.coerceIn(0, 100),
+            tiltY = tuning.tiltY.coerceIn(-75, 75), parallaxIntensity = tuning.parallaxIntensity.coerceIn(0, 100),
+            gradientAnchorY = tuning.gradientAnchorY.coerceIn(0, 100),
             gradientRadius = tuning.gradientRadius.coerceIn(25, 200)))
         val design = requireNotNull(source.design)
         val imageStore = ClockImageStore(context)

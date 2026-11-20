@@ -830,10 +830,21 @@ internal fun ClockSheet(
             }
             TuningSlider(stringResource(R.string.custom_clock_rotation_title), tuning.rotation,
                 -180..180, "°", CustomClocks.Tuning().rotation) { onTuning(tuning.copy(rotation = it)) }
-            TuningSlider(stringResource(R.string.clock_tilt_x_title), tuning.tiltX,
-                -75..75, "°", CustomClocks.Tuning().tiltX) { onTuning(tuning.copy(tiltX = it)) }
-            TuningSlider(stringResource(R.string.clock_tilt_y_title), tuning.tiltY,
-                -75..75, "°", CustomClocks.Tuning().tiltY) { onTuning(tuning.copy(tiltY = it)) }
+            TuningSwitch(stringResource(R.string.clock_parallax_title), tuning.parallaxEnabled) {
+                onTuning(tuning.copy(parallaxEnabled = it))
+            }
+            if (tuning.parallaxEnabled) {
+                SheetLabel(stringResource(R.string.clock_parallax_summary))
+                TuningSlider(stringResource(R.string.clock_parallax_intensity_title), tuning.parallaxIntensity,
+                    0..100, "%", CustomClocks.Tuning().parallaxIntensity) {
+                    onTuning(tuning.copy(parallaxIntensity = it))
+                }
+            } else {
+                TuningSlider(stringResource(R.string.clock_tilt_x_title), tuning.tiltX,
+                    -75..75, "°", CustomClocks.Tuning().tiltX) { onTuning(tuning.copy(tiltX = it)) }
+                TuningSlider(stringResource(R.string.clock_tilt_y_title), tuning.tiltY,
+                    -75..75, "°", CustomClocks.Tuning().tiltY) { onTuning(tuning.copy(tiltY = it)) }
+            }
             if (CustomClocks.supportsTextGlass(clock.face)) {
                 TuningSwitch(stringResource(R.string.clock_text_glass), tuning.textGlass) {
                     onTuning(tuning.copy(textGlass = it, gradient = if (it) false else tuning.gradient))

@@ -447,7 +447,7 @@ fun CustomClockLayer(
                 scaleX = frame.scale
                 scaleY = frame.scale
                 ClockViewTransform.applyClockTransform(this, currentTuning.rotation,
-                    currentTuning.tiltX, currentTuning.tiltY)
+                    currentTuning.previewTiltX(homeScreen), currentTuning.previewTiltY(homeScreen))
             }
             val visual = RectF(0f, 0f, frame.width.toFloat(), height.toFloat())
             proxy.matrix.mapRect(visual)
@@ -470,8 +470,8 @@ fun CustomClockLayer(
                     scaleX = frame.scale
                     scaleY = frame.scale
                     alpha = frame.alpha
-                    rotationX = currentTuning.tiltX.coerceIn(-75, 75).toFloat()
-                    rotationY = currentTuning.tiltY.coerceIn(-75, 75).toFloat()
+                    rotationX = currentTuning.previewTiltX(homeScreen).coerceIn(-75, 75).toFloat()
+                    rotationY = currentTuning.previewTiltY(homeScreen).coerceIn(-75, 75).toFloat()
                     rotationZ = currentTuning.rotation.coerceIn(-180, 180).toFloat()
                     // View.setCameraDistance divides by densityDpi; Compose passes directly
                     // to RenderNode. Match SystemUI's conversion before shrinking the preview.

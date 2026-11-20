@@ -30,6 +30,9 @@
     <string name="custom_clock_rotation_title">Clock rotation</string>
     <string name="clock_tilt_x_title">Tilt around the horizontal axis</string>
     <string name="clock_tilt_y_title">Tilt around the vertical axis</string>
+    <string name="clock_parallax_title">3D parallax tilt</string>
+    <string name="clock_parallax_summary">Smoothly tilt the clock with phone movement. Disabled on Always On Display.</string>
+    <string name="clock_parallax_intensity_title">3D tilt intensity</string>
     <string name="lock_screen_custom_clock_hyper_blur_title">Blur colour blend</string>
     <string name="gallery_clock_colour_hex">Hex colour (RRGGBB or AARRGGBB)</string>
     <string name="depthwall_extracting_toast">Extracting subject from wallpaper…</string>

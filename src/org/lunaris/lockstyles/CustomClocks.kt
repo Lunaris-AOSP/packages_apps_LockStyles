@@ -33,6 +33,7 @@ import org.lunaris.clockmaker.ClockGlass
 import org.lunaris.clockmaker.ClockGlassController
 import org.lunaris.clockmaker.ClockGlassStyle
 import org.lunaris.clockmaker.ClockPreviewGeometry
+import org.lunaris.clockmaker.ClockParallaxSettings
 import org.lunaris.clockmaker.ClockViewTransform
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -108,6 +109,8 @@ object CustomClocks {
         val rotation: Int = 0,
         val tiltX: Int = 0,
         val tiltY: Int = 0,
+        val parallaxEnabled: Boolean = false,
+        val parallaxIntensity: Int = ClockParallaxSettings.DEFAULT_INTENSITY,
         val hyperBlur: Boolean = false,
         val textGlass: Boolean = false,
         val glassIntensity: Int = ClockGlass.DEFAULT_INTENSITY,
@@ -126,6 +129,12 @@ object CustomClocks {
         val wobbleOnCharge: Boolean = true,
         val weather: Boolean = true,
     ) {
+        fun previewTiltX(homeScreen: Boolean = false): Int =
+            if (parallaxEnabled && !homeScreen) 0 else tiltX
+
+        fun previewTiltY(homeScreen: Boolean = false): Int =
+            if (parallaxEnabled && !homeScreen) 0 else tiltY
+
         val shadowArgb: Int
             get() = if (shadowEnabled) {
                 Color.argb((Color.alpha(shadowColor) * shadowOpacity.coerceIn(0, 100) / 100f)
@@ -157,6 +166,8 @@ object CustomClocks {
                     rotation = int(KEY_ROTATION, d.rotation).coerceIn(-180, 180),
                     tiltX = int(KEY_TILT_X, d.tiltX).coerceIn(-75, 75),
                     tiltY = int(KEY_TILT_Y, d.tiltY).coerceIn(-75, 75),
+                    parallaxEnabled = int(ClockParallaxSettings.ENABLED, 0) != 0,
+                    parallaxIntensity = int(ClockParallaxSettings.INTENSITY, d.parallaxIntensity).coerceIn(0, 100),
                     hyperBlur = int(KEY_HYPER_BLUR, 0) != 0,
                     textGlass = int(ClockGlass.ENABLED_SETTING, 0) != 0,
                     glassIntensity = int(ClockGlass.INTENSITY_SETTING, d.glassIntensity).coerceIn(0, 100),
@@ -192,6 +203,8 @@ object CustomClocks {
                     rotation = json.optInt("rotation", d.rotation).coerceIn(-180, 180),
                     tiltX = json.optInt("tiltX", d.tiltX).coerceIn(-75, 75),
                     tiltY = json.optInt("tiltY", d.tiltY).coerceIn(-75, 75),
+                    parallaxEnabled = json.optBoolean("parallaxEnabled", d.parallaxEnabled),
+                    parallaxIntensity = json.optInt("parallaxIntensity", d.parallaxIntensity).coerceIn(0, 100),
                     hyperBlur = json.optBoolean("hyperBlur", d.hyperBlur),
                     textGlass = json.optBoolean("textGlass", d.textGlass),
                     glassIntensity = json.optInt("glassIntensity", d.glassIntensity).coerceIn(0, 100),
@@ -227,6 +240,8 @@ object CustomClocks {
             .put("rotation", rotation)
             .put("tiltX", tiltX)
             .put("tiltY", tiltY)
+            .put("parallaxEnabled", parallaxEnabled)
+            .put("parallaxIntensity", parallaxIntensity.coerceIn(0, 100))
             .put("hyperBlur", hyperBlur)
             .put("textGlass", textGlass)
             .put("glassIntensity", glassIntensity)
@@ -260,6 +275,8 @@ object CustomClocks {
             put(KEY_ROTATION, rotation)
             put(KEY_TILT_X, tiltX)
             put(KEY_TILT_Y, tiltY)
+            put(ClockParallaxSettings.ENABLED, parallaxEnabled)
+            put(ClockParallaxSettings.INTENSITY, parallaxIntensity.coerceIn(0, 100))
             put(KEY_HYPER_BLUR, hyperBlur)
             put(ClockGlass.ENABLED_SETTING, textGlass)
             put(ClockGlass.INTENSITY_SETTING, glassIntensity.coerceIn(0, 100))
@@ -452,7 +469,8 @@ object CustomClocks {
                 view.pivotY = view.height / 2f
                 view.scaleX = frame.scale
                 view.scaleY = frame.scale
-                ClockViewTransform.applyClockTransform(view, tuning.rotation, tuning.tiltX, tuning.tiltY)
+                ClockViewTransform.applyClockTransform(view, tuning.rotation,
+                    tuning.previewTiltX(homeScreen), tuning.previewTiltY(homeScreen))
                 ClockGlassController(view).apply {
                     setPreview(glassBackground, stage)
                     fun collect(child: View) {
