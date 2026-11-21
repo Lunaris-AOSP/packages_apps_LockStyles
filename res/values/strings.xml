@@ -21,6 +21,10 @@
     <string name="credits_singularity">Lock screen settings, from Singularity</string>
     <string name="credits_ax_blur">The glass blur material, from AxionOS\' ax_blur</string>
     <string name="clock_font_default">Default</string>
+    <string name="clock_digit_alignment_title">Digit alignment</string>
+    <string name="clock_digit_alignment_font">Font spacing</string>
+    <string name="clock_digit_alignment_center">Centered digits</string>
+    <string name="clock_digit_alignment_edges">Fixed outer edges</string>
     <string name="depthwall_extract_unavailable">Settings\' subject extractor isn\'t available</string>
     <string name="depthwall_subject_save_failed">Could not save the subject image. Your previous image is unchanged.</string>
     <string name="depthwall_apply_failed">Wallpaper applied, but depth extraction did not finish. Retry from Depth wallpaper settings.</string>

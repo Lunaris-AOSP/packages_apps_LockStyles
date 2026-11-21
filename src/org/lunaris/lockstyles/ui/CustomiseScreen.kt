@@ -115,6 +115,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockDigitAlignment
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.DynamicClocks
@@ -753,6 +754,16 @@ internal fun ClockSheet(
         } else if (clock.face in 1..44) {
             Box(Modifier.fillMaxWidth().padding(horizontal = LocalCardInset.current)) {
                 ClockFontPicker()
+            }
+        }
+        if (CustomClocks.supportsDigitAlignment(clock.face)) {
+            Box(Modifier.padding(horizontal = LocalCardInset.current)) {
+                SectionHeader(stringResource(R.string.clock_digit_alignment_title))
+            }
+            Chips(listOf(stringResource(R.string.clock_digit_alignment_font),
+                stringResource(R.string.clock_digit_alignment_center),
+                stringResource(R.string.clock_digit_alignment_edges)), tuning.digitAlignment.ordinal) {
+                onTuning(tuning.copy(digitAlignment = ClockDigitAlignment.entries[it]))
             }
         }
         // Some custom styles keep their own colours on the lock screen.

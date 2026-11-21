@@ -27,6 +27,8 @@ import org.json.JSONObject
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockDigitAlignment
+import org.lunaris.clockmaker.ClockDigits
 import org.lunaris.clockmaker.ClockEffects
 import org.lunaris.clockmaker.ClockFonts
 import org.lunaris.clockmaker.ClockGlass
@@ -99,6 +101,7 @@ object CustomClocks {
     /** How SystemUI sizes, places and colours a custom style; Settings' clock options. */
     data class Tuning(
         val scale: Int = 100,
+        val digitAlignment: ClockDigitAlignment = ClockDigitAlignment.FONT,
         val opacity: Int = 100,
         val shadowEnabled: Boolean = false,
         val shadowColor: Int = Color.BLACK,
@@ -156,6 +159,7 @@ object CustomClocks {
                         int(ClockGlass.LIFT_SETTING, d.glassLift)) else ClockGlassStyle()
                 return Tuning(
                     scale = int(KEY_SIZE, d.scale),
+                    digitAlignment = ClockDigitAlignment.parse(string(ClockDigits.SETTING)),
                     opacity = int(KEY_OPACITY, d.opacity),
                     shadowEnabled = int(KEY_SHADOW_ENABLED, 0) != 0,
                     shadowColor = int(KEY_SHADOW_COLOR, d.shadowColor),
@@ -193,6 +197,7 @@ object CustomClocks {
                 val d = Tuning()
                 return Tuning(
                     scale = json.optInt("scale", d.scale),
+                    digitAlignment = ClockDigitAlignment.parse(json.optString("digitAlignment")),
                     opacity = json.optInt("opacity", d.opacity),
                     shadowEnabled = json.optBoolean("shadowEnabled", d.shadowEnabled),
                     shadowColor = json.optInt("shadowColor", d.shadowColor),
@@ -230,6 +235,7 @@ object CustomClocks {
 
         fun toJson(): JSONObject = JSONObject()
             .put("scale", scale)
+            .put("digitAlignment", digitAlignment.name)
             .put("opacity", opacity)
             .put("shadowEnabled", shadowEnabled)
             .put("shadowColor", shadowColor)
@@ -265,6 +271,7 @@ object CustomClocks {
             fun put(key: String, value: Int) = Settings.Secure.putInt(cr, key, value)
             fun put(key: String, value: Boolean) = put(key, if (value) 1 else 0)
             put(KEY_SIZE, scale)
+            Settings.Secure.putString(cr, ClockDigits.SETTING, digitAlignment.name)
             put(KEY_OPACITY, opacity)
             put(KEY_SHADOW_ENABLED, shadowEnabled)
             put(KEY_SHADOW_COLOR, shadowColor)
@@ -330,6 +337,8 @@ object CustomClocks {
     fun supportsHorizontalMargin(style: Int) = style !in NO_HORIZONTAL_MARGIN
     fun supportsHyperBlur(style: Int) = style in 93..102
     fun supportsTextGlass(style: Int) = style in 1..92 && isColourable(style)
+    fun supportsDigitAlignment(style: Int) =
+        (style in 1..92 && style != 18 && style != 25 && style != 33) || style == ClockDesign.STYLE
 
     private fun readWallpaperZoomEnabled(context: Context): Boolean = runCatching {
         Settings.System.getInt(context.contentResolver, Settings.System.WALLPAPER_ZOOM_ENABLED, 1) != 0 &&
@@ -442,7 +451,8 @@ object CustomClocks {
                 cat.inflateContext).apply { factory2 = SystemUiViews(cat.systemUi?.classLoader) }
             val view = if (style == 0) inflateStockClock(context, cat,
                 stockStyle ?: ClockStyle(), color) else inflater.inflate(cat.layouts[style], null)
-            if (style != 0) prepare(view, if (isColourable(style)) color ?: Color.WHITE else null)
+            if (style != 0) prepare(view, if (isColourable(style)) color ?: Color.WHITE else null,
+                tuning?.digitAlignment ?: ClockDigitAlignment.FONT)
             if (font != null) {
                 val typeface = ClockFonts.load(context, context.userId, font)
                 fun applyFont(child: View) {
@@ -615,11 +625,17 @@ object CustomClocks {
             onCreateView(null, name, context, attrs)
     }
 
-    private fun prepare(view: View, color: Int?) {
+    private fun prepare(view: View, color: Int?, digitAlignment: ClockDigitAlignment) {
         if (view is TextView) {
             // Detached views never tick, and single-line centred text is only scrolled into
             // place once attached, so both are done by hand.
-            if (view is TextClock) view.refreshTime()
+            if (view is TextClock) {
+                if (view.javaClass.name == "$SYSTEMUI.clocks.AlignedTextClock") {
+                    view.javaClass.getMethod("setDigitAlignment", String::class.java)
+                        .invoke(view, digitAlignment.name)
+                }
+                view.refreshTime()
+            }
             if (view.isSingleLine) {
                 view.setSingleLine(false)
                 view.maxLines = 1
@@ -632,7 +648,7 @@ object CustomClocks {
         if (view is ViewGroup) {
             view.clipChildren = false
             view.clipToPadding = false
-            for (i in 0 until view.childCount) prepare(view.getChildAt(i), color)
+            for (i in 0 until view.childCount) prepare(view.getChildAt(i), color, digitAlignment)
         }
     }
 

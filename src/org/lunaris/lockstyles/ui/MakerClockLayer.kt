@@ -93,7 +93,8 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
             color = if (tuning.accent) context.getColor(android.R.color.system_accent1_100) else style.color ?: Color.WHITE,
             gradient = tuning.gradient, gradientStart = tuning.gradientStart, gradientEnd = tuning.gradientEnd,
             gradientAnchor = tuning.gradientAnchorY, gradientRadius = tuning.gradientRadius,
-            weather = tuning.weather, dozing = dozing, aodAnimation = tuning.aodAnimation))
+            weather = tuning.weather, dozing = dozing, aodAnimation = tuning.aodAnimation,
+            digitAlignment = tuning.digitAlignment))
         it.setPreviewDozing(dozing)
         it.requestLayout()
     })
