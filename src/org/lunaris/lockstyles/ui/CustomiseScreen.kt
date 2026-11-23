@@ -233,7 +233,7 @@ private fun CustomiseContent(
     LaunchedEffect(Unit) { appear.animateTo(1f, appearSpec) }
 
     BoxWithConstraints(Modifier.fillMaxSize().background(Color.Black)) {
-        LockScreenPreviewLayout(Modifier.fillMaxSize()) {
+        LockScreenPreviewLayout(Modifier.fillMaxSize(), depthWallpaper = wallpaper, showDepth = true) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 LockScreenWallpaper(wallpaper, Modifier.fillMaxSize(), weather = weather)
                 val onLight = rememberTopLight(wallpaper)
@@ -271,6 +271,7 @@ private fun CustomiseContent(
                     }
                 }
 
+                DepthWallpaperLayer(wallpaper)
                 val infoBottom = ExtraInfoWallpaperLayer(clockBottom?.layoutBottom, wallpaper)
                 AppWidgetWallpaperLayer(infoBottom, clockBottom)
                 IndependentInfoWallpaperLayer(wallpaper, fullScreen)

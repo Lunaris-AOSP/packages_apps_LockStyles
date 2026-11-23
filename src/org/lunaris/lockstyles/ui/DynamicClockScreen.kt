@@ -189,9 +189,10 @@ private fun ClockEditorHeader(title: String, onBack: () -> Unit, onSave: () -> U
 
 @Composable
 internal fun ClockLayoutPreview(clock: ClockStyle, wallpaper: GalleryWallpaper) {
-    LockScreenPreviewLayout(Modifier.fillMaxSize()) {
-        WallpaperImage(wallpaper, Modifier.fillMaxSize())
+    LockScreenPreviewLayout(Modifier.fillMaxSize(), depthWallpaper = wallpaper, showDepth = true) {
+        LockScreenWallpaper(wallpaper, Modifier.fillMaxSize(), live = false)
         CustomClockLayer(clock, wallpaper = wallpaper)
+        DepthWallpaperLayer(wallpaper)
     }
 }
 

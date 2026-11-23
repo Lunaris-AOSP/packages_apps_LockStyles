@@ -141,14 +141,18 @@ internal fun LockScreenWallpaper(
     weather: GalleryWeather.Snapshot? = null,
 ) {
     val geometry = CustomClocks.geometry(LocalContext.current)
+    val spatialScale = depthPreviewScale(wallpaper)
+    val spatialBackground = LocalDepthPreview.current?.background
     Box(modifier) {
         val background = Modifier.fillMaxSize().graphicsLayer {
             transformOrigin = TransformOrigin(geometry.wallpaperPivotX / geometry.screenWidth,
                 geometry.wallpaperPivotY / geometry.screenHeight)
-            scaleX = geometry.wallpaperScale
-            scaleY = geometry.wallpaperScale
+            scaleX = geometry.wallpaperScale * spatialScale
+            scaleY = geometry.wallpaperScale * spatialScale
         }
-        if (live) LiveWallpaper(wallpaper, background, weather)
+        if (spatialBackground != null) {
+            DepthWallpaperBackground(background)
+        } else if (live) LiveWallpaper(wallpaper, background, weather)
         else WallpaperImage(wallpaper, background, weather)
         if (geometry.wallpaperDimAmount > 0f) {
             Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = geometry.wallpaperDimAmount)))
@@ -515,7 +519,7 @@ fun LockScreenCard(
             .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
     ) {
-        LockScreenPreviewLayout(Modifier.fillMaxSize()) {
+        LockScreenPreviewLayout(Modifier.fillMaxSize(), depthWallpaper = wallpaper, showDepth = true) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 LockScreenWallpaper(wallpaper, Modifier.fillMaxSize(), live && wallpaper.isAnimated, weather)
                 if (clock.face > 0 || dynamicClock) {
@@ -539,6 +543,7 @@ fun LockScreenCard(
                         ClockText(clock, clockHeight, fixedTime = fixedTime, onLight = onLight)
                     }
                 }
+                DepthWallpaperLayer(wallpaper)
                 ExtraInfoSettingsProvider(extraInfo) {
                     val infoBottom = if (showExtraInfo)
                         ExtraInfoWallpaperLayer(clockBottom?.layoutBottom, wallpaper)

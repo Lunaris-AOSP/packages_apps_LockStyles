@@ -196,14 +196,14 @@
     <string name="depthwall_clear_subject_title">Clear subject image</string>
     <string name="depthwall_extract_now_summary">Trigger subject extraction from wallpaper immediately (Set wallpaper separatly for lockscreen)</string>
     <string name="depthwall_extract_now_title">Extract subject now</string>
-    <string name="depthwall_file_header_select_summary">Select depth wallpaper subject image from storage.</string>
+    <string name="depthwall_file_header_select_summary">Select a transparent subject PNG with the same canvas and position as your wallpaper.</string>
     <string name="depthwall_file_header_select_title">Select Depth wallpaper subject</string>
-    <string name="depthwall_spatial_effect_summary">Shift the wallpaper layers with device movement for a 3D effect</string>
+    <string name="depthwall_spatial_effect_summary">Give your still wallpaper depth and perspective as you tilt your phone. Preparing a new wallpaper may take a moment.</string>
     <string name="depthwall_spatial_effect_title">3D spatial effect</string>
     <string name="depthwall_spatial_sensitivity_summary">Adjust the amount of movement in the 3D wallpaper effect</string>
     <string name="depthwall_spatial_sensitivity_title">3D effect sensitivity</string>
     <string name="depthwall_footer_text">
-        The depth wallpaper feature, inspired by iOS\'s Wallpaper Subject Segmentation, enables overlaying of a subject above the lockscreen clock to show a wallpaper depth effect.\n\nTo setup Depth Wallpaper Feature:\n1. Set a wallpaper with the subject or a background you want the subject to be above of.\n2. Select a subject image to track, this image will be overlaid above the lockscreen clock.\n3. Modify the offsets and opacity according to your needs.
+        Place your wallpaper subject over the lockscreen clock and give the photo a spatial effect.\n\n1. Set a still wallpaper.\n2. Select a transparent subject PNG with the same canvas and position as the wallpaper.\n3. Enable 3D spatial effect and allow a moment for the new wallpaper to prepare.\n4. Tilt your phone to see the perspective change. Adjust sensitivity, opacity and position as needed.
     </string>
     <string name="depthwall_wallpaper_enabled_summary">Enable iOS-inspired depth wallpaper. Requires a subject image.</string>
     <string name="depthwall_wallpaper_enabled_title">Depth wallpaper</string>

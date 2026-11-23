@@ -418,7 +418,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                         .clip(previewShape)
                         .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f), previewShape)
                         .background(MaterialTheme.colorScheme.surfaceContainerLowest)) {
-                        LockScreenPreviewLayout(Modifier.fillMaxSize()) {
+                        LockScreenPreviewLayout(Modifier.fillMaxSize(), depthWallpaper = wallpaper, showDepth = true) {
                             LockScreenWallpaper(wallpaper, Modifier.fillMaxSize())
                             MakerClockLayer(clock, tuning, wallpaper = wallpaper, selectedId = selectedId, onSelect = { selectedId = it },
                                 onMove = { id, x, y ->
@@ -450,6 +450,7 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
                                     }
                                 } },
                                 onPinchEnd = if (!fullScreenEditor) null else { { pinchBase = null } })
+                            DepthWallpaperLayer(wallpaper)
                         }
                     }
                 }

@@ -596,6 +596,9 @@ object CustomClocks {
         return addShadow(bitmap, view.context, tuning)
     }
 
+    private class AlignedPreviewTextClock(context: Context, attrs: AttributeSet) :
+        TextClock(context, attrs)
+
     /**
      * SystemUI's clock views only need a context, so they're loaded from its code. Its other
      * views (weather and the like) need SystemUI itself; plain views keep the layout's shape.
@@ -604,6 +607,9 @@ object CustomClocks {
         override fun onCreateView(parent: View?, name: String, context: Context,
                 attrs: AttributeSet): View? {
             if (!name.contains('.') || name.startsWith("android.")) return null
+            if (name == "$SYSTEMUI.clocks.AlignedTextClock") {
+                return AlignedPreviewTextClock(context, attrs)
+            }
             // Weather controllers depend on SystemUI's process-local Dependency singleton.
             // Use the plain placeholders below without constructing those controllers.
             if (loader != null && name.startsWith("$SYSTEMUI.") &&
@@ -630,11 +636,10 @@ object CustomClocks {
             // Detached views never tick, and single-line centred text is only scrolled into
             // place once attached, so both are done by hand.
             if (view is TextClock) {
-                if (view.javaClass.name == "$SYSTEMUI.clocks.AlignedTextClock") {
-                    view.javaClass.getMethod("setDigitAlignment", String::class.java)
-                        .invoke(view, digitAlignment.name)
-                }
                 view.refreshTime()
+                if (view is AlignedPreviewTextClock) {
+                    view.text = ClockDigits.align(view.text, digitAlignment)
+                }
             }
             if (view.isSingleLine) {
                 view.setSingleLine(false)

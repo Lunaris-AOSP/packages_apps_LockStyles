@@ -75,6 +75,7 @@ import org.lunaris.lockstyles.settings.LunarisImages
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.ModernConfirmDialog
 import org.lunaris.lockstyles.ui.ExpressiveButton
+import org.lunaris.lockstyles.ui.DepthWallpaperPreview
 import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.ui.LockScreenGalleryActivity
 import org.lunaris.lockstyles.ui.DynamicClockActivity
@@ -402,6 +403,7 @@ fun DepthPage(back: () -> Unit, inSheet: Boolean = false,
     }
     var confirmClear by remember { mutableStateOf(false) }
     SettingsPage(s(R.string.depthwall_wallpaper_enabled_title), back, inSheet) {
+        if (!inSheet) item { DepthWallpaperPreview() }
         group(null, listOf(
             switchRow(s(R.string.depthwall_wallpaper_enabled_title),
                 s(R.string.depthwall_wallpaper_enabled_summary), Keys.DEPTH) { enabled ->

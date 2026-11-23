@@ -9,7 +9,8 @@ package {
 
 android_app {
     name: "LunarisLockStyles",
-    srcs: ["src/**/*.kt"],
+    srcs: ["src/**/*.kt", "src/**/*.java"],
+    asset_dirs: ["assets"],
     resource_dirs: ["res"],
     manifest: "AndroidManifest.xml",
     platform_apis: true,
@@ -17,6 +18,7 @@ android_app {
     privileged: true,
     system_ext_specific: true,
     static_libs: [
+        "tensorflowlite_java",
         "LunarisClockMaker",
         "LunarisLockscreenWidgets",
         "LunarisExtraInfoWidgets",
@@ -31,6 +33,7 @@ android_app {
         "kotlinx_coroutines_android",
     ],
     kotlincflags: ["-Xjvm-default=all"],
+    jni_libs: ["libtensorflowlite_jni"],
     optimize: {
         enabled: false,
     },

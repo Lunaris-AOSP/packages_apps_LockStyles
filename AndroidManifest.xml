@@ -34,6 +34,14 @@
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
         <provider
+            android:name=".spatial.SpatialWallpaperProvider"
+            android:authorities="org.lunaris.lockstyles.spatial"
+            android:process=":spatialwallpaper"
+            android:directBootAware="true"
+            android:exported="true"
+            android:permission="android.permission.STATUS_BAR_SERVICE" />
+
+        <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="org.lunaris.lockstyles.clockexports"
             android:exported="false"

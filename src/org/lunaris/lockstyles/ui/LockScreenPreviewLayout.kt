@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import org.lunaris.lockstyles.GalleryWallpaper
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableIntStateOf
@@ -34,6 +36,8 @@ import kotlin.math.roundToInt
 internal fun LockScreenPreviewLayout(
     modifier: Modifier = Modifier,
     homeScreen: Boolean = false,
+    depthWallpaper: GalleryWallpaper? = null,
+    showDepth: Boolean = false,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val context = LocalContext.current
@@ -60,7 +64,13 @@ internal fun LockScreenPreviewLayout(
     LaunchedEffect(context, configuration, homeScreen, refreshVersion.intValue) {
         if (!homeScreen) withContext(Dispatchers.IO) { CustomClocks.refreshPreviewGeometry(context) }
     }
-    Layout(modifier = modifier, content = { Box(Modifier.fillMaxSize(), content = content) }) {
+    val session = if (homeScreen) null else if (showDepth)
+        rememberDepthPreview(depthWallpaper, true) else LocalDepthPreview.current
+    Layout(modifier = modifier, content = {
+        CompositionLocalProvider(LocalDepthPreview provides session) {
+            Box(Modifier.fillMaxSize(), content = content)
+        }
+    }) {
         measurables, constraints ->
         val width = if (constraints.hasBoundedWidth) constraints.maxWidth
             else constraints.constrainWidth(geometry.screenWidth)
