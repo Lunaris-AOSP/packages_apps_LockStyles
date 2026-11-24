@@ -45,7 +45,7 @@ object DynamicClocks {
                 else tuning,
             design = (clock.design ?: if (clock.face == ClockDesign.STYLE) ClockDesign() else null)
                 ?.copy(id = UUID.randomUUID().toString()),
-            showOnHomeScreen = false, homeLayout = null,
+            showOnHomeScreen = false, useSmallHomeClock = false, homeLayout = null,
             stockAxes = clock.stockAxes ?: if (clock.face == 0) mapOf(
                 "wght" to 500f, "wdth" to 100f, "ROND" to if (clock.rounded) 100f else 0f, "slnt" to 0f) else null,
         )

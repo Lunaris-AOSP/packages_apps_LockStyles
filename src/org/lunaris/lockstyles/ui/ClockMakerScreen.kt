@@ -132,13 +132,15 @@ import org.lunaris.lockstyles.ClockImageStore
 import org.lunaris.lockstyles.ClockMakerStore
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
+import org.lunaris.lockstyles.DynamicClockConfiguration
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey: String,
-    allowImport: Boolean, onCancel: () -> Unit, onSave: (ClockStyle) -> Unit, layoutSize: Boolean? = null) {
+    allowImport: Boolean, onCancel: () -> Unit, onSave: (ClockStyle) -> Unit, layoutSize: Boolean? = null,
+    dynamicClock: DynamicClockConfiguration? = null) {
     val context = LocalContext.current
     val store = remember { ClockMakerStore(context) }
     val imageStore = remember { ClockImageStore(context) }
@@ -694,8 +696,8 @@ fun ClockMakerScreen(initial: ClockStyle, wallpaper: GalleryWallpaper, draftKey:
             ClockSheet(clock, tuning, wallpaper, allowImport, {
                 color = it.color
                 baseClock = baseClock.copy(showOnHomeScreen = it.showOnHomeScreen,
-                    homeLayout = it.homeLayout)
-            }, { tuning = it }, showStyles = false, layoutSize = layoutSize)
+                    useSmallHomeClock = it.useSmallHomeClock, homeLayout = it.homeLayout)
+            }, { tuning = it }, showStyles = false, layoutSize = layoutSize, dynamicClock = dynamicClock)
         }
     }
     if (dialog == "add") {

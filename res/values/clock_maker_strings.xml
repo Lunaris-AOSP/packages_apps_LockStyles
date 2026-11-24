@@ -23,6 +23,10 @@
     <string name="clock_maker_weight">Weight</string>
     <string name="clock_maker_italic">Italic</string>
     <string name="clock_maker_spacing">Letter spacing</string>
+    <string name="clock_maker_stretch_width">Width stretch</string>
+    <string name="clock_maker_stretch_height">Height stretch</string>
+    <string name="clock_maker_stretch_from_top">Stretch from top</string>
+    <string name="clock_maker_stretch_summary" formatted="false">100% keeps the original proportions. Stretch from top keeps the top edge in place as you change the height. Add Time (separate digits) to stretch each digit independently.</string>
     <string name="clock_maker_horizontal">Horizontal position</string>
     <string name="clock_maker_vertical">Vertical position</string>
     <string name="clock_maker_inherit">Use clock colours</string>

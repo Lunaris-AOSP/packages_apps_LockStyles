@@ -149,6 +149,7 @@ data class ClockStyle(
     val tuning: CustomClocks.Tuning? = null,
     val design: ClockDesign? = null,
     val showOnHomeScreen: Boolean = false,
+    val useSmallHomeClock: Boolean = false,
     val homeLayout: HomeClockLayout? = null,
     val font: String? = null,
     val stockAxes: Map<String, Float>? = null,
@@ -163,6 +164,7 @@ data class ClockStyle(
             .put("tuning", tuning?.toJson() ?: JSONObject.NULL)
             .put("design", design?.toJson() ?: JSONObject.NULL)
             .put("home_screen", showOnHomeScreen)
+            .put("home_small_clock", useSmallHomeClock)
             .put("home_layout", homeLayout?.toJson() ?: JSONObject.NULL)
             .put("font", font ?: JSONObject.NULL)
             .put("stock_axes", stockAxes?.let { JSONObject(it) } ?: JSONObject.NULL)
@@ -178,6 +180,7 @@ data class ClockStyle(
                 tuning = json.optJSONObject("tuning")?.let(CustomClocks.Tuning::fromJson),
                 design = json.optJSONObject("design")?.let { runCatching { ClockDesign.fromJson(it) }.getOrNull() },
                 showOnHomeScreen = json.optBoolean("home_screen"),
+                useSmallHomeClock = json.optBoolean("home_small_clock"),
                 homeLayout = json.optJSONObject("home_layout")?.let(HomeClockLayout::fromJson),
                 font = json.optString("font").takeIf { it.isNotBlank() && it != "null" },
                 stockAxes = json.optJSONObject("stock_axes")?.let { axes ->

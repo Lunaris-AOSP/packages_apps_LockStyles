@@ -27,6 +27,7 @@ import org.json.JSONObject
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 import org.lunaris.clockmaker.ClockDesign
+import org.lunaris.clockmaker.ClockLayoutProfile
 import org.lunaris.clockmaker.ClockDigitAlignment
 import org.lunaris.clockmaker.ClockDigits
 import org.lunaris.clockmaker.ClockEffects
@@ -37,6 +38,7 @@ import org.lunaris.clockmaker.ClockGlassStyle
 import org.lunaris.clockmaker.ClockPreviewGeometry
 import org.lunaris.clockmaker.ClockParallaxSettings
 import org.lunaris.clockmaker.ClockViewTransform
+import org.lunaris.clockmaker.DynamicClockSettings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -394,20 +396,36 @@ object CustomClocks {
         val cr = context.contentResolver
         val face = Settings.Secure.getInt(cr, KEY_STYLE, fallback.face)
             .coerceIn(0, ClockCatalogue.entries.lastIndex)
-        if (face == 0) return@runCatching StockClock.load(context)
+        val base = if (face == 0) StockClock.load(context) else fallback
         val tuning = Tuning.load(context)
         val size = Settings.Secure.getString(cr, HomeClockLayout.SIZE_SETTING)?.toIntOrNull()
         val top = Settings.Secure.getString(cr, HomeClockLayout.TOP_SETTING)?.toIntOrNull()
         val start = Settings.Secure.getString(cr, HomeClockLayout.START_SETTING)?.toIntOrNull()
-        fallback.copy(face = face, tuning = tuning,
-            color = if (Settings.Secure.getString(cr, KEY_COLOR_MODE) == "custom")
+        val useSmall = Settings.Secure.getInt(cr, DynamicClockSettings.HOME_SMALL, 0) != 0
+        val smallEnabled = useSmall && Settings.Secure.getInt(cr, DynamicClockSettings.ENABLED, 0) != 0
+        val smallProfile = if (smallEnabled) ClockLayoutProfile.parse(
+            DynamicClockSettings.decode(Settings.Secure.getString(cr, DynamicClockSettings.LAYOUTS))
+                ?.optJSONObject(DynamicClockSettings.SMALL)?.toString(), true) else null
+        val homeTuning = when {
+            smallProfile != null -> tuning.copy(
+                scale = (smallProfile.values[KEY_SIZE]?.toIntOrNull() ?: 100).coerceIn(50, 150),
+                marginTop = (smallProfile.values[KEY_MARGIN_TOP]?.toIntOrNull() ?: 15).coerceIn(0, 200),
+                marginStart = (smallProfile.values[KEY_MARGIN_START]?.toIntOrNull() ?: 0).coerceIn(-200, 200))
+            smallEnabled -> tuning.copy(scale = if (face == 0) 100
+                else (tuning.scale * 0.6f).toInt().coerceIn(50, 150), marginTop = 0)
+            else -> tuning
+        }
+        val defaults = HomeClockLayout.fromTuning(homeTuning, smallProfile?.style ?: face)
+        base.copy(face = face, tuning = if (face == 0) base.tuning else tuning,
+            color = if (face == 0) base.color else if (Settings.Secure.getString(cr, KEY_COLOR_MODE) == "custom")
                 Settings.Secure.getInt(cr, KEY_CUSTOM_COLOR, Color.WHITE) else null,
             design = if (face == ClockDesign.STYLE)
                 ClockDesign.parse(Settings.Secure.getString(cr, ClockDesign.SETTING)) ?: ClockDesign() else null,
             showOnHomeScreen = Settings.Secure.getInt(cr, "lock_screen_home_clock_enabled", 0) != 0,
+            useSmallHomeClock = useSmall,
             homeLayout = if (size != null || top != null || start != null) HomeClockLayout(
-                (size ?: tuning.scale).coerceIn(25, 150), (top ?: tuning.marginTop).coerceIn(0, 2000),
-                (start ?: tuning.marginStart).coerceIn(-2000, 2000)) else null,
+                (size ?: defaults.scale).coerceIn(25, 150), (top ?: defaults.marginTop).coerceIn(0, 2000),
+                (start ?: defaults.marginStart).coerceIn(-2000, 2000)) else null,
         )
     }.getOrDefault(fallback)
 

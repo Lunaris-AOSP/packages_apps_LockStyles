@@ -64,6 +64,21 @@ internal fun ElementLayoutControls(
         TuningSlider(stringResource(R.string.gallery_clock_size), element.size,
             ClockElement.MIN_TEXT_SIZE..ClockElement.MAX_TEXT_SIZE, "",
             ClockElement.create(element.kind).size) { onChange(element.copy(size = it)) }
+        TuningSlider(stringResource(R.string.clock_maker_stretch_width), element.stretchX,
+            ClockElement.MIN_TEXT_STRETCH..ClockElement.MAX_TEXT_STRETCH, "%", 100) {
+            onChange(element.copy(stretchX = it))
+        }
+        TuningSlider(stringResource(R.string.clock_maker_stretch_height), element.stretchY,
+            ClockElement.MIN_TEXT_STRETCH..ClockElement.MAX_TEXT_STRETCH, "%", 100) {
+            onChange(element.copy(stretchY = it))
+        }
+        TuningSwitch(stringResource(R.string.clock_maker_stretch_from_top), element.stretchFromTop) {
+            onChange(element.copy(stretchFromTop = it))
+        }
+        Text(stringResource(R.string.clock_maker_stretch_summary),
+            modifier = Modifier.padding(horizontal = 20.dp),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         TuningSlider(stringResource(R.string.clock_maker_weight), element.weight, 100..900, "", 400) {
             onChange(element.copy(weight = it))
         }

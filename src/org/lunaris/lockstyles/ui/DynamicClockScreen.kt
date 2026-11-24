@@ -66,6 +66,7 @@ import org.lunaris.lockstyles.DynamicClockConfiguration
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.ui.pickTile
+import java.util.UUID
 
 internal val dynamicClockSaver = Saver<DynamicClockConfiguration, String>(
     save = { it.toJson().toString() },
@@ -95,6 +96,7 @@ fun DynamicClockScreen(
         val small = size == DynamicClockSettings.SMALL
         ClockLayoutEditor(if (small) configuration.small else configuration.large, small,
             wallpaper, "$draftKey:$size", allowImport,
+            largeClock = configuration.large.takeIf { small },
             onCancel = { if (initialSize != null) onCancel() else editingSize = null },
             onSave = { clock ->
                 configuration = if (small) configuration.copy(small = clock) else configuration.copy(large = clock)
@@ -142,7 +144,10 @@ private fun ClockLayoutCard(clock: ClockStyle, small: Boolean, wallpaper: Galler
 
 @Composable
 private fun ClockLayoutEditor(initial: ClockStyle, small: Boolean, wallpaper: GalleryWallpaper,
-    draftKey: String, allowImport: Boolean, onCancel: () -> Unit, onSave: (ClockStyle) -> Unit) {
+    draftKey: String, allowImport: Boolean, largeClock: ClockStyle?,
+    onCancel: () -> Unit, onSave: (ClockStyle) -> Unit) {
+    val context = LocalContext.current
+    val makerStore = remember(context) { ClockMakerStore(context) }
     var clock by rememberSaveable(draftKey, stateSaver = clockLayoutSaver) {
         mutableStateOf(initial.copy(small = small, tuning = initial.tuning ?: CustomClocks.Tuning(),
             showOnHomeScreen = false, homeLayout = null))
@@ -161,6 +166,22 @@ private fun ClockLayoutEditor(initial: ClockStyle, small: Boolean, wallpaper: Ga
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             ClockEditorHeader(stringResource(if (small) R.string.dynamic_clock_small_title
                 else R.string.dynamic_clock_large_title), onCancel) { onSave(clock) }
+            if (small && largeClock != null && largeClock.face == ClockDesign.STYLE && largeClock.design != null) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ExpressiveButton(stringResource(R.string.dynamic_clock_use_big), onClick = {
+                        clock = largeClock.copy(small = true,
+                            design = largeClock.design?.copy(id = UUID.randomUUID().toString()),
+                            tuning = largeClock.tuning ?: CustomClocks.Tuning(),
+                            showOnHomeScreen = false, homeLayout = null)
+                        makerStore.clearDraft(draftKey)
+                        maker = true
+                    })
+                    Text(stringResource(R.string.dynamic_clock_use_big_summary),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             Box(Modifier.fillMaxWidth().weight(0.42f).padding(12.dp), contentAlignment = Alignment.Center) {
                 val aspect = CustomClocks.geometry(LocalContext.current).aspect
                 Box(Modifier.aspectRatio(aspect, matchHeightConstraintsFirst = true).clip(MaterialTheme.shapes.large)) {

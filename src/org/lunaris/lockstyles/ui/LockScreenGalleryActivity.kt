@@ -64,6 +64,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
+import org.lunaris.clockmaker.DynamicClockSettings
 import org.lunaris.lockstyles.DynamicClockConfiguration
 import org.lunaris.lockstyles.DynamicClocks
 import org.lunaris.lockstyles.GalleryApplier
@@ -643,8 +644,10 @@ class LockScreenGalleryActivity : ComponentActivity() {
                 style.homeLayout?.marginTop?.toString())
             Settings.Secure.putString(contentResolver, HomeClockLayout.START_SETTING,
                 style.homeLayout?.marginStart?.toString())
+            Settings.Secure.putInt(contentResolver, DynamicClockSettings.HOME_SMALL,
+                if (style.useSmallHomeClock) 1 else 0)
             Settings.Secure.putInt(contentResolver, "lock_screen_home_clock_enabled",
-                if (style.showOnHomeScreen && style.face > 0) 1 else 0)
+                if (style.showOnHomeScreen && (style.face > 0 || dynamicClock?.enabled == true)) 1 else 0)
             runCatching { CustomClocks.apply(this@LockScreenGalleryActivity, style.face,
                 style.color, tuning, style.design) }
         }

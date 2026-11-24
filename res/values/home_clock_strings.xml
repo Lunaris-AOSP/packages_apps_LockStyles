@@ -2,6 +2,8 @@
 <resources>
     <string name="home_clock_title">Use on home screen</string>
     <string name="home_clock_summary">Show this clock above your wallpaper, behind Glance, widgets and icons. Available with the Lunaris launcher.</string>
+    <string name="home_clock_use_small">Use small clock</string>
+    <string name="home_clock_use_small_summary">Use the small Dynamic Clock layout on the home screen.</string>
     <string name="home_clock_adjust">Home clock preview</string>
     <string name="home_clock_size">Home clock size</string>
     <string name="home_clock_vertical">Vertical position</string>

@@ -5,6 +5,8 @@
     <string name="dynamic_clock_small_title">Small clock</string>
     <string name="dynamic_clock_large_title">Large clock</string>
     <string name="dynamic_clock_small_summary">Layout shown when lockscreen notifications are visible</string>
+    <string name="dynamic_clock_use_big">Use big clock</string>
+    <string name="dynamic_clock_use_big_summary">Copy the big clock at the same position, then adjust its size or stretch. Matching digits smoothly stretch or compress when notifications change.</string>
     <string name="dynamic_clock_large_summary">Layout shown when there are no lockscreen notifications</string>
     <string name="dynamic_clock_edit">Edit layout</string>
     <string name="dynamic_clock_aod_summary">Your existing AOD clock keeps its own layout, style and animations.</string>

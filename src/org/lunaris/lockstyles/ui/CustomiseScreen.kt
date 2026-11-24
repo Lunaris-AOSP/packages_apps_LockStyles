@@ -118,6 +118,7 @@ import org.lunaris.clockmaker.ClockDesign
 import org.lunaris.clockmaker.ClockDigitAlignment
 import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
+import org.lunaris.lockstyles.DynamicClockConfiguration
 import org.lunaris.lockstyles.DynamicClocks
 import org.lunaris.lockstyles.GalleryRenderer
 import org.lunaris.lockstyles.GalleryWallpaper
@@ -221,7 +222,7 @@ private fun CustomiseContent(
                 tuning = it.tuning ?: tuning
                 panelOpen = false
                 showMaker = false
-            })
+            }, dynamicClock = dynamicClock)
         return
     }
     LaunchedEffect(Unit) {
@@ -354,7 +355,8 @@ private fun CustomiseContent(
                         if (dynamicClock.enabled) Text(stringResource(R.string.dynamic_clock_base_title),
                             style = MaterialTheme.typography.titleMedium)
                         ClockSheet(clock, tuning, wallpaper, allowPhotoPicking,
-                            { clock = it }, { tuning = it }, onMaker = { showMaker = true }, inPanel = true)
+                            { clock = it }, { tuning = it }, onMaker = { showMaker = true }, inPanel = true,
+                            dynamicClock = dynamicClock)
                     }
                     CustomizerTab.SHORTCUTS -> CompositionLocalProvider(LocalCardInset provides 20.dp) {
                         ShortcutsSheet(shortcuts)
@@ -639,6 +641,7 @@ internal fun ClockSheet(
     showStyles: Boolean = true,
     inPanel: Boolean = false,
     layoutSize: Boolean? = null,
+    dynamicClock: DynamicClockConfiguration? = null,
 ) {
     val context = LocalContext.current
     val onLight = rememberTopLight(wallpaper)
@@ -651,14 +654,25 @@ internal fun ClockSheet(
         .verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)
     CompositionLocalProvider(LocalCardInset provides (if (inPanel) 0.dp else LocalCardInset.current)) {
     Column(outer, verticalArrangement = Arrangement.spacedBy(if (inPanel) 12.dp else 14.dp)) {
-        if (clock.face > 0 && layoutSize == null) {
+        if ((clock.face > 0 || dynamicClock?.enabled == true) && layoutSize == null) {
             Box(Modifier.padding(horizontal = LocalCardInset.current)) {
                 SwitchCard(stringResource(R.string.home_clock_title), clock.showOnHomeScreen,
                     { onChange(clock.copy(showOnHomeScreen = it)) },
                     subtitle = stringResource(R.string.home_clock_summary), icon = Icons.Rounded.Home)
             }
             if (clock.showOnHomeScreen) {
-                val layout = clock.homeLayout ?: HomeClockLayout.fromTuning(tuning, clock.face)
+                if (dynamicClock?.enabled == true) {
+                    Box(Modifier.padding(horizontal = LocalCardInset.current)) {
+                        SwitchCard(stringResource(R.string.home_clock_use_small), clock.useSmallHomeClock,
+                            { onChange(clock.copy(useSmallHomeClock = it)) },
+                            subtitle = stringResource(R.string.home_clock_use_small_summary),
+                            icon = Icons.Rounded.Schedule)
+                    }
+                }
+                val homeClock = if (clock.useSmallHomeClock && dynamicClock?.enabled == true)
+                    dynamicClock.small else clock
+                val homeTuning = if (homeClock === clock) tuning else homeClock.tuning ?: CustomClocks.Tuning()
+                val layout = clock.homeLayout ?: HomeClockLayout.fromTuning(homeTuning, homeClock.face)
                 val configuration = LocalConfiguration.current
                 val height = configuration.screenHeightDp.coerceIn(200, 2000)
                 val width = configuration.screenWidthDp.coerceIn(200, 2000)
@@ -670,15 +684,15 @@ internal fun ClockSheet(
                         .clip(MaterialTheme.shapes.large)) {
                         LockScreenPreviewLayout(Modifier.fillMaxSize(), homeScreen = true) {
                             WallpaperImage(wallpaper, Modifier.fillMaxSize())
-                            CustomClockLayer(clock, tuning = layout.applyTo(tuning),
+                            CustomClockLayer(homeClock, tuning = layout.applyTo(homeTuning),
                                 wallpaper = wallpaper, homeScreen = true)
                         }
                     }
                 }
                 TuningSlider(stringResource(R.string.home_clock_size), layout.scale, 25..150,
-                    "%", tuning.scale) { onChange(clock.copy(homeLayout = layout.copy(scale = it))) }
+                    "%", homeTuning.scale) { onChange(clock.copy(homeLayout = layout.copy(scale = it))) }
                 TuningSlider(stringResource(R.string.home_clock_vertical), layout.marginTop,
-                    0..height, " dp", tuning.marginTop) {
+                    0..height, " dp", homeTuning.marginTop) {
                     onChange(clock.copy(homeLayout = layout.copy(marginTop = it)))
                 }
                 TuningSlider(stringResource(R.string.home_clock_horizontal), layout.marginStart,
