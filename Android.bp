@@ -10,7 +10,6 @@ package {
 android_app {
     name: "LunarisLockStyles",
     srcs: ["src/**/*.kt", "src/**/*.java"],
-    asset_dirs: ["assets"],
     resource_dirs: ["res"],
     manifest: "AndroidManifest.xml",
     platform_apis: true,

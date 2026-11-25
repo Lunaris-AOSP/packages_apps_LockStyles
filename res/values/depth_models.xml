@@ -1,0 +1,11 @@
+<resources>
+    <!-- HTTPS directory containing the four raw files from the models repository. -->
+    <string name="depth_model_base_url" translatable="false">https://raw.githubusercontent.com/Lunaris-AOSP/depth_models/a786348c7939f898bbf5e1090e3c434ea471c2df</string>
+    <string name="depth_wallpaper_models_title">Depth wallpaper models</string>
+    <string name="models_downloading">Downloading models</string>
+    <string name="models_ready">Available offline</string>
+    <string name="models_offline">Offline model storage</string>
+    <string name="models_size">%1$s of %2$s · %3$s</string>
+    <string name="models_download">Download all models</string>
+    <string name="models_delete">Delete downloaded models</string>
+</resources>

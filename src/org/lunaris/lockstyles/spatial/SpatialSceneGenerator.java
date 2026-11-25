@@ -25,7 +25,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
@@ -154,17 +153,7 @@ final class SpatialSceneGenerator {
     }
 
     private static float[] estimate(Context context, int[] pixels) throws IOException {
-        File model = new File(context.getCacheDir(), "spatial-midas-v1.tflite");
-        if (!model.isFile() || model.length() == 0) {
-            File pending = new File(context.getCacheDir(), "spatial-model.tmp");
-            try (InputStream input = context.getAssets().open("depth_model.tflite");
-                    FileOutputStream out = new FileOutputStream(pending)) {
-                byte[] block = new byte[65536];
-                int size;
-                while ((size = input.read(block)) != -1) out.write(block, 0, size);
-            }
-            if (!pending.renameTo(model)) throw new IOException("Cannot cache spatial model");
-        }
+        File model = org.lunaris.lockstyles.models.DepthModels.INSTANCE.open(context, "depth_model.tflite");
         ByteBuffer input = ByteBuffer.allocateDirect(pixels.length * 3 * Float.BYTES)
                 .order(ByteOrder.nativeOrder());
         for (int color : pixels) {
@@ -176,7 +165,7 @@ final class SpatialSceneGenerator {
         ByteBuffer output = ByteBuffer.allocateDirect(pixels.length * Float.BYTES)
                 .order(ByteOrder.nativeOrder());
         try (FileInputStream file = new FileInputStream(model)) {
-            ByteBuffer mapped = file.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, model.length());
+            ByteBuffer mapped = file.getChannel().map(FileChannel.MapMode.READ_ONLY, 0, file.getChannel().size());
             try (Interpreter interpreter = new Interpreter(mapped,
                     new Interpreter.Options().setNumThreads(2))) {
                 int[] expected = {1, DEPTH_SIZE, DEPTH_SIZE, 3};

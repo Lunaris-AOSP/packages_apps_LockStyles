@@ -25,6 +25,9 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="org.omnirom.omnijaws.READ_WEATHER" />
 
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="com.android.settings.permission.EXTRACT_WALLPAPER_SUBJECT" />
+
     <application
         android:label="@string/app_name"
         android:icon="@drawable/ic_launcher"
@@ -32,6 +35,12 @@
         android:requestLegacyExternalStorage="true"
         android:usesNonSdkApi="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+
+        <activity android:name=".models.ModelActivity" android:exported="true"
+            android:permission="android.permission.WRITE_SECURE_SETTINGS" />
+        <provider android:name=".models.ModelProvider" android:exported="true"
+            android:authorities="org.lunaris.lockstyles.models" android:directBootAware="true"
+            android:permission="android.permission.WRITE_SECURE_SETTINGS" />
 
         <provider
             android:name=".spatial.SpatialWallpaperProvider"

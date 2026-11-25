@@ -447,6 +447,10 @@ fun DepthPage(back: () -> Unit, inSheet: Boolean = false,
         ))
         group(null, listOf(
             footer(s(R.string.depth_in_gallery)),
+            actionRow(s(R.string.depth_wallpaper_models_title), null) {
+                context.startActivity(android.content.Intent(context,
+                    org.lunaris.lockstyles.models.ModelActivity::class.java))
+            },
             actionRow(s(R.string.depthwall_extract_now_title),
                 s(R.string.depthwall_extract_now_summary), enabled = depth) {
                 extract()
