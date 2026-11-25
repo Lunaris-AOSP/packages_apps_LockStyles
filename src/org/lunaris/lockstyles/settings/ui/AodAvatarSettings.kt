@@ -6,12 +6,14 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -88,10 +90,21 @@ fun AodAvatarSettings(allowPhotoPicking: Boolean = true) {
         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             if (saving) ExpressiveLoadingIndicator()
             else preview?.let {
-                Image(it.asImageBitmap(), stringResource(R.string.aod_avatar_preview),
-                    Modifier.size(120.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                Image(
+                    it.asImageBitmap(),
+                    stringResource(R.string.aod_avatar_preview),
+                    Modifier
+                        .size(120.dp)
+                        .clip(CircleShape)
+                        .border(2.5.dp, MaterialTheme.colorScheme.primary, CircleShape),
+                    contentScale = ContentScale.Crop,
+                )
             }
         }
-        Text(stringResource(R.string.aod_avatar_summary))
+        Text(
+            stringResource(R.string.aod_avatar_summary),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

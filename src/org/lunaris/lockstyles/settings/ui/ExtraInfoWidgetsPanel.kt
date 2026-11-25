@@ -23,11 +23,12 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -44,6 +45,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -59,6 +61,8 @@ import org.lunaris.lockstyles.LockScreen
 import org.lunaris.lockstyles.R
 import org.lunaris.lockstyles.settings.Keys
 import org.lunaris.lockstyles.settings.state
+import org.lunaris.lockstyles.ui.ExpressiveButton
+import org.lunaris.lockstyles.ui.ExpressiveConnectedRow
 
 @Composable
 fun extraInfoAppearance(): InfoAppearance {
@@ -125,23 +129,21 @@ internal fun DesignPreview(widget: InfoWidget, appearance: InfoAppearance, modif
 fun ExtraInfoWidgetsPanel(preview: LockScreen? = null) {
     var independent by Keys.EXTRA_INFO_INDEPENDENT.state()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.extra_info_mode), style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
-                selected = !independent,
-                onClick = { independent = false },
-                label = { Text(stringResource(R.string.extra_info_mode_rows)) },
-            )
-            FilterChip(
-                selected = independent,
-                onClick = { independent = true },
-                label = { Text(stringResource(R.string.extra_info_mode_independent)) },
-            )
-        }
+        Text(stringResource(R.string.extra_info_mode), style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary)
+        ExpressiveConnectedRow(
+            labels = listOf(
+                stringResource(R.string.extra_info_mode_rows),
+                stringResource(R.string.extra_info_mode_independent),
+            ),
+            selected = if (independent) 1 else 0,
+            onSelect = { independent = it == 1 },
+        )
         if (independent) IndependentInfoPanel(preview) else ExtraInfoRowsPanel()
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ExtraInfoRowsPanel() {
     val context = LocalContext.current
@@ -150,6 +152,8 @@ private fun ExtraInfoRowsPanel() {
     val layout = remember(raw, catalog) { ExtraInfoLayout.parse(raw, catalog) }
     val appearance = extraInfoAppearance()
     var pickerRow by remember { mutableStateOf<Int?>(null) }
+    val layoutSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+    val effectsColor = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(
             Modifier.fillMaxWidth()
@@ -179,18 +183,17 @@ private fun ExtraInfoRowsPanel() {
         Text(
             stringResource(R.string.extra_info_capacity),
             style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.primary,
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(4, 5).forEach { count ->
-                val resized = layout.withColumns(count, catalog)
-                FilterChip(
-                    selected = layout.columns == count,
-                    enabled = resized != null,
-                    onClick = { resized?.let { raw = it.encode() } },
-                    label = { Text(stringResource(R.string.extra_info_slots, count)) },
-                )
-            }
-        }
+        val counts = listOf(4, 5)
+        ExpressiveConnectedRow(
+            labels = counts.map { stringResource(R.string.extra_info_slots, it) },
+            selected = counts.indexOf(layout.columns),
+            itemEnabled = { index -> layout.withColumns(counts[index], catalog) != null },
+            onSelect = { index ->
+                layout.withColumns(counts[index], catalog)?.let { raw = it.encode() }
+            },
+        )
         Text(
             stringResource(R.string.extra_info_layout_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -202,7 +205,7 @@ private fun ExtraInfoRowsPanel() {
                 color = MaterialTheme.colorScheme.surfaceContainer,
             ) {
                 Column(
-                    Modifier.fillMaxWidth().animateContentSize().padding(12.dp),
+                    Modifier.fillMaxWidth().animateContentSize(layoutSpatial).padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(
@@ -249,12 +252,12 @@ private fun ExtraInfoRowsPanel() {
                             }
                         }
                     }
-                    OutlinedButton(
+                    ExpressiveButton(
+                        label = stringResource(R.string.extra_info_choose),
                         onClick = { pickerRow = row },
+                        primary = false,
                         modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(stringResource(R.string.extra_info_choose))
-                    }
+                    )
                 }
             }
         }
@@ -267,6 +270,7 @@ private fun ExtraInfoRowsPanel() {
             Surface(
                 Modifier.fillMaxWidth().padding(16.dp).heightIn(max = 640.dp),
                 shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -283,15 +287,20 @@ private fun ExtraInfoRowsPanel() {
                                     layout.columns,
                                 ),
                                 style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        IconButton(onClick = { pickerRow = null }) {
+                        FilledTonalIconButton(
+                            onClick = { pickerRow = null },
+                            shapes = IconButtonDefaults.shapes(),
+                        ) {
                             Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
                         }
                     }
                     Text(
                         stringResource(R.string.extra_info_picker_hint),
                         style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                     LazyVerticalGrid(
                         columns = GridCells.Fixed(2),
@@ -306,10 +315,12 @@ private fun ExtraInfoRowsPanel() {
                                 animateColorAsState(
                                     if (selected) MaterialTheme.colorScheme.secondaryContainer
                                     else MaterialTheme.colorScheme.surfaceContainerHigh,
+                                    animationSpec = effectsColor,
                                     label = "widgetSelection",
                                 )
                             Card(
                                 enabled = selected || next != null,
+                                shape = MaterialTheme.shapes.large,
                                 modifier =
                                     Modifier.alpha(if (selected || next != null) 1f else 0.4f),
                                 colors = CardDefaults.cardColors(containerColor = cardColor),

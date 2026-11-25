@@ -28,8 +28,8 @@ import android.view.ViewGroup
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.draw.alpha
 import androidx.compose.runtime.Composable
@@ -50,6 +50,7 @@ import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.GalleryWallpaper
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Modifier = Modifier,
     thumbnail: Boolean = false, dozing: Boolean = false, selectedId: String? = null, onSelect: ((String) -> Unit)? = null,
@@ -68,7 +69,11 @@ fun MakerClockLayer(style: ClockStyle, tuning: CustomClocks.Tuning, modifier: Mo
     val wantGlass = !dozing && style.design?.elements?.any { it.glass && it.visible } == true
     val startedDozing = remember { dozing }
     val hold = holdPreview(wantGlass && !startedDozing && wallpaper != null, glass != null, wallpaper)
-    val shown by animateFloatAsState(if (hold) 0f else 1f, tween(160), label = "glass_ready")
+    val shown by animateFloatAsState(
+        if (hold) 0f else 1f,
+        MaterialTheme.motionScheme.fastEffectsSpec(),
+        label = "glass_ready",
+    )
     AndroidView(factory = { MakerPreview(it) }, modifier = modifier.fillMaxSize().alpha(shown), update = {
         it.onPinchStart = onPinchStart
         it.onPinch = onPinch

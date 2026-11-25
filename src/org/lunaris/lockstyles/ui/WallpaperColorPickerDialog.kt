@@ -24,7 +24,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -95,15 +94,20 @@ fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Uni
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.color_picker_wallpaper)) },
+        shape = MaterialTheme.shapes.extraLarge,
+        title = { Text(stringResource(R.string.color_picker_wallpaper), style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(enabled = allowPhotoPicking, onClick = {
-                    picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                }, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.color_picker_import))
-                }
+                ExpressiveButton(
+                    label = stringResource(R.string.color_picker_import),
+                    primary = false,
+                    enabled = allowPhotoPicking,
+                    onClick = {
+                        picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (source != null) {
                     TextButton(onClick = { source = null }) {
                         Text(stringResource(R.string.color_picker_use_wallpaper))
@@ -117,7 +121,8 @@ fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Uni
                 } else if (image != null) {
                     ImageColorSampler(image) { selected = it }
                     Text(stringResource(R.string.color_picker_tap_image),
-                        style = MaterialTheme.typography.bodySmall)
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Text(stringResource(R.string.color_picker_load_failed),
                         color = MaterialTheme.colorScheme.error)
@@ -134,7 +139,7 @@ fun WallpaperColorPickerDialog(wallpaper: GalleryWallpaper, onDismiss: () -> Uni
                 onClick = { selected?.let(onColorSelected) })
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+            ExpressiveButton(stringResource(android.R.string.cancel), onClick = onDismiss, primary = false)
         },
     )
 }

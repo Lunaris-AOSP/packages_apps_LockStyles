@@ -5,42 +5,47 @@
 
 package org.lunaris.lockstyles.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asComposePath
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
-import org.lunaris.clockmaker.ClockImageFit
-import org.lunaris.clockmaker.ClockImageShapes
-import org.lunaris.clockmaker.ClockTimePart
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import org.lunaris.clockmaker.ClockDesignPositioning
 import org.lunaris.clockmaker.ClockElement
 import org.lunaris.clockmaker.ClockElementKind
+import org.lunaris.clockmaker.ClockImageFit
+import org.lunaris.clockmaker.ClockImageShapes
+import org.lunaris.clockmaker.ClockTimePart
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.R
+import org.lunaris.lockstyles.settings.ui.components.squishable
 
 @Composable
 internal fun ElementLayoutControls(
@@ -54,9 +59,12 @@ internal fun ElementLayoutControls(
     if (element.kind == ClockElementKind.IMAGE) {
         ImageSizeControls(element, onChange)
     } else {
-        TextButton(onClick = onChooseFont, modifier = Modifier.padding(horizontal = 12.dp)) {
-            Text(stringResource(R.string.clock_maker_font) + ": " + fontName)
-        }
+        ExpressiveButton(
+            label = stringResource(R.string.clock_maker_font) + ": " + fontName,
+            onClick = onChooseFont,
+            primary = false,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+        )
         if (showAodFontHint) Text(stringResource(R.string.clock_maker_shared_font),
             modifier = Modifier.padding(horizontal = 20.dp),
             style = MaterialTheme.typography.bodySmall,
@@ -180,26 +188,50 @@ private fun ImageSizeControls(element: ClockElement, onChange: (ClockElement) ->
     TuningSlider(stringResource(R.string.gallery_clock_opacity), element.opacity, 0..100, "%", 100) {
         onChange(element.copy(opacity = it))
     }
-    Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ClockImageFit.entries.forEach { fit ->
-            FilterChip(element.imageFit == fit, { onChange(element.copy(imageFit = fit)) },
-                label = { Text(stringResource(if (fit == ClockImageFit.CROP) R.string.clock_maker_crop else R.string.clock_maker_fit)) })
-        }
-    }
+    val fits = ClockImageFit.entries
+    ExpressiveConnectedRow(
+        labels = fits.map { fit ->
+            stringResource(if (fit == ClockImageFit.CROP) R.string.clock_maker_crop else R.string.clock_maker_fit)
+        },
+        selected = fits.indexOf(element.imageFit),
+        modifier = Modifier.padding(horizontal = 20.dp),
+        onSelect = { onChange(element.copy(imageFit = fits[it])) },
+    )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShapePicker(shape: String, onChange: (String) -> Unit) {
+    val effects = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
     LazyVerticalGrid(columns = GridCells.Adaptive(88.dp), modifier = Modifier.fillMaxWidth()
         .height(300.dp).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         items(ClockImageShapes.ids, key = { it }) { id ->
             val isSelected = id == shape
-            val tint = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+            val interactions = remember { MutableInteractionSource() }
+            val container by animateColorAsState(
+                if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                else MaterialTheme.colorScheme.surfaceContainerHigh,
+                effects,
+                label = "shape_container",
+            )
+            val tint by animateColorAsState(
+                if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+                effects,
+                label = "shape_tint",
+            )
             Surface(shape = MaterialTheme.shapes.large,
-                color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.clip(MaterialTheme.shapes.large)
-                    .selectable(isSelected, role = Role.RadioButton, onClick = { onChange(id) })) {
+                color = container,
+                modifier = Modifier.squishable(interactions, scaleDown = 0.94f)
+                    .clip(MaterialTheme.shapes.large)
+                    .selectable(
+                        selected = isSelected,
+                        interactionSource = interactions,
+                        indication = LocalIndication.current,
+                        role = Role.RadioButton,
+                        onClick = { onChange(id) },
+                    )) {
                 Column(Modifier.padding(10.dp), horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Box(Modifier.size(40.dp).drawWithCache {

@@ -17,7 +17,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,7 +60,8 @@ fun ColorPickerDialog(initialColor: Int, onDismiss: () -> Unit, onColorSelected:
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.custom_color)) },
+        shape = MaterialTheme.shapes.extraLarge,
+        title = { Text(stringResource(R.string.custom_color), style = MaterialTheme.typography.headlineSmall) },
         text = {
             Column(Modifier.verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -110,7 +110,7 @@ fun ColorPickerDialog(initialColor: Int, onDismiss: () -> Unit, onColorSelected:
                 onClick = { parsed?.let(onColorSelected) })
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+            ExpressiveButton(stringResource(android.R.string.cancel), onClick = onDismiss, primary = false)
         },
     )
 }

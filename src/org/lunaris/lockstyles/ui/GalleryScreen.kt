@@ -2,6 +2,7 @@ package org.lunaris.lockstyles.ui
 
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -53,13 +55,14 @@ import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.GalleryWallpaper.Kind
 import org.lunaris.lockstyles.GalleryWeather
 import org.lunaris.lockstyles.R
+import org.lunaris.lockstyles.settings.ui.components.squishable
 
 private val TILE_CLOCK = ClockStyle(preset = 5)
 
 private data class Tile(val wallpaper: GalleryWallpaper?, val label: String? = null,
         val onClick: (() -> Unit)? = null, val icon: ImageVector? = null)
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun GalleryScreen(
     featured: List<Pair<String, Long>>,
@@ -83,20 +86,35 @@ fun GalleryScreen(
         GalleryWallpaper(Kind.SHUFFLE, photos = it.map { p -> p.first })
     }
     fun month(ms: Long) = DateFormat.format("MMMM yyyy", ms).toString()
+    val scroll = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
+        modifier = Modifier.nestedScroll(scroll.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surface,
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(if (isReplacing) R.string.gallery_change_wallpaper
-                    else R.string.gallery_add_wallpaper)) },
+            LargeTopAppBar(
+                title = {
+                    Text(
+                        stringResource(if (isReplacing) R.string.gallery_change_wallpaper
+                        else R.string.gallery_add_wallpaper),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                },
                 navigationIcon = {
-                    IconButton(onClick = onCancel) {
+                    FilledTonalIconButton(
+                        onClick = onCancel,
+                        shapes = IconButtonDefaults.shapes(),
+                        modifier = Modifier.padding(start = 8.dp),
+                    ) {
                         Icon(Icons.Rounded.Close, stringResource(android.R.string.cancel))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+                ),
+                scrollBehavior = scroll,
             )
         },
     ) { padding ->
@@ -105,16 +123,13 @@ fun GalleryScreen(
             contentPadding = PaddingValues(bottom = 32.dp),
         ) {
             item {
-                Column(Modifier.padding(horizontal = 24.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.gallery_browse_title),
-                        style = MaterialTheme.typography.displaySmall,
-                        color = MaterialTheme.colorScheme.onSurface)
-                    Text(stringResource(if (isReplacing) R.string.gallery_change_wallpaper_summary
-                        else R.string.gallery_browse_summary),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
+                Text(
+                    stringResource(if (isReplacing) R.string.gallery_change_wallpaper_summary
+                    else R.string.gallery_browse_summary),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 4.dp, bottom = 16.dp),
+                )
             }
             item {
                 LazyRow(contentPadding = PaddingValues(horizontal = 20.dp),
@@ -295,13 +310,16 @@ private fun Section(
         ) {
             itemsIndexed(tiles) { index, tile ->
                 val label = tile.label ?: stringResource(R.string.gallery_wallpaper_option, title, index + 1)
+                val interactions = remember { MutableInteractionSource() }
                 Card(
                     onClick = { tile.onClick?.invoke() ?: tile.wallpaper?.let(onPick) },
+                    interactionSource = interactions,
                     shape = MaterialTheme.shapes.extraLarge,
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                    modifier = Modifier.width(156.dp).semantics(mergeDescendants = true) {
-                        contentDescription = label
-                    },
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                    modifier = Modifier.width(156.dp).squishable(interactions, scaleDown = 0.96f)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = label
+                        },
                 ) {
                     if (tile.wallpaper != null) {
                         LockScreenCard(

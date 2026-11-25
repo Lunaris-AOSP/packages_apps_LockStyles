@@ -7,7 +7,7 @@ package org.lunaris.lockstyles.ui
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,8 +30,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Schedule
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -65,6 +67,7 @@ import org.lunaris.lockstyles.CustomClocks
 import org.lunaris.lockstyles.DynamicClockConfiguration
 import org.lunaris.lockstyles.GalleryWallpaper
 import org.lunaris.lockstyles.R
+import org.lunaris.lockstyles.settings.ui.components.squishable
 import org.lunaris.lockstyles.settings.ui.pickTile
 import java.util.UUID
 
@@ -124,8 +127,14 @@ fun DynamicClockScreen(
 
 @Composable
 private fun ClockLayoutCard(clock: ClockStyle, small: Boolean, wallpaper: GalleryWallpaper, onEdit: () -> Unit) {
-    Surface(shape = MaterialTheme.shapes.extraLarge, color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onEdit)) {
+    val interactions = remember { MutableInteractionSource() }
+    Surface(
+        onClick = onEdit,
+        interactionSource = interactions,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.fillMaxWidth().squishable(interactions),
+    ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Box(Modifier.width(92.dp).height(160.dp).clip(MaterialTheme.shapes.large)) {
@@ -136,7 +145,17 @@ private fun ClockLayoutCard(clock: ClockStyle, small: Boolean, wallpaper: Galler
                     style = MaterialTheme.typography.titleMedium)
                 Text(stringResource(if (small) R.string.dynamic_clock_small_summary else R.string.dynamic_clock_large_summary),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Icon(Icons.Rounded.Edit, stringResource(R.string.dynamic_clock_edit))
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Icon(
+                        Icons.Rounded.Edit,
+                        stringResource(R.string.dynamic_clock_edit),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(8.dp).size(18.dp),
+                    )
+                }
             }
         }
     }
@@ -198,11 +217,15 @@ private fun ClockLayoutEditor(initial: ClockStyle, small: Boolean, wallpaper: Ga
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ClockEditorHeader(title: String, onBack: () -> Unit, onSave: () -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(android.R.string.cancel)) }
+        FilledTonalIconButton(onClick = onBack, shapes = IconButtonDefaults.shapes()) {
+            Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(android.R.string.cancel))
+        }
         Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge)
         ExpressiveButton(stringResource(R.string.gallery_done), onSave)
     }

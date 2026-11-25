@@ -5,10 +5,10 @@
 
 package org.lunaris.lockstyles.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -67,9 +67,12 @@ internal fun ClockGlassControls(style: ClockGlassStyle, date: Boolean = false, s
                 s.clockRimStrength, 0..400, d.clockRimStrength) { onChange(s.copy(clockRimStrength = it)) }
         }
     }
-    TextButton(onClick = { onChange(d) }, modifier = Modifier.padding(horizontal = 16.dp)) {
-        Text(stringResource(R.string.clock_glass_reset))
-    }
+    ExpressiveButton(
+        label = stringResource(R.string.clock_glass_reset),
+        onClick = { onChange(d) },
+        primary = false,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+    )
 }
 
 @Composable

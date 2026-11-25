@@ -19,23 +19,26 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 private val ExpressiveShapes = Shapes(
     extraSmall = RoundedCornerShape(8.dp),
     small = RoundedCornerShape(12.dp),
     medium = RoundedCornerShape(16.dp),
-    large = RoundedCornerShape(28.dp),
+    large = RoundedCornerShape(24.dp),
     extraLarge = RoundedCornerShape(32.dp),
 )
 
 private val ExpressiveTypography = Typography().let { type ->
     Typography(
-        displaySmall = type.displaySmall.copy(fontWeight = FontWeight.SemiBold),
-        headlineLarge = type.headlineLarge.copy(fontWeight = FontWeight.SemiBold),
-        headlineMedium = type.headlineMedium.copy(fontWeight = FontWeight.SemiBold),
+        displaySmall = type.displaySmall.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.5).sp),
+        headlineLarge = type.headlineLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.4).sp),
+        headlineMedium = type.headlineMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = (-0.25).sp),
         headlineSmall = type.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
-        titleLarge = type.titleLarge.copy(fontWeight = FontWeight.Medium),
+        titleLarge = type.titleLarge.copy(fontWeight = FontWeight.SemiBold),
         titleMedium = type.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+        titleSmall = type.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+        labelLarge = type.labelLarge.copy(fontWeight = FontWeight.SemiBold),
     )
 }
 
@@ -45,9 +48,9 @@ fun LockStylesTheme(dark: Boolean = isSystemInDarkTheme(), content: @Composable 
     val context = LocalContext.current
     MaterialExpressiveTheme(
         colorScheme = if (dark) dynamicDarkColorScheme(context).copy(
-            background = Color.Black, surface = Color.Black,
-            surfaceContainerLowest = Color.Black, surfaceContainerLow = Color.Black,
-            surfaceContainer = Color(0xFF0D0D0D),
+            background = Color.Black,
+            surface = Color.Black,
+            surfaceContainerLowest = Color.Black,
         ) else dynamicLightColorScheme(context),
         motionScheme = MotionScheme.expressive(),
         shapes = ExpressiveShapes,

@@ -12,19 +12,22 @@ import android.provider.DocumentsContract
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,6 +36,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -50,6 +54,7 @@ import org.lunaris.lockstyles.ClockStyle
 import org.lunaris.lockstyles.ClockStyleArchive
 import org.lunaris.lockstyles.R
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ClockArchiveActions(clock: ClockStyle, store: ClockMakerStore, enabled: Boolean,
     onImported: (ClockStyle) -> Unit) {
@@ -118,7 +123,12 @@ internal fun ClockArchiveActions(clock: ClockStyle, store: ClockMakerStore, enab
     }
 
     Box {
-        IconButton(enabled = enabled && !busy, onClick = { expanded = true }) {
+        FilledTonalIconButton(
+            enabled = enabled && !busy,
+            onClick = { expanded = true },
+            shapes = IconButtonDefaults.shapes(),
+            modifier = Modifier.size(56.dp),
+        ) {
             Icon(Icons.Rounded.MoreVert, stringResource(R.string.clock_maker_transfer))
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -171,12 +181,21 @@ internal fun ClockArchiveActions(clock: ClockStyle, store: ClockMakerStore, enab
         }
     }
     if (busy) {
-        AlertDialog(onDismissRequest = {}, confirmButton = {}, text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                CircularProgressIndicator()
-                Text(stringResource(R.string.clock_maker_transferring))
-            }
-        })
+        AlertDialog(
+            onDismissRequest = {},
+            confirmButton = {},
+            shape = MaterialTheme.shapes.extraLarge,
+            text = {
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    ExpressiveLoadingIndicator()
+                    Text(stringResource(R.string.clock_maker_transferring), style = MaterialTheme.typography.bodyLarge)
+                }
+            },
+        )
     }
     failure?.let { operation ->
         val title = when (operation) {
@@ -189,9 +208,14 @@ internal fun ClockArchiveActions(clock: ClockStyle, store: ClockMakerStore, enab
             "export" -> R.string.clock_maker_clock_export_error_summary
             else -> R.string.clock_maker_clock_share_error_summary
         }
-        AlertDialog(onDismissRequest = { failure = null }, title = { Text(stringResource(title)) },
-            text = { Text(stringResource(summary)) }, confirmButton = {
-                TextButton(onClick = { failure = null }) { Text(stringResource(android.R.string.ok)) }
-            })
+        AlertDialog(
+            onDismissRequest = { failure = null },
+            shape = MaterialTheme.shapes.extraLarge,
+            title = { Text(stringResource(title), style = MaterialTheme.typography.headlineSmall) },
+            text = { Text(stringResource(summary), style = MaterialTheme.typography.bodyMedium) },
+            confirmButton = {
+                ExpressiveButton(stringResource(android.R.string.ok), onClick = { failure = null })
+            },
+        )
     }
 }

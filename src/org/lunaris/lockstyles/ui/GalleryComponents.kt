@@ -12,6 +12,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -87,6 +88,7 @@ import org.lunaris.lockstyles.GalleryWeather
 import org.lunaris.lockstyles.StockClock
 import org.lunaris.lockstyles.settings.ExtraInfoSettings
 import org.lunaris.lockstyles.settings.ExtraInfoSettingsProvider
+import org.lunaris.lockstyles.settings.ui.components.squishable
 
 /** The flex clock's weight/width presets, heaviest and narrowest first, as SystemUI has them. */
 val CLOCK_PRESETS = StockClock.PRESETS
@@ -571,28 +573,52 @@ fun dateString(): String =
         "EEEdMMM"), System.currentTimeMillis()).toString()
 
 @Composable
-fun SourceButton(label: String, preview: GalleryWallpaper?, icon: ImageVector?,
-        onClick: () -> Unit) {
-    Surface(onClick = onClick, shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        modifier = Modifier.width(104.dp)) {
-        Column(Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+fun SourceButton(
+    label: String,
+    preview: GalleryWallpaper?,
+    icon: ImageVector?,
+    onClick: () -> Unit,
+) {
+    val interactions = remember { MutableInteractionSource() }
+    Surface(
+        onClick = onClick,
+        interactionSource = interactions,
+        shape = MaterialTheme.shapes.extraLarge,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier.width(108.dp).squishable(interactions, scaleDown = 0.94f),
+    ) {
+        Column(
+            Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.size(72.dp).clip(MaterialTheme.shapes.large)
-                .background(MaterialTheme.colorScheme.secondaryContainer),
-                contentAlignment = Alignment.Center) {
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Box(
+                Modifier.size(72.dp).clip(MaterialTheme.shapes.large)
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                contentAlignment = Alignment.Center,
+            ) {
                 if (preview != null) WallpaperImage(preview, Modifier.fillMaxSize())
                 if (icon != null) {
-                    Surface(shape = CircleShape, color = MaterialTheme.colorScheme.secondaryContainer) {
-                        Icon(icon, null, tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                            modifier = Modifier.padding(10.dp).size(26.dp))
+                    Surface(
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                    ) {
+                        Icon(
+                            icon,
+                            null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.padding(11.dp).size(26.dp),
+                        )
                     }
                 }
             }
-            Text(label, color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.labelLarge, textAlign = TextAlign.Center,
-                minLines = 2)
+            Text(
+                label,
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.labelLarge,
+                textAlign = TextAlign.Center,
+                minLines = 2,
+            )
         }
     }
 }

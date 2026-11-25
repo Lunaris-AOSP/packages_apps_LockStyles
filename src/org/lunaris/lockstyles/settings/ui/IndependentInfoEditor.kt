@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -24,11 +23,14 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -72,6 +74,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.material.icons.automirrored.rounded.Undo
 import androidx.compose.material.icons.automirrored.rounded.Redo
+import org.lunaris.lockstyles.ui.ExpressiveButton
+import org.lunaris.lockstyles.ui.ExpressiveFloatingToolbar
 import org.lunaris.lockstyles.ui.ExpressiveIconButton
 import org.lunaris.lockstyles.ui.AdjustableSlider
 import org.lunaris.lockstyles.R
@@ -179,9 +183,12 @@ internal fun IndependentInfoPanel(preview: LockScreen? = null) {
             ),
             style = MaterialTheme.typography.labelLarge,
         )
-        OutlinedButton(onClick = { editing = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.extra_info_edit_positions))
-        }
+        ExpressiveButton(
+            label = stringResource(R.string.extra_info_edit_positions),
+            onClick = { editing = true },
+            primary = false,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
     if (editing) {
         IndependentInfoEditor(
@@ -233,6 +240,7 @@ private fun PositionPreview(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun IndependentInfoEditor(
     initial: ExtraInfoFreeformLayout,
@@ -275,8 +283,9 @@ private fun IndependentInfoEditor(
                     .statusBarsPadding().navigationBarsPadding().padding(if (fullScreen) 0.dp else 12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (!fullScreen) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    TextButton(onClick = onDismiss) {
+                if (!fullScreen) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onDismiss, shapes = ButtonDefaults.shapes()) {
                         Text(stringResource(android.R.string.cancel))
                     }
                     Text(
@@ -284,13 +293,10 @@ private fun IndependentInfoEditor(
                         Modifier.weight(1f),
                         style = MaterialTheme.typography.titleMedium,
                     )
-                    androidx.compose.material3.FilledTonalIconButton(onClick = { fullScreen = true }) {
+                    FilledTonalIconButton(onClick = { fullScreen = true }, shapes = IconButtonDefaults.shapes()) {
                         Icon(Icons.Rounded.Fullscreen, stringResource(R.string.clock_maker_editor_fullscreen))
                     }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { onSave(layout) }) {
-                        Text(stringResource(R.string.extra_info_save))
-                    }
+                    ExpressiveButton(stringResource(R.string.extra_info_save), onClick = { onSave(layout) })
                 }
                 val pinchEnabled = fullScreen && selected != null
                 val pinchStart: (() -> Unit)? = if (!pinchEnabled) null else {
@@ -382,8 +388,7 @@ private fun IndependentInfoEditor(
                 }
             }
             if (fullScreen) {
-                Row(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ExpressiveFloatingToolbar(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp)) {
                     ExpressiveIconButton(Icons.AutoMirrored.Rounded.Undo,
                         stringResource(R.string.clock_maker_undo), enabled = undo.isNotEmpty(), onClick = {
                             redo = redo + draft
@@ -400,6 +405,7 @@ private fun IndependentInfoEditor(
                         })
                     ExpressiveIconButton(Icons.Rounded.FullscreenExit,
                         stringResource(R.string.clock_maker_editor_split),
+                        primary = true,
                         onClick = { fullScreen = false })
                 }
             }
@@ -440,6 +446,7 @@ private fun DialogSystemBars(hidden: Boolean) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun PositionControls(
     layout: ExtraInfoFreeformLayout,
@@ -459,8 +466,9 @@ private fun PositionControls(
                 ),
                 Modifier.weight(1f),
             )
-            OutlinedButton(
+            FilledTonalButton(
                 onClick = onAdd,
+                shapes = ButtonDefaults.shapes(),
                 enabled = layout.widgets.size < ExtraInfoFreeformLayout.MAX_WIDGETS,
             ) {
                 Text(

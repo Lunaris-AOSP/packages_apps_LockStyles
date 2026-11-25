@@ -1,7 +1,16 @@
 package org.lunaris.lockstyles.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -9,6 +18,7 @@ import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.snapping.SnapPosition
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -50,8 +60,10 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -64,7 +76,6 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -106,6 +117,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -137,6 +150,7 @@ import org.lunaris.lockstyles.settings.ui.ClockFontPicker
 import org.lunaris.lockstyles.settings.ui.DepthPage
 import org.lunaris.lockstyles.settings.ui.SettingsPage
 import org.lunaris.lockstyles.settings.ui.WidgetsPage
+import org.lunaris.lockstyles.settings.ui.components.squishable
 import org.lunaris.lockstyles.settings.ui.pickTile
 
 private val CLOCK_COLOURS = listOf(null, 0xFFFFFFFF.toInt(), 0xFFFFD60A.toInt(),
@@ -299,23 +313,33 @@ private fun CustomiseContent(
             }
         }
 
-        if (fullScreen) {
+        val fabSpatial = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+        val fabEffects = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+        AnimatedVisibility(
+            visible = fullScreen,
+            modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp),
+            enter = scaleIn(fabSpatial, initialScale = 0.7f) + fadeIn(fabEffects),
+            exit = scaleOut(fabSpatial, targetScale = 0.7f) + fadeOut(fabEffects),
+        ) {
             FloatingActionButton(
                 onClick = { fullScreen = false },
-                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(16.dp),
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = androidx.compose.foundation.shape.CircleShape,
+                shape = MaterialTheme.shapes.large,
             ) { Icon(Icons.Rounded.FullscreenExit, stringResource(R.string.clock_maker_editor_split)) }
         }
-        if (!panelOpen && !fullScreen) {
+        AnimatedVisibility(
+            visible = !panelOpen && !fullScreen,
+            modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp)
+                .alpha(appear.value),
+            enter = scaleIn(fabSpatial, initialScale = 0.7f) + fadeIn(fabEffects),
+            exit = scaleOut(fabSpatial, targetScale = 0.7f) + fadeOut(fabEffects),
+        ) {
             FloatingActionButton(
                 onClick = { panelOpen = true },
-                modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(16.dp)
-                    .alpha(appear.value),
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                shape = androidx.compose.foundation.shape.CircleShape,
+                shape = MaterialTheme.shapes.large,
             ) { Icon(Icons.Rounded.Settings, stringResource(R.string.lock_settings)) }
         }
 
@@ -339,13 +363,19 @@ private fun CustomiseContent(
             CompositionLocalProvider(LocalCardInset provides 0.dp) {
                 when (current) {
                     CustomizerTab.WALLPAPER -> {
-                        TextButton(onClick = {
-                            onChangeWallpaper { selected ->
-                                wallpaper = if (selected.kind == wallpaper.kind && selected.photos.isNotEmpty()) {
-                                    wallpaper.copy(photos = selected.photos)
-                                } else selected.copy(effect = 0)
-                            }
-                        }) { Text(stringResource(R.string.gallery_change_wallpaper)) }
+                        ExpressiveButton(
+                            label = stringResource(R.string.gallery_change_wallpaper),
+                            primary = false,
+                            icon = Icons.Rounded.Wallpaper,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = {
+                                onChangeWallpaper { selected ->
+                                    wallpaper = if (selected.kind == wallpaper.kind && selected.photos.isNotEmpty()) {
+                                        wallpaper.copy(photos = selected.photos)
+                                    } else selected.copy(effect = 0)
+                                }
+                            },
+                        )
                         KindControls(wallpaper) { wallpaper = it }
                     }
                     CustomizerTab.CLOCK -> Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -629,6 +659,7 @@ private fun VariantStrip(
 
 private val VARIANT_WIDTH = 52.dp
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ClockSheet(
     clock: ClockStyle,
@@ -802,41 +833,57 @@ internal fun ClockSheet(
 		    onChange(clock.copy(color = it))
                 }
 	    }
-            if (clock.face > 0 && tuning.gradient) {
-                SheetLabel(stringResource(R.string.gallery_clock_gradient_start))
-                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientStart, wallpaper, allowPhotoPicking) {
-                    onTuning(tuning.copy(gradientStart = it ?: tuning.gradientStart))
-                }
-                SheetLabel(stringResource(R.string.gallery_clock_gradient_end))
-                ClockColourPicker(GRADIENT_COLOURS, tuning.gradientEnd, wallpaper, allowPhotoPicking) {
-                    onTuning(tuning.copy(gradientEnd = it ?: tuning.gradientEnd))
-                }
-                TuningSlider(stringResource(R.string.gallery_clock_gradient_position),
-                    tuning.gradientAnchorY, 0..100, "%", CustomClocks.Tuning().gradientAnchorY) {
-                    onTuning(tuning.copy(gradientAnchorY = it))
-                }
-                TuningSlider(stringResource(R.string.gallery_clock_gradient_spread),
-                    tuning.gradientRadius, 25..200, "%", CustomClocks.Tuning().gradientRadius) {
-                    onTuning(tuning.copy(gradientRadius = it))
+            val layoutSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+            val layoutEffects = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+            AnimatedVisibility(
+                visible = clock.face > 0 && tuning.gradient,
+                enter = fadeIn(layoutEffects) + expandVertically(layoutSpatial),
+                exit = fadeOut(layoutEffects) + shrinkVertically(layoutSpatial),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SheetLabel(stringResource(R.string.gallery_clock_gradient_start))
+                    ClockColourPicker(GRADIENT_COLOURS, tuning.gradientStart, wallpaper, allowPhotoPicking) {
+                        onTuning(tuning.copy(gradientStart = it ?: tuning.gradientStart))
+                    }
+                    SheetLabel(stringResource(R.string.gallery_clock_gradient_end))
+                    ClockColourPicker(GRADIENT_COLOURS, tuning.gradientEnd, wallpaper, allowPhotoPicking) {
+                        onTuning(tuning.copy(gradientEnd = it ?: tuning.gradientEnd))
+                    }
+                    TuningSlider(stringResource(R.string.gallery_clock_gradient_position),
+                        tuning.gradientAnchorY, 0..100, "%", CustomClocks.Tuning().gradientAnchorY) {
+                        onTuning(tuning.copy(gradientAnchorY = it))
+                    }
+                    TuningSlider(stringResource(R.string.gallery_clock_gradient_spread),
+                        tuning.gradientRadius, 25..200, "%", CustomClocks.Tuning().gradientRadius) {
+                        onTuning(tuning.copy(gradientRadius = it))
+                    }
                 }
             }
         }
         if (clock.face > 0 || layoutSize != null) {
+            val sectionSpatial = MaterialTheme.motionScheme.defaultSpatialSpec<IntSize>()
+            val sectionEffects = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
             TuningSwitch(stringResource(R.string.gallery_clock_shadow), tuning.shadowEnabled) {
                 onTuning(tuning.copy(shadowEnabled = it))
             }
-            if (tuning.shadowEnabled) {
-                SheetLabel(stringResource(R.string.gallery_clock_shadow_colour))
-                ClockColourPicker(SHADOW_COLOURS, tuning.shadowColor, wallpaper, allowPhotoPicking) {
-                    onTuning(tuning.copy(shadowColor = it ?: CustomClocks.Tuning().shadowColor))
-                }
-                TuningSlider(stringResource(R.string.gallery_clock_shadow_softness),
-                    tuning.shadowSoftness, 0..30, " dp", CustomClocks.Tuning().shadowSoftness) {
-                    onTuning(tuning.copy(shadowSoftness = it))
-                }
-                TuningSlider(stringResource(R.string.gallery_clock_shadow_opacity),
-                    tuning.shadowOpacity, 0..100, "%", CustomClocks.Tuning().shadowOpacity) {
-                    onTuning(tuning.copy(shadowOpacity = it))
+            AnimatedVisibility(
+                visible = tuning.shadowEnabled,
+                enter = fadeIn(sectionEffects) + expandVertically(sectionSpatial),
+                exit = fadeOut(sectionEffects) + shrinkVertically(sectionSpatial),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SheetLabel(stringResource(R.string.gallery_clock_shadow_colour))
+                    ClockColourPicker(SHADOW_COLOURS, tuning.shadowColor, wallpaper, allowPhotoPicking) {
+                        onTuning(tuning.copy(shadowColor = it ?: CustomClocks.Tuning().shadowColor))
+                    }
+                    TuningSlider(stringResource(R.string.gallery_clock_shadow_softness),
+                        tuning.shadowSoftness, 0..30, " dp", CustomClocks.Tuning().shadowSoftness) {
+                        onTuning(tuning.copy(shadowSoftness = it))
+                    }
+                    TuningSlider(stringResource(R.string.gallery_clock_shadow_opacity),
+                        tuning.shadowOpacity, 0..100, "%", CustomClocks.Tuning().shadowOpacity) {
+                        onTuning(tuning.copy(shadowOpacity = it))
+                    }
                 }
             }
             Box(Modifier.padding(horizontal = LocalCardInset.current)) { SectionHeader(stringResource(R.string.gallery_clock_adjust)) }
@@ -918,17 +965,21 @@ private val GRADIENT_COLOURS = listOf(0xFF00E5FF.toInt(), 0xFFFF2DAA.toInt(),
 
 private val SHADOW_COLOURS = listOf(0xFF000000.toInt()) + CLOCK_COLOURS.filterNotNull()
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ClockColourPicker(colors: List<Int?>, value: Int?, wallpaper: GalleryWallpaper,
         allowPhotoPicking: Boolean, onChange: (Int?) -> Unit) {
     var showPicker by remember { mutableStateOf(false) }
     var showWallpaper by remember { mutableStateOf(false) }
     Swatches(colors, value, onChange)
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp)) {
-        TextButton(onClick = { showPicker = true }) {
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        FilledTonalButton(onClick = { showPicker = true }, shapes = ButtonDefaults.shapes()) {
             Text(stringResource(R.string.custom_color))
         }
-        TextButton(onClick = { showWallpaper = true }) {
+        FilledTonalButton(onClick = { showWallpaper = true }, shapes = ButtonDefaults.shapes()) {
             Text(stringResource(R.string.color_picker_wallpaper))
         }
     }
@@ -993,9 +1044,12 @@ private fun ShortcutsSheet(shortcuts: Shortcuts) {
     Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState())
         .navigationBarsPadding().padding(bottom = 32.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(stringResource(R.string.gallery_shortcuts), color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(start = LocalCardInset.current, end = LocalCardInset.current, top = 32.dp))
+        Text(
+            stringResource(R.string.gallery_shortcuts),
+            color = MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(start = LocalCardInset.current, end = LocalCardInset.current, top = 24.dp),
+        )
         slots.forEachIndexed { index, slot ->
             Text(stringResource(if (index == 0) R.string.gallery_shortcut_left
                 else R.string.gallery_shortcut_right),
@@ -1045,6 +1099,7 @@ private fun affordanceIcon(
     }.getOrNull()
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun ShortcutIcons(
     options: List<Shortcuts.Affordance?>,
@@ -1052,48 +1107,55 @@ private fun ShortcutIcons(
     onSelect: (Int) -> Unit
 ) {
     val context = LocalContext.current
-    val dark = isDarkSurface()
     val none = stringResource(R.string.gallery_shortcut_none)
+    val colors = MaterialTheme.colorScheme
+    val spatialDp = MaterialTheme.motionScheme.fastSpatialSpec<Dp>()
+    val effectsColor = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
 
     Row(
         Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState())
+            .selectableGroup()
             .padding(horizontal = LocalCardInset.current),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         options.forEachIndexed { index, affordance ->
             val on = index == selected
             val label = affordance?.name ?: none
-
-            val tint = if (on) {
-                if (dark) Color.White
-                else MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-            }
+            val interactions = remember { MutableInteractionSource() }
+            val corner by animateDpAsState(if (on) 18.dp else 30.dp, spatialDp, label = "shortcut_corner")
+            val container by animateColorAsState(
+                if (on) colors.primaryContainer else colors.surfaceContainerHigh,
+                effectsColor,
+                label = "shortcut_container",
+            )
+            val tint by animateColorAsState(
+                if (on) colors.onPrimaryContainer else colors.onSurfaceVariant,
+                effectsColor,
+                label = "shortcut_tint",
+            )
+            val borderColor by animateColorAsState(
+                if (on) colors.primary else Color.Transparent,
+                effectsColor,
+                label = "shortcut_border",
+            )
+            val borderWidth by animateDpAsState(if (on) 2.dp else 0.dp, spatialDp, label = "shortcut_border_width")
 
             Surface(
                 onClick = { onSelect(index) },
-                shape = CircleShape,
+                shape = RoundedCornerShape(corner),
+                interactionSource = interactions,
                 modifier = Modifier
                     .size(60.dp)
+                    .squishable(interactions, scaleDown = 0.92f)
                     .semantics {
                         contentDescription = label
                         this.selected = on
                         role = Role.RadioButton
                     },
-                color = if (on) {
-                    if (dark) Color.White.copy(alpha = 0.18f)
-                    else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                } else {
-                    innerContainer(dark)
-                },
-                border = if (on) {
-                    BorderStroke(1.5.dp, tint.copy(alpha = 0.6f))
-                } else {
-                    null
-                }
+                color = container,
+                border = if (borderWidth > 0.dp) BorderStroke(borderWidth, borderColor) else null,
             ) {
                 Box(
                     Modifier.fillMaxSize(),
@@ -1157,55 +1219,73 @@ private fun HomeDialog(
         }
     }
     Dialog(onDismissRequest = onDismiss) {
-        Column(
-            Modifier.clip(RoundedCornerShape(28.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh)
-                .verticalScroll(rememberScrollState())
-                .padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            tonalElevation = 6.dp,
         ) {
-            Text(stringResource(R.string.gallery_home_title), color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.titleLarge)
-            Text(stringResource(R.string.gallery_home_summary), color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
-                modifier = Modifier.padding(top = 6.dp, bottom = 16.dp))
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                listOf(HomeStyle.PAIR, HomeStyle.BLUR, HomeStyle.COLOUR, HomeStyle.GRADIENT)
-                    .forEach { style ->
-                    Column(horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.width(88.dp).clip(MaterialTheme.shapes.medium).clickable { onPick(style) }) {
-                        val shape = RoundedCornerShape(12.dp)
-                        val base = Color(dominant ?: 0xFF444444.toInt())
-                        Box(Modifier.fillMaxWidth().aspectRatio(CustomClocks.geometry(context, true).aspect).clip(shape)
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)) {
-                            when (style) {
-                                HomeStyle.PAIR -> WallpaperImage(wallpaper, Modifier.fillMaxSize())
-                                HomeStyle.BLUR -> WallpaperImage(wallpaper,
-                                    Modifier.fillMaxSize().blur(8.dp))
-                                HomeStyle.COLOUR -> Box(Modifier.fillMaxSize().background(base))
-                                HomeStyle.GRADIENT -> Box(Modifier.fillMaxSize().background(
-                                    Brush.verticalGradient(listOf(
-                                        Color(GalleryRenderer.blend(base.toArgb(),
-                                            0xFFFFFFFF.toInt(), 0.3f)),
-                                        Color(GalleryRenderer.blend(base.toArgb(),
-                                            0xFF000000.toInt(), 0.45f))))))
-                                HomeStyle.KEEP -> Unit
+            Column(
+                Modifier.verticalScroll(rememberScrollState()).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(stringResource(R.string.gallery_home_title), color = MaterialTheme.colorScheme.onSurface,
+                    style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
+                Text(stringResource(R.string.gallery_home_summary), color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp, bottom = 20.dp))
+                Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    listOf(HomeStyle.PAIR, HomeStyle.BLUR, HomeStyle.COLOUR, HomeStyle.GRADIENT)
+                        .forEach { style ->
+                            val interactions = remember { MutableInteractionSource() }
+                            Surface(
+                                onClick = { onPick(style) },
+                                interactionSource = interactions,
+                                shape = MaterialTheme.shapes.large,
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                                modifier = Modifier.width(96.dp).squishable(interactions, scaleDown = 0.94f),
+                            ) {
+                                Column(
+                                    Modifier.padding(6.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    val shape = MaterialTheme.shapes.medium
+                                    val base = Color(dominant ?: 0xFF444444.toInt())
+                                    Box(Modifier.fillMaxWidth().aspectRatio(CustomClocks.geometry(context, true).aspect).clip(shape)
+                                        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)) {
+                                        when (style) {
+                                            HomeStyle.PAIR -> WallpaperImage(wallpaper, Modifier.fillMaxSize())
+                                            HomeStyle.BLUR -> WallpaperImage(wallpaper,
+                                                Modifier.fillMaxSize().blur(8.dp))
+                                            HomeStyle.COLOUR -> Box(Modifier.fillMaxSize().background(base))
+                                            HomeStyle.GRADIENT -> Box(Modifier.fillMaxSize().background(
+                                                Brush.verticalGradient(listOf(
+                                                    Color(GalleryRenderer.blend(base.toArgb(),
+                                                        0xFFFFFFFF.toInt(), 0.3f)),
+                                                    Color(GalleryRenderer.blend(base.toArgb(),
+                                                        0xFF000000.toInt(), 0.45f))))))
+                                            HomeStyle.KEEP -> Unit
+                                        }
+                                    }
+                                    Text(stringResource(when (style) {
+                                        HomeStyle.PAIR -> R.string.gallery_home_pair
+                                        HomeStyle.BLUR -> R.string.gallery_home_blur
+                                        HomeStyle.COLOUR -> R.string.gallery_colour
+                                        HomeStyle.GRADIENT -> R.string.gallery_home_gradient
+                                        HomeStyle.KEEP -> R.string.gallery_home_skip
+                                    }), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium,
+                                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp))
+                                }
                             }
                         }
-                        Text(stringResource(when (style) {
-                            HomeStyle.PAIR -> R.string.gallery_home_pair
-                            HomeStyle.BLUR -> R.string.gallery_home_blur
-                            HomeStyle.COLOUR -> R.string.gallery_colour
-                            HomeStyle.GRADIENT -> R.string.gallery_home_gradient
-                            HomeStyle.KEEP -> R.string.gallery_home_skip
-                        }), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.padding(top = 6.dp))
-                    }
                 }
-            }
-            Spacer(Modifier.height(8.dp))
-            TextButton(onClick = onSkip) {
-                Text(stringResource(R.string.gallery_home_skip))
+                Spacer(Modifier.height(16.dp))
+                ExpressiveButton(
+                    label = stringResource(R.string.gallery_home_skip),
+                    onClick = onSkip,
+                    primary = false,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

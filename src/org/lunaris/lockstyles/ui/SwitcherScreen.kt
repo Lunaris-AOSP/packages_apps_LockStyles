@@ -1,13 +1,16 @@
 package org.lunaris.lockstyles.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -133,7 +136,9 @@ fun SwitcherScreen(
     var cardBounds by remember { mutableStateOf<Rect?>(null) }
     var zooming by remember { mutableStateOf<LockScreen?>(null) }
     val spring = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val fastSpring = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
     val effects = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+    val fastEffectsColor = MaterialTheme.motionScheme.fastEffectsSpec<androidx.compose.ui.graphics.Color>()
     val interactive = zoom.value == 0f && zooming == null && !pager.isScrollInProgress
 
     LaunchedEffect(lockScreens.isEmpty()) {
@@ -182,7 +187,7 @@ fun SwitcherScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (shown != null) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                             AnimatedContent(
                                 targetState = stringResource(wallpaperLabel(shown.wallpaper)),
                                 transitionSpec = { fadeIn(effects) togetherWith fadeOut(effects) },
@@ -191,21 +196,39 @@ fun SwitcherScreen(
                                 Text(label, style = MaterialTheme.typography.titleMedium,
                                     color = MaterialTheme.colorScheme.primary)
                             }
-                            if (shown.id == store.currentId) {
-                                Row(verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                    Icon(Icons.Rounded.Check, null, Modifier.size(16.dp),
-                                        tint = MaterialTheme.colorScheme.primary)
-                                    Text(stringResource(R.string.gallery_active),
-                                        style = MaterialTheme.typography.labelMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            AnimatedVisibility(
+                                visible = shown.id == store.currentId,
+                                enter = fadeIn(effects) + scaleIn(fastSpring, initialScale = 0.85f),
+                                exit = fadeOut(effects) + scaleOut(fastSpring, targetScale = 0.85f),
+                            ) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.secondaryContainer,
+                                ) {
+                                    Row(
+                                        Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Icon(Icons.Rounded.Check, null, Modifier.size(14.dp),
+                                            tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                                        Text(stringResource(R.string.gallery_active),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    }
                                 }
                             }
                         }
-                        IconButton(onClick = { onDelete(shown) }, enabled = interactive) {
-                            Icon(Icons.Rounded.Delete, stringResource(R.string.gallery_delete),
-                                tint = if (interactive) MaterialTheme.colorScheme.error
-                                    else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f))
+                        FilledTonalIconButton(
+                            onClick = { onDelete(shown) },
+                            enabled = interactive,
+                            shapes = IconButtonDefaults.shapes(),
+                            colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            ),
+                        ) {
+                            Icon(Icons.Rounded.Delete, stringResource(R.string.gallery_delete))
                         }
                     }
                 }
@@ -215,7 +238,16 @@ fun SwitcherScreen(
                 Column(emptyModifier.fillMaxWidth().padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center) {
-                    Icon(Icons.Rounded.Wallpaper, null, Modifier.size(64.dp), tint = MaterialTheme.colorScheme.primary)
+                    Surface(
+                        shape = MaterialTheme.shapes.extraLarge,
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        modifier = Modifier.size(96.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Wallpaper, null, Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                        }
+                    }
                     Text(stringResource(R.string.gallery_empty_title), Modifier.padding(top = 24.dp),
                         style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center,
                         color = MaterialTheme.colorScheme.onSurface)
@@ -243,15 +275,28 @@ fun SwitcherScreen(
                         val revealThreshold = with(LocalDensity.current) { 40.dp.toPx() }
                         val label = stringResource(wallpaperLabel(lockScreen.wallpaper))
                         val deleteLabel = stringResource(R.string.gallery_delete)
-                        if (drag < 0) {
-                            Box(
-                                Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp).size(56.dp).clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.errorContainer)
-                                    .clickable(enabled = interactive) { onDelete(lockScreen) },
-                                contentAlignment = Alignment.Center,
+                        val deleteReveal = (-lift / revealDistance).coerceIn(0f, 1f)
+                        if (deleteReveal > 0.01f) {
+                            FilledIconButton(
+                                onClick = { onDelete(lockScreen) },
+                                enabled = interactive,
+                                shapes = IconButtonDefaults.shapes(),
+                                colors = IconButtonDefaults.filledIconButtonColors(
+                                    containerColor = MaterialTheme.colorScheme.errorContainer,
+                                    contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                                ),
+                                modifier = Modifier
+                                    .align(Alignment.BottomCenter)
+                                    .padding(bottom = 24.dp)
+                                    .size(56.dp)
+                                    .graphicsLayer {
+                                        val s = 0.6f + 0.4f * deleteReveal
+                                        scaleX = s
+                                        scaleY = s
+                                        alpha = deleteReveal
+                                    },
                             ) {
-                                Icon(Icons.Rounded.Delete, deleteLabel, tint = MaterialTheme.colorScheme.onErrorContainer,
-                                    modifier = Modifier.size(26.dp))
+                                Icon(Icons.Rounded.Delete, deleteLabel, modifier = Modifier.size(26.dp))
                             }
                         }
                         val pageOffset =
@@ -308,7 +353,7 @@ fun SwitcherScreen(
                 }
             }
             if (lockScreens.isNotEmpty()) {
-                Row(Modifier.padding(vertical = 16.dp).alpha(chrome),
+                Row(Modifier.padding(vertical = 14.dp).alpha(chrome),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically) {
                     val first = (pager.currentPage - 3).coerceIn(0, (lockScreens.size - 7).coerceAtLeast(0))
@@ -316,22 +361,34 @@ fun SwitcherScreen(
                         val selected = first + index == pager.currentPage
                         val width by animateFloatAsState(if (selected) 24f else 6f,
                             animationSpec = spring, label = "page_indicator")
-                        Box(Modifier.width(width.dp).height(6.dp).clip(CircleShape).background(
-                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant))
+                        val dotColor by animateColorAsState(
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                            animationSpec = fastEffectsColor,
+                            label = "page_indicator_color",
+                        )
+                        Box(Modifier.width(width.dp).height(6.dp).clip(CircleShape).background(dotColor))
                     }
                     Text(stringResource(R.string.gallery_page_position, pager.currentPage + 1, lockScreens.size),
                         Modifier.padding(start = 8.dp), style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            Surface(shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp).alpha(chrome)) {
-                if (shown == null) {
+            if (shown == null) {
+                ExpressiveFloatingToolbar(
+                    modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 16.dp).alpha(chrome),
+                ) {
                     ExpressiveButton(stringResource(R.string.gallery_add_wallpaper), onClick = onAdd,
-                        enabled = interactive, modifier = Modifier.padding(8.dp).fillMaxWidth(), icon = Icons.Rounded.Add)
-                } else if (stackedActions) {
-                    Column(Modifier.padding(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        enabled = interactive, icon = Icons.Rounded.Add)
+                }
+            } else if (stackedActions) {
+                Surface(
+                    shape = MaterialTheme.shapes.extraLarge,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    tonalElevation = 3.dp,
+                    shadowElevation = 6.dp,
+                    modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 16.dp).alpha(chrome),
+                ) {
+                    Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         ExpressiveButton(stringResource(R.string.gallery_customise),
                             onClick = { zoomOut(shown, onCustomise) },
                             enabled = interactive, modifier = Modifier.fillMaxWidth(), icon = Icons.Rounded.Edit)
@@ -339,20 +396,21 @@ fun SwitcherScreen(
                             ExpressiveIconButton(Icons.Rounded.Schedule, stringResource(R.string.gallery_clock),
                                 enabled = interactive, onClick = { onClock(shown) })
                             ExpressiveIconButton(Icons.Rounded.Add, stringResource(R.string.gallery_add_wallpaper),
-                                enabled = interactive, onClick = onAdd)
+                                enabled = interactive, primary = true, onClick = onAdd)
                         }
                     }
-                } else {
-                    Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ExpressiveIconButton(Icons.Rounded.Schedule, stringResource(R.string.gallery_clock),
-                            enabled = interactive, onClick = { onClock(shown) })
-                        ExpressiveButton(stringResource(R.string.gallery_customise),
-                            onClick = { zoomOut(shown, onCustomise) },
-                            enabled = interactive, modifier = Modifier.weight(1f), icon = Icons.Rounded.Edit)
-                        ExpressiveIconButton(Icons.Rounded.Add, stringResource(R.string.gallery_add_wallpaper),
-                            enabled = interactive, onClick = onAdd)
-                    }
+                }
+            } else {
+                ExpressiveFloatingToolbar(
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp).alpha(chrome),
+                ) {
+                    ExpressiveIconButton(Icons.Rounded.Schedule, stringResource(R.string.gallery_clock),
+                        enabled = interactive, onClick = { onClock(shown) })
+                    ExpressiveButton(stringResource(R.string.gallery_customise),
+                        onClick = { zoomOut(shown, onCustomise) },
+                        enabled = interactive, icon = Icons.Rounded.Edit)
+                    ExpressiveIconButton(Icons.Rounded.Add, stringResource(R.string.gallery_add_wallpaper),
+                        enabled = interactive, primary = true, onClick = onAdd)
                 }
             }
         }

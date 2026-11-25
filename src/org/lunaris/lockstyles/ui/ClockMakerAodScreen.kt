@@ -35,12 +35,12 @@ import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -102,9 +102,7 @@ internal fun ClockMakerAodScreen(
     ImmersiveEffect(fullScreen)
 
     val actions: @Composable (Modifier) -> Unit = { modifier ->
-        Row(modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically) {
+        ExpressiveFloatingToolbar(modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp)) {
             Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
@@ -123,7 +121,9 @@ internal fun ClockMakerAodScreen(
             }
             ExpressiveIconButton(if (fullScreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
                 stringResource(if (fullScreen) R.string.clock_maker_editor_split
-                    else R.string.clock_maker_editor_fullscreen), onClick = { fullScreen = !fullScreen })
+                    else R.string.clock_maker_editor_fullscreen),
+                primary = fullScreen,
+                onClick = { fullScreen = !fullScreen })
         }
     }
 
@@ -133,7 +133,7 @@ internal fun ClockMakerAodScreen(
             Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) {
+                FilledTonalIconButton(onClick = onClose, shapes = IconButtonDefaults.shapes()) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.clock_maker_back_to_lockscreen))
                 }
                 Column(Modifier.weight(1f)) {
@@ -236,9 +236,12 @@ internal fun ClockMakerAodScreen(
                                 }
                             }
                         }
-                        TextButton(onClick = { onReset(selected.id) }, modifier = Modifier.padding(horizontal = 12.dp)) {
-                            Text(stringResource(R.string.clock_maker_aod_reset_element))
-                        }
+                        ExpressiveButton(
+                            label = stringResource(R.string.clock_maker_aod_reset_element),
+                            onClick = { onReset(selected.id) },
+                            primary = false,
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                        )
                     } else {
                         Text(stringResource(R.string.clock_maker_select), Modifier.padding(20.dp))
                     }

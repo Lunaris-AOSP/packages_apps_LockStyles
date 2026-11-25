@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.android.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,6 +15,9 @@
  */
 package org.lunaris.lockstyles.ui
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,59 +31,67 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.platform.LocalView
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import org.lunaris.lockstyles.R
+import org.lunaris.lockstyles.settings.ui.components.squishable
 
 @Composable
 internal fun isDarkSurface(): Boolean = MaterialTheme.colorScheme.surface.luminance() < 0.5f
 
 @Composable
 internal fun innerContainer(dark: Boolean = isDarkSurface()): Color =
-    if (dark) Color.White.copy(alpha = 0.08f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+    MaterialTheme.colorScheme.surfaceContainerHigh
 
 @Composable
-internal fun cardContainer(dark: Boolean = isDarkSurface(), enabled: Boolean = false): Color = when {
-    enabled && dark -> Color.White.copy(alpha = 0.08f)
-    enabled -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-    dark -> Color.White.copy(alpha = 0.05f)
-    else -> MaterialTheme.colorScheme.surface.copy(alpha = 0.5f)
-}
+internal fun cardContainer(dark: Boolean = isDarkSurface(), enabled: Boolean = false): Color =
+    if (enabled) MaterialTheme.colorScheme.secondaryContainer
+    else MaterialTheme.colorScheme.surfaceContainer
 
 @Composable
-internal fun cardText(dark: Boolean) = if (dark) Color.White else MaterialTheme.colorScheme.onSurface
+internal fun cardText(dark: Boolean) = MaterialTheme.colorScheme.onSurface
 
 @Composable
-internal fun cardSubText(dark: Boolean) =
-    if (dark) Color.White.copy(alpha = 0.5f) else MaterialTheme.colorScheme.onSurfaceVariant
+internal fun cardSubText(dark: Boolean) = MaterialTheme.colorScheme.onSurfaceVariant
 
 @Composable
 internal fun SectionHeader(title: String, dark: Boolean = isDarkSurface()) {
-    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold,
-        color = cardText(dark), modifier = Modifier.padding(top = 4.dp))
+    Text(
+        title,
+        style = MaterialTheme.typography.titleMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(top = 4.dp),
+    )
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun ConfigCard(
     title: String,
@@ -88,44 +99,73 @@ internal fun ConfigCard(
     icon: ImageVector? = null,
     enabled: Boolean = false,
     dark: Boolean = isDarkSurface(),
+    shape: Shape = MaterialTheme.shapes.large,
     onClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit = {},
 ) {
+    val colors = MaterialTheme.colorScheme
+    val effects = MaterialTheme.motionScheme.fastEffectsSpec<Color>()
+    val spatialDp = MaterialTheme.motionScheme.fastSpatialSpec<Dp>()
+    val interactions = remember { MutableInteractionSource() }
+    val container by animateColorAsState(cardContainer(dark, enabled), effects, label = "card_container")
+    val iconContainer by animateColorAsState(
+        if (enabled) colors.primaryContainer else colors.surfaceContainerHigh,
+        effects,
+        label = "card_icon_container",
+    )
+    val iconTint by animateColorAsState(
+        if (enabled) colors.onPrimaryContainer else colors.onSurfaceVariant,
+        effects,
+        label = "card_icon_tint",
+    )
+    val iconCorner by animateDpAsState(if (enabled) 16.dp else 24.dp, spatialDp, label = "card_icon_corner")
+    val titleColor by animateColorAsState(
+        if (enabled) colors.onSecondaryContainer else colors.onSurface,
+        effects,
+        label = "card_title",
+    )
+    val subtitleColor by animateColorAsState(
+        if (enabled) colors.onSecondaryContainer.copy(alpha = 0.78f) else colors.onSurfaceVariant,
+        effects,
+        label = "card_subtitle",
+    )
     val body: @Composable () -> Unit = {
         Row(Modifier.fillMaxWidth().padding(20.dp), verticalAlignment = Alignment.CenterVertically) {
             if (icon != null) {
-                Surface(shape = CircleShape, modifier = Modifier.size(48.dp), color = when {
-                    dark -> Color.White.copy(alpha = 0.1f)
-                    enabled -> MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
-                    else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                }) {
+                Surface(
+                    shape = RoundedCornerShape(iconCorner),
+                    modifier = Modifier.size(48.dp),
+                    color = iconContainer,
+                ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Icon(icon, null, Modifier.size(24.dp), tint = when {
-                            dark -> Color.White
-                            enabled -> MaterialTheme.colorScheme.primary
-                            else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-                        })
+                        Icon(icon, null, Modifier.size(24.dp), tint = iconTint)
                     }
                 }
                 Spacer(Modifier.width(16.dp))
             }
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
-                    color = cardText(dark))
+                    color = titleColor)
                 if (subtitle.isNotEmpty()) {
                     Spacer(Modifier.height(4.dp))
-                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = cardSubText(dark))
+                    Text(subtitle, style = MaterialTheme.typography.bodySmall, color = subtitleColor)
                 }
             }
+            Spacer(Modifier.width(8.dp))
             trailing()
         }
     }
     if (onClick != null) {
-        Surface(onClick, Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp),
-            color = cardContainer(dark, enabled), content = body)
+        Surface(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth().squishable(interactions),
+            shape = shape,
+            color = container,
+            interactionSource = interactions,
+            content = body,
+        )
     } else {
-        Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp),
-            color = cardContainer(dark, enabled), content = body)
+        Surface(Modifier.fillMaxWidth(), shape = shape, color = container, content = body)
     }
 }
 
@@ -137,14 +177,18 @@ internal fun SwitchCard(
     subtitle: String = "",
     icon: ImageVector? = null,
     dark: Boolean = isDarkSurface(),
+    shape: Shape = MaterialTheme.shapes.large,
 ) {
-    ConfigCard(title, subtitle, icon, enabled = checked, dark = dark, onClick = { onChange(!checked) }) {
-        Switch(checked, onChange, colors = SwitchDefaults.colors(
-            checkedThumbColor = if (dark) Color.White else MaterialTheme.colorScheme.onPrimary,
-            checkedTrackColor = if (dark) Color.White.copy(alpha = 0.3f) else MaterialTheme.colorScheme.primary))
+    ConfigCard(title, subtitle, icon, enabled = checked, dark = dark, shape = shape, onClick = { onChange(!checked) }) {
+        Switch(
+            checked = checked,
+            onCheckedChange = onChange,
+            thumbContent = expressiveSwitchThumb(checked),
+        )
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun SliderCard(
     title: String,
@@ -154,34 +198,56 @@ internal fun SliderCard(
     defaultValue: Int,
     displayValue: String? = null,
     dark: Boolean = isDarkSurface(),
+    shape: Shape = MaterialTheme.shapes.large,
     onChange: (Int) -> Unit,
 ) {
     val shown = displayValue ?: "$value$unit"
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), color = cardContainer(dark)) {
-        Column(Modifier.fillMaxWidth().padding(20.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
-                    color = cardText(dark), modifier = Modifier.weight(1f))
-                Text(shown, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold,
-                    color = if (dark) Color.White else MaterialTheme.colorScheme.primary)
+    Surface(Modifier.fillMaxWidth(), shape = shape, color = cardContainer(dark)) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer,
+                ) {
+                    Text(
+                        shown,
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                    )
+                }
                 if (value != defaultValue) {
-                    TextButton(onClick = { onChange(defaultValue) }) {
+                    TextButton(
+                        onClick = { onChange(defaultValue) },
+                        shapes = ButtonDefaults.shapes(),
+                    ) {
                         Text(stringResource(R.string.gallery_clock_reset))
                     }
                 }
             }
-            AdjustableSlider(value.coerceIn(range).toFloat(), { onChange(it.roundToInt()) }, title,
+            AdjustableSlider(
+                value.coerceIn(range).toFloat(),
+                { onChange(it.roundToInt()) },
+                title,
                 valueRange = range.first.toFloat()..range.last.toFloat(),
                 sliderModifier = Modifier.semantics {
                     contentDescription = title
                     stateDescription = shown
                 },
-                colors = SliderDefaults.colors(
-                    thumbColor = if (dark) Color.White else MaterialTheme.colorScheme.primary,
-                    activeTrackColor = if (dark) Color.White else MaterialTheme.colorScheme.primary,
-                    inactiveTrackColor = if (dark) Color.White.copy(alpha = 0.2f)
-                        else MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)))
+                colors = SliderDefaults.colors(),
+            )
         }
     }
 }
@@ -192,43 +258,38 @@ internal fun ChoiceCard(
     selected: Int,
     title: String? = null,
     dark: Boolean = isDarkSurface(),
+    shape: Shape = MaterialTheme.shapes.large,
     onSelect: (Int) -> Unit,
 ) {
-    Surface(Modifier.fillMaxWidth(), shape = RoundedCornerShape(28.dp), color = cardContainer(dark)) {
-        Column(Modifier.padding(16.dp)) {
+    Surface(Modifier.fillMaxWidth(), shape = shape, color = cardContainer(dark)) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             if (title != null) {
-                Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium,
-                    color = cardText(dark))
-                Spacer(Modifier.height(12.dp))
+                Text(
+                    title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
             }
-            labels.chunked(3).forEachIndexed { row, chunk ->
-                if (row > 0) Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    chunk.forEachIndexed { i, label ->
-                        val index = row * 3 + i
-                        val on = index == selected
-                        Surface(onClick = { onSelect(index) }, shape = RoundedCornerShape(18.dp),
-                            modifier = Modifier.weight(1f), color = when {
-                                on && dark -> Color.White.copy(alpha = 0.2f)
-                                on -> MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                                dark -> Color.White.copy(alpha = 0.05f)
-                                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                            }) {
-                            Box(Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
-                                contentAlignment = Alignment.Center) {
-                                Text(label, style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = if (on) FontWeight.Bold else FontWeight.Normal,
-                                    maxLines = 1, color = when {
-                                        on && dark -> Color.White
-                                        on -> MaterialTheme.colorScheme.primary
-                                        dark -> Color.White.copy(alpha = 0.7f)
-                                        else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)
-                                    })
-                            }
-                        }
-                    }
-                    repeat(3 - chunk.size) { Spacer(Modifier.weight(1f)) }
-                }
+            val maxLen = labels.maxOfOrNull { it.length } ?: 0
+            val perRow = when {
+                labels.size <= 2 -> labels.size.coerceAtLeast(1)
+                labels.size == 3 && maxLen <= 10 -> 3
+                labels.size == 4 && maxLen <= 5 -> 4
+                labels.size == 4 -> 2
+                maxLen <= 9 -> 3
+                else -> 2
+            }
+            val chunks = labels.chunked(perRow)
+            var offset = 0
+            chunks.forEach { chunk ->
+                val base = offset
+                ExpressiveConnectedRow(
+                    labels = chunk,
+                    selected = if (selected in base until base + chunk.size) selected - base else -1,
+                    onSelect = { onSelect(base + it) },
+                )
+                offset += chunk.size
             }
         }
     }

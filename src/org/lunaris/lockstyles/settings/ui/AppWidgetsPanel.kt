@@ -25,14 +25,17 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowDropDown
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -60,7 +63,7 @@ import org.lunaris.lockstyles.ui.LockStylesBottomSheet
 import org.lunaris.lockstyles.ui.cardContainer
 import org.lunaris.lockstyles.ui.isDarkSurface
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AppWidgetsBottomSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
@@ -79,15 +82,16 @@ fun AppWidgetsBottomSheet(onDismiss: () -> Unit) {
         BackHandler(enabled = picking) { picking = false }
         Column(Modifier.fillMaxWidth()
             .heightIn(max = (LocalConfiguration.current.screenHeightDp * 0.85f).dp)) {
-            Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically) {
-                if (picking) IconButton(onClick = { picking = false }) {
+                if (picking) FilledTonalIconButton(onClick = { picking = false }, shapes = IconButtonDefaults.shapes()) {
                     Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.app_widget_back))
                 }
                 Text(stringResource(if (picking) WidgetR.string.app_widgets_add else WidgetR.string.app_widgets_title),
                     style = MaterialTheme.typography.headlineSmall,
-                    modifier = Modifier.weight(1f).padding(start = if (picking) 0.dp else 12.dp))
-                IconButton(onClick = onDismiss) {
+                    modifier = Modifier.weight(1f).padding(start = if (picking) 0.dp else 4.dp))
+                FilledTonalIconButton(onClick = onDismiss, shapes = IconButtonDefaults.shapes()) {
                     Icon(Icons.Rounded.Close, stringResource(R.string.app_widget_close))
                 }
             }
@@ -160,6 +164,7 @@ private fun AppWidgetsPanel(onAdd: () -> Unit, onConfigure: (Int) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun WidgetControls(entry: WidgetEntry, onConfigure: (Int) -> Unit) {
     val context = LocalContext.current
@@ -195,26 +200,43 @@ private fun WidgetControls(entry: WidgetEntry, onConfigure: (Int) -> Unit) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 if (info?.configure != null && info.widgetFeatures and
                     AppWidgetProviderInfo.WIDGET_FEATURE_RECONFIGURABLE != 0) {
-                    OutlinedButton(onClick = { onConfigure(entry.id) }, enabled = state.connected) {
+                    FilledTonalButton(
+                        onClick = { onConfigure(entry.id) },
+                        enabled = state.connected,
+                        shapes = ButtonDefaults.shapes(),
+                    ) {
                         Text(stringResource(WidgetR.string.app_widgets_configure))
                     }
                 }
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = { state.change("remove", entry.id.toString()) }, enabled = state.connected) {
-                    Text(stringResource(WidgetR.string.app_widgets_remove), color = MaterialTheme.colorScheme.error)
+                FilledTonalButton(
+                    onClick = { state.change("remove", entry.id.toString()) },
+                    enabled = state.connected,
+                    shapes = ButtonDefaults.shapes(),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                    ),
+                ) {
+                    Text(stringResource(WidgetR.string.app_widgets_remove))
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun WidgetChoice(title: String, values: List<String>, selected: Int, enabled: Boolean, onSelect: (Int) -> Unit) {
     var expanded by remember { mutableStateOf(false) }
-    Column {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Box {
-            OutlinedButton(onClick = { expanded = true }, enabled = enabled && values.isNotEmpty()) {
+            FilledTonalButton(
+                onClick = { expanded = true },
+                enabled = enabled && values.isNotEmpty(),
+                shapes = ButtonDefaults.shapes(),
+            ) {
                 Text(values.getOrElse(selected) { "" }, Modifier.weight(1f))
                 Icon(Icons.Rounded.ArrowDropDown, null)
             }

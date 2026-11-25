@@ -14,6 +14,8 @@ import android.graphics.Bitmap
 import android.graphics.Typeface
 import android.graphics.drawable.Drawable
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.LocalIndication
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -51,7 +53,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.lunaris.lockstyles.R
@@ -61,6 +62,7 @@ import org.lunaris.lockstyles.settings.Lunaris
 import org.lunaris.lockstyles.settings.state
 import org.lunaris.lockstyles.settings.ui.components.ModernConfirmDialog
 import org.lunaris.lockstyles.settings.ui.components.ModernSettingsCard
+import org.lunaris.lockstyles.settings.ui.components.squishable
 import org.lunaris.lockstyles.ui.ExpressiveButton
 
 private const val FONT_CATEGORY = "android.theme.customization.lockscreen_clock_font"
@@ -92,19 +94,36 @@ fun ClockFontPicker() {
     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         itemsIndexed(fonts) { _, (pkg, typeface) ->
             val on = pkg == applied
-            Column(horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(104.dp).clip(MaterialTheme.shapes.large).selectable(on, role = Role.RadioButton, onClick = {
-                    if (on) return@selectable
-                    Lunaris.setOverlay(context, FONT_CATEGORY, pkg, "android")
-                    version++
-                    askRestart = true
-                })) {
+            val interactions = remember { MutableInteractionSource() }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .width(104.dp)
+                    .squishable(interactions, scaleDown = 0.94f)
+                    .clip(MaterialTheme.shapes.large)
+                    .selectable(
+                        selected = on,
+                        interactionSource = interactions,
+                        indication = LocalIndication.current,
+                        role = Role.RadioButton,
+                        onClick = {
+                            if (on) return@selectable
+                            Lunaris.setOverlay(context, FONT_CATEGORY, pkg, "android")
+                            version++
+                            askRestart = true
+                        },
+                    ),
+            ) {
                 Box(
                     Modifier.size(88.dp).pickTile(on),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text("12", color = MaterialTheme.colorScheme.onSurface, fontSize = 34.sp,
-                        fontFamily = typeface?.let { FontFamily(it) })
+                    Text(
+                        "12",
+                        color = if (on) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.headlineLarge,
+                        fontFamily = typeface?.let { FontFamily(it) },
+                    )
                 }
                 Text(if (pkg == "android") stringResource(R.string.clock_font_default)
                     else labelOf(context, pkg), color = MaterialTheme.colorScheme.onSurface, style = MaterialTheme.typography.labelMedium,
@@ -239,11 +258,22 @@ fun UdfpsResourcePicker(title: String, pack: UdfpsPacks, setting: LockSetting<In
         modifier = Modifier.alpha(if (enabled) 1f else 0.4f)) {
         itemsIndexed(items) { _, item ->
             val on = item.index == selected
-            Column(horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(104.dp).clip(MaterialTheme.shapes.large)
-                    .selectable(on, enabled = enabled, role = Role.RadioButton, onClick = {
-                        selected = item.index
-                    })) {
+            val interactions = remember { MutableInteractionSource() }
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .width(104.dp)
+                    .squishable(interactions, enabled = enabled, scaleDown = 0.94f)
+                    .clip(MaterialTheme.shapes.large)
+                    .selectable(
+                        selected = on,
+                        enabled = enabled,
+                        interactionSource = interactions,
+                        indication = LocalIndication.current,
+                        role = Role.RadioButton,
+                        onClick = { selected = item.index },
+                    ),
+            ) {
                 Box(
                     Modifier.size(88.dp).pickTile(on),
                     contentAlignment = Alignment.Center,

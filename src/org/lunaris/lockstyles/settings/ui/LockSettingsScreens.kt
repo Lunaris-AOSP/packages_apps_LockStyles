@@ -22,6 +22,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -58,6 +59,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringArrayResource
@@ -168,16 +170,46 @@ private fun MainPage(open: (Page) -> Unit, back: () -> Unit) {
 
     SettingsPage(s(R.string.lock_screen_title), back) {
         item {
-            Surface(shape = MaterialTheme.shapes.extraLarge,
-                color = MaterialTheme.colorScheme.primaryContainer) {
-                Column(Modifier.fillMaxWidth().padding(24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Icon(Icons.Rounded.Wallpaper, null, Modifier.size(40.dp))
-                    Text(s(R.string.gallery_browse_title), style = MaterialTheme.typography.headlineMedium)
-                    Text(s(R.string.gallery_browse_summary), style = MaterialTheme.typography.bodyLarge)
-                    ExpressiveButton(s(R.string.gallery_title), onClick = {
-                        context.startActivity(Intent(context, LockScreenGalleryActivity::class.java))
-                    }, modifier = Modifier.fillMaxWidth(), icon = Icons.Rounded.Wallpaper)
+            Surface(
+                shape = MaterialTheme.shapes.extraLarge,
+                color = MaterialTheme.colorScheme.primaryContainer,
+            ) {
+                Column(
+                    Modifier.fillMaxWidth().padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.large,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(56.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Rounded.Wallpaper,
+                                null,
+                                Modifier.size(28.dp),
+                                tint = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        }
+                    }
+                    Text(
+                        s(R.string.gallery_browse_title),
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    )
+                    Text(
+                        s(R.string.gallery_browse_summary),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f),
+                    )
+                    ExpressiveButton(
+                        s(R.string.gallery_title),
+                        onClick = {
+                            context.startActivity(Intent(context, LockScreenGalleryActivity::class.java))
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        icon = Icons.Rounded.Wallpaper,
+                    )
                 }
             }
         }
